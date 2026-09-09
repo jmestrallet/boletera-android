@@ -6,6 +6,10 @@ El código y la documentación se publican para permitir revisión y colaboraci�
 
 ## Probar en el celular
 
+**[Descargar la versión 0.1.6](https://github.com/jmestrallet/boletera-android/releases/tag/v0.1.6)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+
+En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Están conservados los siete APK, de 0.1.0 a 0.1.6, con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
+
 1. Pasá `outputs/boletera-prueba-0.1.6.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
