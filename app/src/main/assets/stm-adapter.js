@@ -4,7 +4,7 @@
   'use strict';
   if (window.BoleteraAdapter) return;
   const trusted = () => location.protocol === 'https:' &&
-    ['stm.gub.uy', 'mi.iduruguay.gub.uy', 'auth.iduruguay.gub.uy'].includes(location.hostname);
+    ['stm.gub.uy', 'mi.iduruguay.gub.uy', 'auth.iduruguay.gub.uy', 'ih.montevideo.gub.uy'].includes(location.hostname);
   const text = el => (el?.textContent || '').replace(/\s+/g, ' ').trim();
   const visible = el => {
     if (!el || !el.getBoundingClientRect) return false;
@@ -18,6 +18,11 @@
   };
   const buttons = () => [...document.querySelectorAll('button, a, [role="button"]')].filter(visible);
   const button = re => buttons().find(el => re.test(text(el) || el.getAttribute('aria-label') || ''));
+  const formButton = (field, re) => {
+    const form = field?.closest('form');
+    return form ? [...form.querySelectorAll('button, a, [role="button"]')].filter(visible)
+      .find(el => re.test(text(el) || el.getAttribute('aria-label') || '')) : button(re);
+  };
   const input = re => [...document.querySelectorAll('input')].filter(visible).find(el =>
     re.test([el.id, el.name, el.type, el.placeholder, el.getAttribute('aria-label')].join(' ')));
   const money = s => {
@@ -69,6 +74,10 @@
     const error = [...document.querySelectorAll('[role="alert"], .ui-messages-error, .ui-message-error')]
       .some(el => visible(el) && /incorrect|inv[aá]lid|error|bloquead|no coincide|no pud|fall[oó]|intenta de nuevo|intent[aá] nuevamente/i.test(text(el)));
     const base = { captcha: cap, error };
+    // Observed SAML handoff from Usuario gub.uy to the Intendencia identity service.
+    // Its own form transfers the session. Never read or recreate its SAML fields.
+    if (location.hostname === 'ih.montevideo.gub.uy' ||
+        (location.hostname !== 'stm.gub.uy' && path === '/sending-saml-response')) return { ...base, stage: 'handoff' };
     if (location.hostname !== 'stm.gub.uy') {
       if (path !== '/login') return { ...base, stage: 'unknown' };
       if (input(/password|contrase/i)) return { ...base, stage: 'password' };
@@ -118,21 +127,34 @@
     if (action === 'start' && state.stage === 'start') return click(button(/INGRESAR CON USUARIO GUB\.UY/i));
     if (action === 'identity' && state.stage === 'identity') return click(button(/^Usuario Gub\.uy(?:$|\s|Realiza)/i));
     if (action === 'document' && state.stage === 'document') {
-      return setValue(input(/documento|document|dni/i), value) && click(button(/^Continuar$/i));
+      const field = input(/documento|document|dni/i);
+      return setValue(field, value) && click(formButton(field, /^Continuar$/i));
     }
     if (action === 'password' && state.stage === 'password') {
-      return setValue(input(/password|contrase/i), value) && click(button(/^Continuar$/i));
+      const field = input(/password|contrase/i);
+      return setValue(field, value) && click(formButton(field, /^Continuar$/i));
     }
     if (action === 'card' && state.stage === 'cards') {
       const card = state.cards.find(c => c.id === value && c.active);
       if (!card) return false;
-      return click([...document.querySelectorAll('tbody tr, [role="row"]')].filter(visible)[card.index]);
+      const row = [...document.querySelectorAll('tbody tr, [role="row"]')].filter(visible)[card.index];
+      // PrimeFaces handles clicks originating inside a cell, not on the TR element itself.
+      return click(row?.querySelector('td, [role="cell"]') || row);
     }
-    if (action === 'minimum' && state.stage === 'balance') return click(button(/^Recargar$/i));
+    if (action === 'minimum' && state.stage === 'balance') return click(button(/^Recargar$/i) ||
+      [...document.querySelectorAll('button')].find(el => el.id.endsWith(':btnRecargar') && visible(el)));
     if (action === 'amount' && state.stage === 'amount') {
       const cents = Number(value);
       if (!Number.isSafeInteger(cents) || state.minimum === null || cents < state.minimum || cents <= 0) return false;
       const field = document.getElementById('recarga1:monto_input');
+      // PrimeFaces submits its numeric widget's hidden value, not the visible text.
+      if (document.getElementById('recarga1:monto_hinput')) {
+        const widget = window.PrimeFaces?.widgets?.widget_recarga1_monto;
+        if (widget?.id !== 'recarga1:monto' || typeof widget.setValue !== 'function' || typeof widget.getValue !== 'function') return false;
+        widget.setValue((cents / 100).toFixed(2));
+        if (Math.round(Number(widget.getValue()) * 100) !== cents) return false;
+        return click(button(/^CONTINUAR$/i));
+      }
       return setValue(field, (cents / 100).toFixed(2).replace('.', ',')) && click(button(/^CONTINUAR$/i));
     }
     return false;

@@ -35,6 +35,7 @@ class StmEngine(private val context: Context) {
     private var sessionRequest = 0
     private val stageTrail = ArrayDeque<String>()
     private var interruptedAccess = false
+    private var debugDestination = ""
     val web = WebView(context)
     val host = CaptchaHost(context, web)
     private val poll = object : Runnable {
@@ -42,7 +43,8 @@ class StmEngine(private val context: Context) {
     }
 
     init {
-        WebView.setWebContentsDebuggingEnabled(false)
+        // Standard Android WebView inspector is available only in developer builds.
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         web.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -70,6 +72,7 @@ class StmEngine(private val context: Context) {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
                 if (NavigationPolicy.allowed(request.url.toString())) return false
+                if (BuildConfig.DEBUG) debugDestination = "${request.url.scheme}://${request.url.host}${request.url.path}"
                 fail("Este paso necesita otra pantalla o proveedor. La prueba se detuvo sin abrir la web ni pagar.")
                 return true
             }
@@ -192,8 +195,28 @@ class StmEngine(private val context: Context) {
 
     private fun clearSecrets() { document = null; password = null; secretsExpireAt = 0L }
     private fun fail(message: String) {
+        if (BuildConfig.DEBUG) captureDebugShape()
         active = false; handler.removeCallbacks(poll); clearSecrets(); host.crop = null
         state = state.copy(stage = "blocked", busy = false, message = message, captcha = null)
+    }
+
+    /** Local developer build only: DOM structure, never input values, query strings, cookies or tokens. */
+    private fun captureDebugShape() {
+        val script = """
+            JSON.stringify({host:location.hostname,path:location.pathname,ready:document.readyState,
+              forms:[...document.forms].map(e=>{let u;try{u=new URL(e.action)}catch{};return {scheme:u?.protocol,host:u?.hostname,path:u?.pathname,method:e.method,target:e.target}}),
+              inputs:[...document.querySelectorAll('input')].map(e=>({type:e.type,name:e.name,placeholder:e.placeholder,visible:e.getBoundingClientRect().width>0})),
+              buttons:[...document.querySelectorAll('button')].map(e=>({text:(e.innerText||e.textContent||'').trim().replace(/[0-9]/g,'#'),disabled:e.disabled})),
+              frames:[...document.querySelectorAll('iframe')].map(e=>{let u;try{u=new URL(e.src)}catch{};let r=e.getBoundingClientRect();return {host:u?.hostname,path:u?.pathname,x:r.x,y:r.y,width:r.width,height:r.height,visibility:getComputedStyle(e).visibility}}),
+              errors:[...document.querySelectorAll('[role=alert],.error,.alert,.invalid-feedback')].map(e=>(e.innerText||'').replace(/[0-9]/g,'#').slice(0,200)).filter(Boolean)})
+        """.trimIndent()
+        web.evaluateJavascript(script) { raw ->
+            try {
+                val decoded = JSONTokener(raw ?: "null").nextValue() as? String ?: return@evaluateJavascript
+                val shape = JSONObject(decoded).put("blockedDestination", debugDestination)
+                java.io.File(context.cacheDir, "debug-dom-shape.json").writeText(shape.toString())
+            } catch (_: Exception) { /* Debug evidence must not alter the user flow. */ }
+        }
     }
     private fun act(action: String, value: String = "") {
         if (!active || destroyed || !NavigationPolicy.allowed(web.url ?: "")) return
@@ -240,7 +263,7 @@ class StmEngine(private val context: Context) {
     private fun applySnapshot(data: JSONObject) {
         val stage = data.optString("stage", "unknown")
         val changed = stage != pageStage
-        val knownStages = setOf("loading", "start", "identity", "document", "password", "cards", "cardsLoading", "balance", "amount", "paymentBoundary", "signedOut", "unknown", "verification", "blocked")
+        val knownStages = setOf("loading", "handoff", "start", "identity", "document", "password", "cards", "cardsLoading", "balance", "amount", "paymentBoundary", "signedOut", "unknown", "verification", "blocked")
         if (changed) {
             if (stageTrail.size >= 6) stageTrail.removeFirst()
             stageTrail.addLast(if (stage in knownStages) stage else "unknown")
@@ -271,7 +294,7 @@ class StmEngine(private val context: Context) {
         }
         fun cents(key: String): Long? = if (data.has(key) && !data.isNull(key)) data.getLong(key) else null
         when (stage) {
-            "loading" -> state = state.copy(stage = "connecting", busy = true)
+            "loading", "handoff" -> state = state.copy(stage = "connecting", busy = true)
             "start" -> if (password != null && lastAction != "start") act("start") else if (password == null) expired()
             "identity" -> if (password != null && lastAction != "identity") act("identity") else if (password == null) expired()
             "document" -> if (document != null && lastAction != "document") act("document", document!!) else if (document == null) expired()

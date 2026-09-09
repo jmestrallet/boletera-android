@@ -31,7 +31,7 @@ object Amounts {
 }
 
 object NavigationPolicy {
-    private val hosts = setOf("stm.gub.uy", "mi.iduruguay.gub.uy", "auth.iduruguay.gub.uy")
+    private val hosts = setOf("stm.gub.uy", "mi.iduruguay.gub.uy", "auth.iduruguay.gub.uy", "ih.montevideo.gub.uy")
     fun allowed(url: String): Boolean = try {
         val uri = java.net.URI(url)
         uri.scheme == "https" && uri.host in hosts && uri.userInfo == null && (uri.port == -1 || uri.port == 443)

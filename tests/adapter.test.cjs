@@ -76,6 +76,19 @@ test('a protected card URL showing login is not an authenticated empty account',
   assert.equal(adapter.snapshot().stage, 'start');
 });
 
+test('PrimeFaces card selection receives a cell click and icon-only recarga is recognized', () => {
+  const cardPage = page('app/mistm/cuenta/pages/tarjetas.xhtml', '<table><tbody><tr><td>ABCD1234 Operativa</td></tr></tbody></table>');
+  let selected = false;
+  cardPage.dom.window.document.querySelector('tr').onclick = event => { selected = event.target.tagName === 'TD'; };
+  assert.equal(cardPage.adapter.command('card', 'ABCD1234'), true);
+  assert.equal(selected, true);
+  const home = page('app/mistm/cuenta/pages/principal.xhtml', '<p>Saldo disponible*: $ 314</p><div><button id="j_idt40:btnRecargar">ui-button</button><label>Recargar</label></div>');
+  let opened = false;
+  home.dom.window.document.querySelector('button').onclick = () => { opened = true; };
+  assert.equal(home.adapter.command('minimum', ''), true);
+  assert.equal(opened, true);
+});
+
 test('a card page still loading does not report zero cards as a completed login', () => {
   const { adapter } = page('app/mistm/cuenta/pages/tarjetas.xhtml', '<div id="form1:tablaTarjetas_data"></div>');
   assert.equal(adapter.snapshot().stage, 'cardsLoading');
@@ -94,6 +107,22 @@ test('credential contents never appear in snapshots; input is a literal', () => 
   assert.equal(dom.window.document.querySelector('input').value, secret);
   assert.equal(adapter.snapshot().stage, 'password');
   assert.equal(JSON.stringify(adapter.snapshot()).includes(secret), false);
+});
+
+test('overlapping login steps submit the password form, never the outgoing document form', () => {
+  const { dom, adapter } = page('login', '<form id="old"><input id="documento"><button>Continuar</button></form><form id="current"><input type="password"><button>Continuar</button></form>', 'mi.iduruguay.gub.uy');
+  let oldClicks = 0, currentClicks = 0;
+  dom.window.document.querySelector('#old button').onclick = e => { e.preventDefault(); oldClicks++; };
+  dom.window.document.querySelector('#current button').onclick = e => { e.preventDefault(); currentClicks++; };
+  assert.equal(adapter.command('password', 'synthetic'), true);
+  assert.equal(oldClicks, 0);
+  assert.equal(currentClicks, 1);
+});
+
+test('the observed Intendencia identity handoff never receives credential commands', () => {
+  const { adapter } = page('t/carbon.super/samlsso', '<form><input type="hidden" name="SAMLResponse"><input type="password"><button>Continuar</button></form>', 'ih.montevideo.gub.uy');
+  assert.equal(adapter.snapshot().stage, 'handoff');
+  assert.equal(adapter.command('password', 'synthetic'), false);
 });
 test('third party pages cannot receive credential commands', () => {
   const { dom, adapter } = page('login', '<input type="password"><button>Continuar</button>', 'mi.iduruguay.gub.uy.evil.test');
@@ -125,4 +154,22 @@ test('expanded challenge is prioritized over checkbox; hidden frames ignored', (
     <div style="visibility:hidden"><iframe src="https://www.google.com/recaptcha/api2/bframe?hidden=1"></iframe></div>
     <iframe src="https://www.google.com/recaptcha/api2/bframe?expanded=1"></iframe>`, 'mi.iduruguay.gub.uy');
   assert.equal(adapter.snapshot().captcha.expanded, true);
+});
+
+test('PrimeFaces amount uses its numeric widget so the submitted amount matches', () => {
+  const { dom, adapter } = page('app/mistm/cuenta/pages/recarga1.xhtml', '<p>Tu recarga mínima deberá ser de $ 260.</p><input id="recarga1:monto_input"><input type="hidden" id="recarga1:monto_hinput"><button>CONTINUAR</button>');
+  const hidden = dom.window.document.getElementById('recarga1:monto_hinput');
+  let clicks = 0;
+  dom.window.document.querySelector('button').onclick = () => clicks++;
+  assert.equal(adapter.command('amount', '26000'), false);
+  assert.equal(clicks, 0);
+  dom.window.PrimeFaces = { widgets: { widget_recarga1_monto: {
+    id: 'recarga1:monto', setValue(value) { hidden.value = value; }, getValue() { return hidden.value; }
+  } } };
+  assert.equal(adapter.command('amount', '26000'), true);
+  assert.equal(hidden.value, '260.00');
+  assert.equal(clicks, 1);
+  dom.window.PrimeFaces.widgets.widget_recarga1_monto.getValue = () => '26';
+  assert.equal(adapter.command('amount', '26000'), false);
+  assert.equal(clicks, 1);
 });

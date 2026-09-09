@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.1.4-prueba
+
+- Selecciona Continuar dentro del formulario correspondiente al documento o la contraseña.
+- Permite el dominio exacto de intermediación de identidad de la Intendencia observado durante el ingreso real.
+- Selecciona la boletera mediante su celda y reconoce el botón de recarga con icono.
+- Usa el control numérico de STM para que el importe enviado coincida con el elegido.
+- Habilita inspección WebView únicamente en compilaciones de desarrollo; la APK de entrega no es depurable.
+
+Ingreso real probado en emulador Android 16 hasta saldo/mínimo. Adaptador del importe comprobado contra STM hasta el paso previo al proveedor, sin pagar. CAPTCHA real, biometría física y confirmación en el teléfono siguen pendientes.
 ## 0.1.3-prueba
 
 - No clasifica un documento que todavía está cargando como una cuenta autenticada.

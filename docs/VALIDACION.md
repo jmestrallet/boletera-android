@@ -6,12 +6,12 @@ Hay una APK Android con interfaz propia y motor local implementados. **No está 
 
 | Comprobación | Resultado |
 |---|---|
-| Adaptador JavaScript: acceso, dinero, deuda, mínimo variable, tarjetas, origen, privacidad, CAPTCHA y límite de pago | 15 pruebas aprobadas; incluye elementos contiguos, documento incompleto, login bajo URL protegida y tabla demorada |
+| Adaptador JavaScript: acceso, dinero, deuda, mínimo variable, tarjetas, origen, privacidad, CAPTCHA y límite de pago | 19 pruebas aprobadas; incluye formularios superpuestos, traspaso de identidad, selección de celda e importe mediante el control numérico de STM |
 | Modelos JVM: importes exactos, mínimo, política de navegación y origen de respuestas durante transiciones | 4 pruebas aprobadas |
 | Compilación desde clon público limpio de GitHub (`a6724d5`) | APK debug, 3 pruebas JVM, lint y 11 pruebas JS aprobados. Sin `local.properties` ni claves del proyecto; se usaron JDK/SDK instalados y caché de dependencias de la PC |
 | Emulador Android 16: arranque nativo, fixture en WebView, ausencia de guardado plano sin biometría, capturas habilitadas y recorrido offline usando StmEngine con login en URL protegida y tabla demorada hasta saldo/mínimo | 5 pruebas locales aprobadas |
 | Entrada pública real de STM desde WebView | Aprobada en Android 16 tras corregir la cadena TLS incompleta y reconocer la descripción incluida en el botón de identidad. Solo navegación pública; sin enviar documento ni contraseña |
-| Login real con credenciales del usuario en la APK | Usuario confirmó que 0.1.2 seguía mostrando lista vacía y regresaba al acceso. Versión 0.1.3 pendiente de confirmar en el teléfono |
+| Login real con credenciales del usuario en la APK | Comprobado en emulador Android 16 con credenciales autorizadas: la APK release 0.1.4 ingresó, mostró dos boleteras y llegó automáticamente al saldo y mínimo. Pendiente de confirmación en teléfono físico |
 | CAPTCHA real completo dentro del recorte | No validado |
 | Guardar y descifrar con huella física | Implementado; pendiente de dispositivo con biometría configurada |
 | Tarjeta guardada de Google y huella en pago | No validado. Solo hay una prueba local de autocompletado |
@@ -25,13 +25,16 @@ La ejecución final de 0.1.2 en Android 16 aprobó las seis pruebas (cinco local
 
 La ejecución de 0.1.3 también aprobó las seis pruebas Android, incluyendo un recorrido ampliado: URL de boleteras con formulario de login, ingreso con contraseña sintética, demora de la tabla y selección de boletera hasta saldo y mínimo. Dos regresiones JS fallaron antes de corregir el reconocimiento por URL y luego aprobaron. Ahora también se exige que el documento termine de cargar antes de clasificarlo. Esto no sustituye confirmar el resultado en el teléfono del usuario. La referencia visible solo incluye etapas y conteos; las capturas recibidas no se publican.
 
+La prueba real de 0.1.4 encontró problemas que los fixtures anteriores no reproducían: formularios de documento y contraseña superpuestos, el traspaso por `ih.montevideo.gub.uy`, selección PrimeFaces que requiere un clic en una celda y el botón de recarga sin etiqueta propia. Corregidos esos pasos, la APK release llegó automáticamente a la consulta real de saldo y mínimo. No se publican datos de la cuenta ni capturas del recorrido autenticado.
+
+Al elegir el importe, apareció además un rechazo porque el campo visible no actualizaba el valor interno de PrimeFaces. Se corrigió usando el método del control numérico observado. Ese adaptador corregido se ejecutó contra la sesión real en una compilación de desarrollo y llegó a `recarga2.xhtml` sin errores, sin seleccionar proveedor ni solicitar pago. La APK final incorpora ese mismo código y pasó 19 pruebas JS, 4 JVM y lint; el recorrido Android de seis pruebas aprobó antes de esta última corrección exclusiva del importe. No se repitió un ingreso completo con el binario final tras esa corrección. Durante el ingreso real no apareció un desafío CAPTCHA; no se lo considera validado.
 ## Evidencia local
 
 - JVM: `app/build/test-results/testDebugUnitTest/`.
 - Emulador: `app/build/outputs/androidTest-results/connected/debug/` y `app/build/reports/androidTests/connected/debug/`.
 - Lint: `app/build/reports/lint-results-debug.html`.
 - Captura de pantalla nativa sin datos personales: `outputs/welcome-test.png`.
-- Entrega: `outputs/boletera-prueba-0.1.3.apk` (7.901.154 bytes), SHA-256 `22122208679aa2a3e5d661f5b3b9a581f8e2e7b6b3ae6360095b98625be315be`. Firma verificada, igual que las versiones anteriores.
+- Entrega: `outputs/boletera-prueba-0.1.4.apk` (7901586 bytes), SHA-256 `3ebfeb5d4bd35091d57ab88b8b38500fd2c10567d461ef64f3bef3028a7c629a`. Firma verificada, igual que las versiones anteriores.
 
 ## Criterio para continuar
 

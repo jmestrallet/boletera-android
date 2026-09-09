@@ -33,7 +33,8 @@ class CardFlowRegressionTest {
                             val rows = """<table><tbody><tr onclick="location.href='${root}principal.xhtml'"><td><span>ABCD1234</span><span>Operativa</span></td></tr><tr><td><span>DEAD5678</span><span>Pte. Anular (Caducidad G.U.)</span></td></tr></tbody></table>"""
                             "<div id='form1:tablaTarjetas_data'></div><script>setTimeout(()=>{document.getElementById('form1:tablaTarjetas_data').innerHTML=${org.json.JSONObject.quote(rows)}},2500)</script>"
                         }
-                        "/login" -> """<input type="password"><button onclick="if(document.querySelector('input').value==='synthetic-offline-only') location.href='${root}tarjetas.xhtml?authenticated=1'">Continuar</button>"""
+                        "/login" -> """<form><input id="documento"><button type="button">Continuar</button></form><form><input type="password"><button type="button" onclick="if(document.querySelector('input[type=password]').value==='synthetic-offline-only') location.href='https://ih.montevideo.gub.uy/commonauth'">Continuar</button></form>"""
+                        "/commonauth" -> "<script>location.href='${root}tarjetas.xhtml?authenticated=1'</script>"
                         "/app/mistm/cuenta/pages/principal.xhtml" -> """
                             <p>Saldo disponible*: ${'$'} -304</p><button onclick="location.href='${root}recarga1.xhtml'">Recargar</button>
                         """.trimIndent()

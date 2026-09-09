@@ -2,11 +2,11 @@
 
 App independiente y no oficial, de código abierto bajo licencia MIT, con interfaz nativa. Maneja el sitio de STM por detrás, sin mostrar páginas completas. **Esta versión no cobra y no está lista para uso general.**
 
-El código y la documentación se publican para permitir revisión y colaboración. La disponibilidad del repositorio no implica que estén validados el login completo, el CAPTCHA real, la huella física o los pagos. Consultá [el estado de validación](docs/VALIDACION.md) y [las comprobaciones pendientes de pago](docs/COMPATIBILIDAD-PAGO.md).
+El código y la documentación se publican para permitir revisión y colaboración. El ingreso real, la selección de boletera y la consulta de saldo/mínimo fueron comprobados en un emulador Android 16. El CAPTCHA real, la huella física y los pagos siguen pendientes. Consultá [el estado de validación](docs/VALIDACION.md) y [las comprobaciones pendientes de pago](docs/COMPATIBILIDAD-PAGO.md).
 
 ## Probar en el celular
 
-1. Pasá `outputs/boletera-prueba-0.1.3.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
+1. Pasá `outputs/boletera-prueba-0.1.4.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.

@@ -27,6 +27,8 @@ class ModelsTest {
     @Test fun navigationRejectsOriginConfusion() {
         assertTrue(NavigationPolicy.allowed("https://stm.gub.uy/app/mistm/cuenta/"))
         assertTrue(NavigationPolicy.allowed("https://mi.iduruguay.gub.uy/login?process_state=example"))
+        assertTrue(NavigationPolicy.allowed("https://ih.montevideo.gub.uy/commonauth"))
+        assertFalse(NavigationPolicy.allowed("https://ih.montevideo.gub.uy.evil.test/commonauth"))
         listOf("http://stm.gub.uy/", "https://stm.gub.uy.evil.test/", "https://stm.gub.uy@evil.test/",
             "https://evil@stm.gub.uy/", "https://stm.gub.uy:444/", "file:///data/local/secret", "javascript:alert(1)",
             "https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago?id=example").forEach { assertFalse(it, NavigationPolicy.allowed(it)) }
