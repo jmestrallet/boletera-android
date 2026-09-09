@@ -18,6 +18,37 @@ import java.util.concurrent.atomic.AtomicReference
 class PaymentBrowserTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
+    @Test fun reopeningPrexUsesTheExactStoredLinkAndKeepsThePendingGuard() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val intents = mutableListOf<Intent>()
+        val monitor = object : Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent?): Instrumentation.ActivityResult? {
+                if (intent?.`package` != "com.android.chrome") return null
+                intents.add(Intent(intent))
+                return Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+            }
+        }
+        instrumentation.addMonitor(monitor)
+        val context = instrumentation.targetContext
+        val choices = JourneyPreferences(context).apply { useAccount("55555555"); acknowledgePayment() }
+        val link = "https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago?id=SYNTHETIC-REOPEN"
+        try {
+            assertTrue(choices.beginPayment(PendingPayment("TEST-CARD", "1033", 26000, 4321)))
+            assertTrue(choices.rememberPrexLink(link))
+            val restored = JourneyPreferences(context).apply { useAccount("55555555") }
+            compose.runOnIdle {
+                val browser = PaymentBrowser(compose.activity)
+                org.junit.Assume.assumeTrue(browser.available())
+                assertTrue(browser.openPrex(restored.pendingPrexLink!!))
+                assertTrue(browser.openPrex(restored.pendingPrexLink!!))
+            }
+            assertEquals(2, intents.size)
+            intents.forEach { assertEquals(Intent.ACTION_VIEW, it.action); assertEquals(link, it.dataString) }
+            assertEquals(4321L, restored.pending?.createdAt)
+            assertFalse(restored.beginPayment(PendingPayment("TEST-CARD", "1033", 26000, 7654)))
+        } finally { instrumentation.removeMonitor(monitor); choices.acknowledgePayment(); choices.forgetAll() }
+    }
+
     @Test fun brouRelayIsLoopbackOnlySingleUseAndNeverPostsFromThisTest() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val destination = AtomicReference<Uri>()

@@ -1,6 +1,6 @@
-# Perfiles para Prex: viabilidad y decisión pendiente
+# Perfiles para Prex: viabilidad y decisión del usuario
 
-Fecha: 9 de septiembre de 2026. La APK distribuida sigue siendo 0.1.5.
+Fecha: 9 de septiembre de 2026. Investigación realizada sobre 0.1.5. El usuario eligió **conservar Google**; el servicio propio no se incorpora a 0.1.6.
 
 ## Necesidad
 
@@ -18,7 +18,7 @@ Esto no significa que Android carezca de autocompletado: un `AutofillService` el
 
 Chrome permite elegir Google o un servicio externo como fuente del autocompletado. Si el usuario activa otro servicio, los datos de autocompletado pasan a provenir de ese servicio en lugar de Google. Implementar un servicio que solo cubra Prex puede quitarle las sugerencias habituales de Google en otras páginas.
 
-La recomendación actual es conservar Google. La opción de Boletera requiere una decisión explícita del usuario, porque antes pidió aprovechar los datos de pago guardados en Chrome. No se activará en su teléfono como parte de una actualización ordinaria.
+El usuario eligió conservar Google. La propuesta de servicio propio que sigue queda descartada para este tramo; no se activará en su teléfono como parte de una actualización ordinaria.
 
 ## Propuesta concreta si se elige el servicio opcional
 

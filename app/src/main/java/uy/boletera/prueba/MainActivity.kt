@@ -68,6 +68,7 @@ class MainActivity : FragmentActivity() {
         var showForget by remember { mutableStateOf(false) }
         var changeProvider by remember(state.stage) { mutableStateOf(false) }
         var reviewPayment by remember { mutableStateOf(false) }
+        var reopenPrex by remember { mutableStateOf(false) }
         BackHandler(enabled = state.stage != "welcome" || showProbe) {
             showProbe = false; document = ""; password = ""; engine.cancel()
         }
@@ -163,7 +164,9 @@ class MainActivity : FragmentActivity() {
                             }
                             Text("Puede haber viajes de las últimas 72 horas todavía sin descontar.", color = Muted, fontSize = 12.sp)
                             if (state.pendingPayment != null) {
-                                Notice("Hay un pago por revisar. Consultá su resultado en Prex o eBROU antes de iniciar otra carga; un cambio de saldo por sí solo no confirma ese pago.")
+                                val pending = state.pendingPayment
+                                Notice("Hay un pago por revisar: ${Amounts.format(pending.amount)} con ${if (pending.provider == "1033") "Prex" else "eBROU"}, para la boletera ${pending.card.takeLast(4)}. Revisá su resultado antes de iniciar otra carga.")
+                                if (state.canReopenPrex) OutlinedButton(onClick = { reopenPrex = true }, modifier = Modifier.fillMaxWidth()) { Text("Volver al pago de Prex") }
                                 OutlinedButton(onClick = { reviewPayment = true }, modifier = Modifier.fillMaxWidth()) { Text("Ya revisé el pago anterior") }
                             }
                             WhiteCard {
@@ -215,6 +218,7 @@ class MainActivity : FragmentActivity() {
                             Text("La autorización y el resultado se muestran en la pantalla oficial. Cerrar Chrome no confirma ni cancela un pago autorizado.", color = Muted)
                             Text(Amounts.format(state.pendingPayment?.amount), fontSize = 38.sp, fontWeight = FontWeight.Bold)
                             Text("Podés consultar el saldo sin volver a enviar la recarga.", color = Muted)
+                            if (state.canReopenPrex) Primary("Volver al pago de Prex") { reopenPrex = true }
                             Primary("Consultar saldo") { engine.refresh() }
                             OutlinedButton(onClick = { reviewPayment = true }, modifier = Modifier.fillMaxWidth()) { Text("Ya revisé el resultado") }
                         }
@@ -222,6 +226,7 @@ class MainActivity : FragmentActivity() {
                             Title("Nos detenemos acá")
                             Text(if (state.pendingPayment == null) "No se inició un pago. Podés volver a intentar el acceso." else "Hay una solicitud por revisar. Comprobá su resultado en el proveedor antes de iniciar otra carga.", color = Muted)
                             if (state.pendingPayment != null) OutlinedButton(onClick = { reviewPayment = true }) { Text("Ya revisé el resultado") }
+                            if (state.canReopenPrex) OutlinedButton(onClick = { reopenPrex = true }) { Text("Volver al pago de Prex") }
                             Primary("Volver al inicio") { engine.cancel() }
                         }
                     }
@@ -251,6 +256,10 @@ class MainActivity : FragmentActivity() {
             }
         }
         if (showProbe) AutofillProbe { showProbe = false }
+        if (reopenPrex) AlertDialog(onDismissRequest = { reopenPrex = false }, title = { Text("Volver a la solicitud anterior") },
+            text = { Text("Se abrirá el mismo enlace de Prex. Si ya autorizaste el pago, revisá su resultado y no vuelvas a autorizarlo. Si el enlace venció, comprobá el estado del pago antes de iniciar otra carga.") },
+            confirmButton = { TextButton(onClick = { reopenPrex = false; engine.reopenPrexPayment() }) { Text("Abrir Prex") } },
+            dismissButton = { TextButton(onClick = { reopenPrex = false }) { Text("Volver") } })
         if (reviewPayment) AlertDialog(onDismissRequest = { reviewPayment = false }, title = { Text("Antes de otra recarga") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

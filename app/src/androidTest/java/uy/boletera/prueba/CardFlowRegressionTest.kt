@@ -6,6 +6,11 @@ import android.webkit.WebViewClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
 import org.junit.Rule
@@ -20,12 +25,25 @@ class CardFlowRegressionTest {
     @Test fun protectedUrlLoginAndDelayedCardsKeepAccessUntilRowsAreActuallyRead() {
         lateinit var engine: StmEngine
         var authenticated = false
+        val networkRequests = java.util.concurrent.atomic.AtomicInteger()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val chromeLinks = mutableListOf<String?>()
+        val monitor = object : android.app.Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: android.content.Intent?): android.app.Instrumentation.ActivityResult? {
+                if (intent?.`package` != "com.android.chrome") return null
+                chromeLinks.add(intent.dataString)
+                return android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_CANCELED, null)
+            }
+        }
+        instrumentation.addMonitor(monitor)
+        val preferences = JourneyPreferences(compose.activity).apply { useAccount("00000000"); acknowledgePayment() }
         compose.runOnIdle {
-            engine = StmEngine(compose.activity)
+            engine = MainActivity::class.java.getDeclaredField("engine").apply { isAccessible = true }.get(compose.activity) as StmEngine
             engine.forgetChoices()
             val delegate = engine.web.webViewClient
             engine.web.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
+                    networkRequests.incrementAndGet()
                     val root = "https://stm.gub.uy/app/mistm/cuenta/pages/"
                     val html = when (request.url.path) {
                         "/app/mistm/cuenta/" -> if (authenticated) "<button onclick=\"location.href='https://mi.iduruguay.gub.uy/login'\">INGRESAR CON USUARIO GUB.UY</button>" else "<script>location.href='${root}tarjetas.xhtml'</script>"
@@ -52,7 +70,6 @@ class CardFlowRegressionTest {
                 override fun onPageFinished(view: WebView, url: String?) = delegate.onPageFinished(view, url)
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = delegate.shouldOverrideUrlLoading(view, request)
             }
-            compose.activity.findViewById<ViewGroup>(android.R.id.content).addView(engine.host, ViewGroup.LayoutParams(1, 1))
             engine.connect("00000000", "synthetic-offline-only")
         }
         try {
@@ -96,10 +113,32 @@ class CardFlowRegressionTest {
                 engine.chooseCard("DEAD5678")
                 assertEquals("cards", engine.state.stage)
             }
-        } finally {
+            val originalLink = "https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago?id=SYNTHETIC-FLOW-RESUME"
+            assertTrue(preferences.beginPayment(PendingPayment("ABCD1234", "1033", 56400, 123456)))
+            assertTrue(preferences.rememberPrexLink(originalLink))
             compose.runOnIdle {
-                (engine.host.parent as? ViewGroup)?.removeView(engine.host)
-                engine.destroy()
+                engine.connect("00000000", "synthetic-offline-only")
+                assertFalse(engine.state.canReopenPrex)
+                engine.reopenPrexPayment()
+                assertTrue(chromeLinks.isEmpty()) // A document alone, before successful login, cannot reopen a saved payment.
+            }
+            compose.waitUntil(20000) { engine.state.stage == "balance" && engine.state.minimum == 56400L && !engine.state.busy }
+            compose.runOnIdle { assertTrue(engine.state.canReopenPrex); assertNotNull(engine.state.pendingPayment) }
+            val requestsBefore = networkRequests.get()
+            compose.onNodeWithText("Volver al pago de Prex").performScrollTo().performClick()
+            compose.onNodeWithText("Volver a la solicitud anterior").assertIsDisplayed()
+            compose.onNodeWithText("Abrir Prex").performClick()
+            compose.waitUntil(5000) { engine.state.stage == "paymentReview" }
+            compose.runOnIdle {
+                assertEquals(listOf(originalLink), chromeLinks)
+                assertEquals(requestsBefore, networkRequests.get()) // No STM request or provider re-submission on reopen.
+                assertEquals(123456L, engine.state.pendingPayment?.createdAt)
+            }
+        } finally {
+            instrumentation.removeMonitor(monitor)
+            preferences.acknowledgePayment()
+            compose.runOnIdle {
+                engine.cancel()
                 engine.forgetChoices()
             }
         }

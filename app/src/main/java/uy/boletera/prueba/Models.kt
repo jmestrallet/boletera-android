@@ -17,6 +17,7 @@ data class UiState(
     val hasSavedAccess: Boolean = false,
     val providers: List<ProviderInfo> = emptyList(), val selectedProvider: String? = null,
     val pendingPayment: PendingPayment? = null,
+    val canReopenPrex: Boolean = false,
     val diagnostic: String = ""
 )
 

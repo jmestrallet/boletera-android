@@ -195,7 +195,7 @@ class StmEngine(private val context: Context) {
 
     fun acknowledgePayment() {
         if (!choices.acknowledgePayment()) { notice("No se pudo actualizar el registro local. No se inició otra carga."); return }
-        state = state.copy(pendingPayment = null, message = "")
+        state = state.copy(pendingPayment = null, canReopenPrex = false, message = "")
         paymentBrowser.close(); paymentInFlight = false; handoffSent = false
         refresh()
     }
@@ -210,8 +210,25 @@ class StmEngine(private val context: Context) {
 
     private fun openPrexPayment(url: String) {
         if (handoffSent || !paymentInFlight || state.selectedProvider != "1033") return
+        choices.rememberPrexLink(url)
+        state = state.copy(canReopenPrex = choices.pendingPrexLink != null)
         if (paymentBrowser.openPrex(url)) paymentOpened()
         else fail("No se pudo abrir el pago en Chrome. No se volvió a enviar la solicitud.")
+    }
+
+    fun reopenPrexPayment() {
+        if (state.busy || destroyed || !state.canReopenPrex) return
+        val payment = choices.pending
+        val link = choices.pendingPrexLink
+        if (payment == null || link == null) {
+            state = state.copy(canReopenPrex = false)
+            notice("No está disponible el enlace anterior. Revisá el resultado en Prex antes de iniciar otra carga.")
+            return
+        }
+        if (paymentBrowser.openPrex(link)) {
+            state = state.copy(pendingPayment = payment, canReopenPrex = true)
+            paymentOpened()
+        } else notice("No se pudo abrir Chrome. La solicitud anterior sigue por revisar; no se creó otra.")
     }
 
     private fun inspectPaymentPage() {
@@ -427,7 +444,7 @@ class StmEngine(private val context: Context) {
                 val list = (0 until cards.length()).map { cards.getJSONObject(it) }.map { CardInfo(it.getString("id"), it.getBoolean("active"), it.getString("status")) }
                 if (list.isEmpty()) return // Never treat an unparsed/unfinished page as a completed login.
                 clearSecrets()
-                state = state.copy(stage = "cards", cards = list, message = "")
+                state = state.copy(stage = "cards", cards = list, canReopenPrex = choices.pendingPrexLink != null, message = "")
                 val preferred = choices.card
                 if (!choosingCard && !state.busy && lastAction != "card" && preferred != null) {
                     if (list.any { it.id == preferred && it.active }) chooseCard(preferred)

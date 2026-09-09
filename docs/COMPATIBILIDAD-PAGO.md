@@ -4,7 +4,7 @@
 
 Se implementó el inicio de pagos con **Prex y eBROU**, conservando la boletera y el medio elegidos por cuenta. La app prepara la recarga con STM y abre la autorización del proveedor en una pestaña de Chrome. No captura ni guarda credenciales bancarias, números de tarjeta o CVV.
 
-La excepción de mostrar el pago oficial en Chrome fue presentada al usuario porque la dirección anterior pedía una interfaz completamente propia. La aceptación de esa excepción sigue pendiente; desarrollar y probar el recorrido no equivale a aceptación del usuario ni a un cobro confirmado.
+El pago oficial en Chrome es una limitación respecto de la dirección inicial de interfaz completamente propia. Se conserva el autocompletado de Google según la elección del usuario. Desarrollar y probar el recorrido no equivale a un cobro confirmado.
 
 ## Evidencia real
 
@@ -30,6 +30,14 @@ Al volver, se puede consultar el saldo sin reenviar la recarga. **Un cambio de s
 
 No hay conciliación automática de operaciones implementada. La consulta de movimientos de la cuenta de prueba exigió un nivel de identidad superior; no se intentó sortear ese requisito.
 
+### Reapertura de Prex desde 0.1.6
+
+La app guarda el enlace original de Prex cifrado con AES-GCM y una clave local de Android Keystore. El cifrado vincula la cuenta y los datos del aviso pendiente; un enlace de otra cuenta u operación no puede reutilizarse. Tras reiniciar, se exige completar el ingreso antes de ofrecer la reapertura. No se guarda una contraseña bancaria, CVV o token de CAPTCHA.
+
+La acción abre exactamente ese enlace en Chrome y no vuelve a ejecutar la selección del proveedor ni el envío de STM. El aviso pendiente permanece. Si el proveedor rechaza un enlace vencido, no se inicia otra solicitud automáticamente. Tampoco se asume que el proveedor impida una segunda autorización: la pantalla advierte al usuario que revise el resultado si ya autorizó.
+
+Reconocer el resultado elimina aviso y enlace; olvidar el acceso elimina el enlace, pero conserva el aviso. Un fallo de descifrado oculta la reapertura y mantiene el aviso. eBROU no ofrece esta acción: no se vuelve a enviar su formulario POST.
+
 ## Tarjeta guardada y huella
 
 Recordar Prex o eBROU no guarda una tarjeta bancaria ni su contraseña. La huella de acceso a STM es independiente de la autenticación del pago. Chrome y el proveedor determinan si se ofrece autocompletado, huella, contraseña, llave digital o CAPTCHA; no se promete que todos los pagos se resuelvan con una huella.
@@ -45,4 +53,4 @@ Referencias oficiales:
 
 ## Pendiente
 
-Aceptar la excepción de Chrome; comprobar los dos recorridos en el teléfono con autenticación del usuario; verificar una recarga efectivamente autorizada y acreditada; probar biometría física y CAPTCHA real. No se describe esta app de prueba como lista para publicación general.
+Comprobar los dos recorridos en el teléfono con autenticación del usuario; verificar una recarga efectivamente autorizada y acreditada, la vigencia de un enlace real de Prex al reabrirlo, biometría física y CAPTCHA real. No se describe esta app de prueba como lista para publicación general.

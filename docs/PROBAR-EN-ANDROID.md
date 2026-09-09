@@ -1,6 +1,6 @@
 # Cómo probar Boletera 0.1.5
 
-Instalá **boletera-prueba-0.1.5.apk** encima de la versión anterior, sin desinstalarla, para conservar tu acceso guardado. Esta candidata incluye pagos reales con Prex/eBROU mediante Chrome; la aceptación de esa excepción de interfaz todavía está pendiente.
+Instalá **boletera-prueba-0.1.6.apk** encima de la versión anterior, sin desinstalarla, para conservar tu acceso guardado. Esta candidata incluye pagos reales con Prex/eBROU mediante Chrome; la aceptación de esa excepción de interfaz todavía está pendiente.
 
 1. Ingresá a STM. Si ya guardaste el acceso, podés usar la huella.
 2. Elegí tu boletera una sola vez. En los siguientes ingresos la app la usa automáticamente si sigue habilitada. **Cambiar boletera** permite elegir otra.

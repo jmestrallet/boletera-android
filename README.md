@@ -6,14 +6,16 @@ El código y la documentación se publican para permitir revisión y colaboraci�
 
 ## Probar en el celular
 
-1. Pasá `outputs/boletera-prueba-0.1.5.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
+1. Pasá `outputs/boletera-prueba-0.1.6.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.
 5. Elegí la boletera operativa una vez: la app la recuerda por cuenta y la selecciona en los próximos ingresos si sigue habilitada. Podés usar **Cambiar boletera**. Compará saldo y mínimo con STM y elegí el monto.
 6. Elegí tu medio habitual. Prex y BROU aparecen primero; la app recuerda tu elección y permite cambiarla. Tocá **Pagar** para abrir el pago oficial en Chrome. La app prepara una solicitud real; autorizala solo si querés realizar esa recarga. Al volver, consultá el saldo y revisá la confirmación del proveedor.
 
-Si el acceso, CAPTCHA o certificado falla, la app se detiene. El acceso a STM mantiene la interfaz propia. El pago con Prex o eBROU usa expresamente Chrome; esta excepción está pendiente de aceptación del usuario. Para reportar el problema alcanza con el texto del mensaje y el modelo/versión de Android; no compartas contraseñas ni números bancarios.
+Si el acceso, CAPTCHA o certificado falla, la app se detiene. El acceso a STM mantiene la interfaz propia. El pago con Prex o eBROU usa expresamente Chrome y conserva el autocompletado de Google. Para reportar el problema alcanza con el texto del mensaje y el modelo/versión de Android; no compartas contraseñas ni números bancarios.
+
+Desde 0.1.6, **Volver al pago de Prex** abre el enlace de la misma solicitud, incluso después de un nuevo ingreso a la app. No crea otra solicitud en STM. Si ya autorizaste, revisá el resultado sin volver a autorizar; si el enlace venció, no se reemplaza automáticamente. El enlace queda cifrado localmente y se elimina al cerrar la revisión o al olvidar el acceso. Esta recuperación solo se ofrece para Prex.
 
 ## Qué incluye
 

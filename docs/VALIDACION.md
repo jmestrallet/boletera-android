@@ -2,14 +2,14 @@
 
 ## Resultado
 
-La APK release 0.1.5 tiene interfaz propia para STM e inicia pagos reales con Prex y eBROU en Chrome. **Se comprobó el inicio de ambos recorridos, pero no una autorización bancaria ni acreditación. No está validada para publicación general. La excepción de Chrome está pendiente de aceptación del usuario.**
+La APK release 0.1.6 agrega recuperación del enlace de Prex y conserva Google. El inicio real de Prex y eBROU se comprobó con 0.1.5; las comprobaciones nuevas de 0.1.6 usan datos ficticios e interceptan la apertura del navegador. **No se validó una autorización bancaria ni acreditación. No está lista para publicación general.**
 
 | Comprobación | Resultado |
 |---|---|
 | Adaptador JavaScript: acceso, dinero, deuda, mínimo variable, tarjetas, origen, privacidad, CAPTCHA y límite de pago | 21 pruebas aprobadas; incluye formularios superpuestos, traspaso de identidad, selección de celda, importe mediante el control numérico de STM y medios de pago |
 | Modelos JVM: importes exactos, mínimo, política de navegación y origen de respuestas durante transiciones | 6 pruebas aprobadas, incluyendo destinos y formulario de pago |
 | Compilación desde clon público limpio de GitHub (`a6724d5`) | APK debug, 3 pruebas JVM, lint y 11 pruebas JS aprobados. Sin `local.properties` ni claves del proyecto; se usaron JDK/SDK instalados y caché de dependencias de la PC |
-| Emulador Android 16: arranque nativo, fixture en WebView, ausencia de guardado plano sin biometría, capturas habilitadas y recorrido offline usando StmEngine con login en URL protegida y tabla demorada hasta saldo/mínimo | 7 pruebas locales aprobadas; también preferencias por cuenta, guardia de pago pendiente y traspaso eBROU de un solo uso |
+| Emulador Android 16: arranque nativo, fixture en WebView, ausencia de guardado plano sin biometría, capturas habilitadas y recorrido offline usando StmEngine con login en URL protegida y tabla demorada hasta saldo/mínimo | 9 pruebas locales aprobadas; también preferencias por cuenta, guardia pendiente, traspaso eBROU y recuperación cifrada de Prex |
 | Entrada pública real de STM desde WebView | Aprobada en Android 16 tras corregir la cadena TLS incompleta y reconocer la descripción incluida en el botón de identidad. Solo navegación pública; sin enviar documento ni contraseña |
 | Login real con credenciales del usuario en la APK | Comprobado en emulador Android 16 con credenciales autorizadas: la APK release 0.1.5 ingresó, recordó la boletera operativa y llegó automáticamente al saldo y mínimo. Pendiente de confirmación en teléfono físico |
 | CAPTCHA real completo dentro del recorte | No validado |
@@ -36,17 +36,23 @@ Con la APK release final se abrió el ingreso real de eBROU y se regresó a la c
 
 Después de la última corrección del regreso se ejecutaron las ocho pruebas Android: todas aprobadas, incluyendo el sondeo público. El build final aprobó 21 pruebas JS, 6 JVM y lint. El diálogo se inspeccionó visualmente en el emulador.
 
+## Validación de 0.1.6
+
+Se probó la persistencia cifrada del enlace tras recrear las preferencias, su separación por cuenta y operación, el rechazo de datos modificados, su eliminación y la conservación del aviso pendiente. Un recorrido completo con formularios ficticios verificó que el botón no se habilita antes del ingreso, abrió el diálogo nativo y capturó el enlace exacto enviado a Chrome, sin solicitudes adicionales al motor STM. La apertura de Chrome se interceptó en las pruebas: no hubo conexión al banco ni se comprobó cuánto dura un enlace real.
+
+La suite final comprende 21 pruebas JavaScript, 6 JVM, lint y 10 pruebas Android (9 locales y el sondeo público). No se agregó un servicio de autocompletado ni se cambiaron los ajustes de Google.
+
 ## Evidencia local
 
 - JVM: `app/build/test-results/testDebugUnitTest/`.
 - Emulador: `app/build/outputs/androidTest-results/connected/debug/` y `app/build/reports/androidTests/connected/debug/`.
 - Lint: `app/build/reports/lint-results-debug.html`.
 - Captura de pantalla nativa sin datos personales: `outputs/welcome-test.png`.
-- Entrega: `outputs/boletera-prueba-0.1.5.apk` (7918446 bytes), SHA-256 `6aacf505b3abacc4bdf4d1efe99956fbaf11d3eafbcad1d98d4a4047d30e1e37`. Firma verificada, igual que las versiones anteriores.
+- Entrega: `outputs/boletera-prueba-0.1.6.apk` (7918446 bytes), SHA-256 `65a236a5fe291fb61a4793ba70bcf9796f55cdbf0dca0c2964e3ccc6fbe0b9e9`. Firma verificada, igual que las versiones anteriores.
 
 ## Criterio para continuar
 
 1. Instalar la APK de prueba en un Android físico y comprobar si la conexión segura a STM funciona.
 2. Si funciona, validar ingreso, CAPTCHA y saldo/mínimo reales; ante una pantalla no reconocida, reparar el adaptador sin ampliar la excepción a páginas completas.
 3. Probar guardado con huella, reinicio de app, cancelación biométrica y eliminación del acceso. No reemplazar un fallo biométrico por almacenamiento plano.
-4. Confirmar la aceptación de Chrome para el pago y verificar en el teléfono la autorización y acreditación de una recarga. No representar el monto preparado, el regreso o un cambio de saldo como confirmación del pago.
+4. Verificar la recuperación de una solicitud Prex y comprobar en el teléfono la autorización y acreditación de una recarga. No representar el monto preparado, el regreso o un cambio de saldo como confirmación del pago.

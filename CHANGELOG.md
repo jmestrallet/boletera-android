@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.1.6-prueba
+
+- Permite volver al enlace de la solicitud anterior de Prex desde la revisión del pago o el saldo, sin volver a seleccionar proveedor ni crear otra solicitud en STM.
+- Conserva el enlace cifrado por cuenta y operación. Después de reiniciar, el botón aparece al completar el ingreso; no basta con escribir un documento.
+- Elimina el enlace al reconocer el resultado del pago o al olvidar el acceso. La pérdida del enlace no elimina el aviso de pago pendiente.
+- Muestra importe, proveedor y terminación de la boletera del pago por revisar, aunque se esté consultando otra boletera.
+- Conserva el autocompletado de Google. No incorpora perfiles bancarios ni un servicio propio de autocompletado.
+
+La reapertura no confirma el estado bancario: el enlace puede vencer y el usuario debe evitar autorizar dos veces. No se agrega reapertura de eBROU porque su inicio usa un formulario POST.
+
 ## 0.1.5-prueba
 
 - Recuerda la boletera operativa y el medio de pago por cuenta, con opciones para cambiarlos.
