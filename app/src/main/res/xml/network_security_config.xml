@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors><certificates src="system" /></trust-anchors>
+    </base-config>
+    <!-- STM omits this public intermediate in its TLS handshake (verified 2026-09-09).
+         Supplement only this exact origin. All hostname/date checks still belong to Android.
+         No SslErrorHandler.proceed(), custom permissive TrustManager, or user CA store. -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">stm.gub.uy</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/certum_dv_tls_g2_r39" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

@@ -1,0 +1,14 @@
+.tools/
+.gradle/
+.kotlin/
+local.properties
+**/build/
+node_modules/
+*.iml
+.idea/
+outputs/
+*.jks
+*.keystore
+.env
+.env.*
+*.log

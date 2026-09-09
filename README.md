@@ -1,2 +1,71 @@
-# boletera-android
-App Android experimental de código abierto para consultar y preparar recargas STM con interfaz propia. No oficial; pagos todavía no habilitados.
+# Boletera · prueba Android
+
+App independiente y no oficial, de código abierto bajo licencia MIT, con interfaz nativa. Maneja el sitio de STM por detrás, sin mostrar páginas completas. **Esta versión no cobra y no está lista para uso general.**
+
+El código y la documentación se publican para permitir revisión y colaboración. La disponibilidad del repositorio no implica que estén validados el login completo, el CAPTCHA real, la huella física o los pagos. Consultá [el estado de validación](docs/VALIDACION.md) y [las comprobaciones pendientes de pago](docs/COMPATIBILIDAD-PAGO.md).
+
+## Probar en el celular
+
+1. Pasá `outputs/boletera-prueba-0.1.1.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado.
+2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
+3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
+4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.
+5. Elegí la boletera operativa, compará saldo y mínimo con STM y elegí el monto. La prueba termina **antes de elegir el proveedor y generar una solicitud de pago**.
+6. La prueba opcional de autocompletado solo muestra campos Android locales. No envía datos, no paga, no guarda y no demuestra que Sistarbanc los acepte.
+
+Si el acceso, CAPTCHA o certificado falla, la app se detiene. No abre Chrome ni muestra la web completa como reemplazo. Para reportar el problema alcanza con el texto del mensaje y el modelo/versión de Android; no compartas contraseñas ni números bancarios.
+
+## Qué incluye
+
+- Kotlin + Compose, Android WebView local, ingreso por Usuario gub.uy, selección de boletera, saldo, mínimo del sitio, selección de importe y bloqueo previo al pago.
+- Adaptador de lectura/navegación independiente de las pantallas, basado en controles y texto observados en STM. Los cambios del sitio pueden requerir una actualización de la APK.
+- CAPTCHA original: se conserva el documento y el iframe. El contenedor nativo recorta y escala su rectángulo; no se copia HTML a otro origen ni se resuelve el desafío por código. **Su funcionamiento con desafíos reales aún necesita una prueba en el teléfono.**
+- Conexiones HTTPS limitadas a los orígenes de STM e ID Uruguay observados. SSL inválido, redirecciones desconocidas, montos ilegibles y pantallas nuevas detienen el recorrido.
+- Sin backend, SDK de anuncios, analítica, gestor de contraseñas remoto ni API de pago.
+
+## Credenciales y sesión
+
+`AccessVault` usa AES-256-GCM y una clave no exportable de Android Keystore. Cada operación de cifrado/descifrado está vinculada a un `BiometricPrompt.CryptoObject` con autenticación biométrica fuerte por uso. En disco solo quedan el texto cifrado y el IV aleatorio; las contraseñas de esta conversación no están incluidas.
+
+La protección concreta de la clave depende del hardware del teléfono; no se afirma que todos los dispositivos tengan StrongBox. No hay alternativa que guarde texto plano. Si falta biometría compatible, queda el ingreso manual. Agregar/quitar biometría o cambiar la seguridad del dispositivo puede invalidar la clave; en ese caso hay que **Olvidar acceso guardado** y configurarlo de nuevo.
+
+Para enviar las credenciales al sitio, necesariamente existen brevemente descifradas en memoria. El motor descarta sus referencias al completar el ingreso, cancelar, pasar a segundo plano o superar tres minutos. No se registran en consola ni se guardan en estado restaurable. La app bloquea capturas y vistas de recientes; el test visual desactiva esa protección exclusivamente en una pantalla vacía del emulador.
+
+Un nuevo ingreso explícito limpia primero la sesión web local para no mostrar accidentalmente otra cuenta. **Cerrar sesión local** borra cookies/almacenamiento WebView pero conserva el acceso cifrado. **Olvidar acceso guardado** elimina ambos. El respaldo en la nube y la transferencia de datos de la aplicación están excluidos.
+
+## Compilar
+
+Entorno usado: JDK 21 (compila bytecode Java 17), Gradle 8.11.1, AGP 8.9.2, Kotlin 2.1.20, compile/target SDK 35. Versiones fijadas. `gradlew` contiene verificación SHA-256 de la distribución.
+
+En esta PC las herramientas, SDK, emuladores y firma de prueba están en `.tools/` (excluido del código). La clave de firma local **debe conservarse** para instalar actualizaciones sin desinstalar la app. No es la clave que protege las credenciales: esa se genera dentro de cada teléfono.
+
+```powershell
+npm ci --ignore-scripts
+./build.ps1
+```
+
+El script ejecuta pruebas JS, pruebas JVM y lint, compila la APK release **sin depurador**, firma con la clave local de prueba y la copia a `outputs/`. No publica ni instala en un teléfono.
+
+En otra máquina: instalá JDK 17/21 y SDK Android (plataforma 35, build-tools 35.0.0), configurá `local.properties` con `sdk.dir=...` y usá `./gradlew.bat :app:assembleDebug`. La variante debug es para desarrollo. Para la variante release, el archivo local `.tools/signing.properties` debe contener `password=...`, correspondiente al almacén `.tools/boletera-test.jks`, alias `boletera-test`. Ninguno se distribuye con el código fuente.
+
+## Comprobaciones
+
+```powershell
+npm test
+./gradlew.bat :app:testDebugUnitTest :app:lintDebug
+# Pruebas locales en emulador/dispositivo dedicado sin datos personales:
+./gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=uy.boletera.prueba.DeviceSmokeTest
+# Sondeo público en vivo, SIN ingresar documento ni contraseña:
+./gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=uy.boletera.prueba.PublicSiteProbe
+```
+
+Los tests JS usan fixtures sintéticos y WebView se prueba también dentro de Android. El sondeo público en vivo es una comprobación distinta: una falla de red/certificado no se oculta como éxito. Ver `docs/VALIDACION.md` para resultados y limitaciones.
+
+## Pendiente para una app pública
+
+- Validar el ingreso completo y el CAPTCHA real en un Android físico.
+- Validar guardado/desbloqueo biométrico, cancelación, contraseña incorrecta y cambio de huellas en hardware real.
+- Resolver el pago dentro de la interfaz propia. No hay una API/SDK nativa de Sistarbanc confirmada para este caso; no se simula una recarga exitosa.
+- Otros métodos de ID Uruguay, diferentes tipos de boletera y revisión de las condiciones aplicables antes de publicar.
+
+No se infiere el mínimo a partir de una tarifa fija. Pago confirmado y saldo acreditado deberán ser estados diferentes cuando se implemente el cobro real.
