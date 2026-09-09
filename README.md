@@ -35,6 +35,18 @@ Un nuevo ingreso explícito limpia primero la sesión web local para no mostrar 
 
 ## Compilar
 
+Para compilar el código público sin claves privadas, instalá JDK 17/21, Node.js y Android SDK con plataforma 35 y build-tools 35.0.0. Indicá el SDK con `ANDROID_HOME` o con un `local.properties` propio. Desde PowerShell:
+
+```powershell
+git clone https://github.com/jmestrallet/boletera-android.git
+cd boletera-android
+npm ci --ignore-scripts
+npm test
+./gradlew.bat --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+```
+
+En Linux/macOS usá `./gradlew` en lugar de `./gradlew.bat`. El APK de desarrollo queda en `app/build/outputs/apk/debug/app-debug.apk`. Tiene firma de desarrollo y no reemplaza la APK release instalada con otra firma. Esta compilación no necesita cuenta STM ni credenciales de GitHub.
+
 Entorno usado: JDK 21 (compila bytecode Java 17), Gradle 8.11.1, AGP 8.9.2, Kotlin 2.1.20, compile/target SDK 35. Versiones fijadas. `gradlew` contiene verificación SHA-256 de la distribución.
 
 En esta PC las herramientas, SDK, emuladores y firma de prueba están en `.tools/` (excluido del código). La clave de firma local **debe conservarse** para instalar actualizaciones sin desinstalar la app. No es la clave que protege las credenciales: esa se genera dentro de cada teléfono.

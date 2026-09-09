@@ -8,6 +8,7 @@ Hay una APK Android con interfaz propia y motor local implementados. **No está 
 |---|---|
 | Adaptador JavaScript: acceso con descripción dentro del botón, dinero, deuda, mínimo variable, tarjetas, origen, privacidad, CAPTCHA y límite de pago | 11 pruebas aprobadas |
 | Modelos JVM: importes exactos, mínimo y política de navegación | 3 pruebas aprobadas |
+| Compilación desde clon público limpio de GitHub (`a6724d5`) | APK debug, 3 pruebas JVM, lint y 11 pruebas JS aprobados. Sin `local.properties` ni claves del proyecto; se usaron JDK/SDK instalados y caché de dependencias de la PC |
 | Emulador Android 16: arranque nativo, lectura de fixture en WebView real, ausencia de guardado plano sin biometría y captura de pantalla vacía para revisar diseño | 4 pruebas aprobadas |
 | Entrada pública real de STM desde WebView | Aprobada en Android 16 tras corregir la cadena TLS incompleta y reconocer la descripción incluida en el botón de identidad. Solo navegación pública; sin enviar documento ni contraseña |
 | Login real con credenciales del usuario en la APK | No realizado |
