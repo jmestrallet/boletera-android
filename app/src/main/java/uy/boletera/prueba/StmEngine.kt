@@ -36,6 +36,13 @@ class StmEngine(private val context: Context) {
     private val stageTrail = ArrayDeque<String>()
     private var interruptedAccess = false
     private var debugDestination = ""
+    private val choices = JourneyPreferences(context)
+    private var choosingCard = false
+    private var awaitingNavigation = false
+    private val paymentBrowser = PaymentBrowser(context)
+    private var paymentInFlight = false
+    private var providerSubmitted = false
+    private var handoffSent = false
     val web = WebView(context)
     val host = CaptchaHost(context, web)
     private val poll = object : Runnable {
@@ -71,31 +78,43 @@ class StmEngine(private val context: Context) {
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (!request.isForMainFrame) return false
-                if (NavigationPolicy.allowed(request.url.toString())) return false
+                if (paymentInFlight && state.selectedProvider == "1033" && PaymentPolicy.prexLink(request.url.toString())) {
+                    openPrexPayment(request.url.toString()); return true
+                }
+                if (paymentInFlight && state.selectedProvider == "1002" && request.url.host == "ebanking.brou.com.uy") {
+                    inspectPaymentPage(); return true
+                }
+                if (allowedPage(request.url.toString())) return false
+                if (!active) return true
                 if (BuildConfig.DEBUG) debugDestination = "${request.url.scheme}://${request.url.host}${request.url.path}"
                 fail("Este paso necesita otra pantalla o proveedor. La prueba se detuvo sin abrir la web ni pagar.")
                 return true
             }
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                awaitingNavigation = false
                 navigationGeneration++
                 polling = false
                 state = state.copy(captcha = null)
                 host.crop = null
-                if (url != null && url != "about:blank" && !NavigationPolicy.allowed(url)) {
+                if (handoffSent) return
+                if (paymentInFlight && state.selectedProvider == "1033" && url != null && PaymentPolicy.prexLink(url)) {
+                    view.stopLoading(); openPrexPayment(url); return
+                }
+                if (url != null && url != "about:blank" && !allowedPage(url)) {
                     view.stopLoading(); fail("Navegación no reconocida. No se enviaron credenciales desde la app.")
                 }
             }
             override fun onPageFinished(view: WebView, url: String?) {
-                if (url != null && NavigationPolicy.allowed(url) && active) inspect()
+                if (url != null && allowedPage(url) && active) inspect()
             }
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel(); fail("No se pudo verificar la conexión segura. No continuamos.")
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                if (request.isForMainFrame) fail("No se pudo conectar con STM. Revisá tu conexión y volvé a consultar.")
+                if (request.isForMainFrame && active) fail("No se pudo conectar. Revisá tu conexión y el estado del pago antes de repetirlo.")
             }
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
-                if (request.isForMainFrame) fail("El servicio no respondió correctamente. La consulta se detuvo.")
+                if (request.isForMainFrame && active) fail("El servicio no respondió correctamente. La consulta se detuvo.")
             }
         }
     }
@@ -108,10 +127,13 @@ class StmEngine(private val context: Context) {
         if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
         clearSecrets()
         document = doc; password = pass
+        choices.useAccount(doc)
+        choosingCard = false
+        paymentInFlight = false; providerSubmitted = false; handoffSent = false
         interruptedAccess = false; stageTrail.clear()
         secretsExpireAt = System.currentTimeMillis() + 180000
         lastAction = ""; pageStage = ""; actionStarted = System.currentTimeMillis()
-        state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess)
+        state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess, pendingPayment = choices.pending)
         active = false
         handler.removeCallbacks(poll)
         // A new explicit login must never silently reuse a DIFFERENT person's old web session.
@@ -128,16 +150,104 @@ class StmEngine(private val context: Context) {
 
     fun chooseCard(id: String) {
         if (state.busy || state.cards.none { it.id == id && it.active }) return
+        choices.card = id
+        choosingCard = false
         state = state.copy(selectedCard = id, minimum = null, balance = null, amount = null)
         act("card", id)
     }
 
+    fun changeCard() {
+        if (state.busy) return
+        choosingCard = true
+        lastAction = ""; pageStage = ""; active = true
+        state = state.copy(stage = "connecting", busy = true, amount = null, message = "")
+        actionStarted = System.currentTimeMillis()
+        awaitingNavigation = true; navigationGeneration++; polling = false
+        web.loadUrl(CARDS)
+        handler.removeCallbacks(poll); handler.post(poll)
+    }
+
+    fun forgetChoices() = choices.forgetAll()
+
+    fun chooseProvider(id: String) {
+        if (state.busy || state.providers.none { it.id == id }) return
+        choices.provider = id
+        state = state.copy(selectedProvider = id)
+    }
+
+    fun beginPayment() {
+        val provider = state.selectedProvider ?: return
+        val amount = state.amount ?: return
+        val card = state.selectedCard ?: return
+        if (state.stage != "paymentBoundary" || state.busy || provider !in PaymentPolicy.supported || !Amounts.valid(amount, state.minimum)) return
+        if (!paymentBrowser.available()) { notice("Para pagar necesitás Chrome instalado y habilitado."); return }
+        val pending = PendingPayment(card, provider, amount, System.currentTimeMillis())
+        if (!choices.beginPayment(pending)) {
+            state = state.copy(pendingPayment = choices.pending)
+            notice("Revisá el pago anterior antes de iniciar otra carga. Si no hay uno, volvé a ingresar para recuperar las preferencias."); return
+        }
+        paymentInFlight = true; providerSubmitted = false; handoffSent = false
+        active = true; lastAction = ""; actionStarted = System.currentTimeMillis()
+        state = state.copy(stage = "openingPayment", busy = true, pendingPayment = pending, message = "")
+        act("provider", provider)
+        handler.removeCallbacks(poll); handler.post(poll)
+    }
+
+    fun acknowledgePayment() {
+        if (!choices.acknowledgePayment()) { notice("No se pudo actualizar el registro local. No se inició otra carga."); return }
+        state = state.copy(pendingPayment = null, message = "")
+        paymentBrowser.close(); paymentInFlight = false; handoffSent = false
+        refresh()
+    }
+
+    private fun allowedPage(url: String) = NavigationPolicy.allowed(url) || paymentInFlight && PaymentPolicy.gateway(url)
+
+    private fun paymentOpened() {
+        handoffSent = true; paymentInFlight = false; active = false
+        handler.removeCallbacks(poll); web.stopLoading(); clearSecrets()
+        state = state.copy(stage = "paymentReview", busy = false, message = "")
+    }
+
+    private fun openPrexPayment(url: String) {
+        if (handoffSent || !paymentInFlight || state.selectedProvider != "1033") return
+        if (paymentBrowser.openPrex(url)) paymentOpened()
+        else fail("No se pudo abrir el pago en Chrome. No se volvió a enviar la solicitud.")
+    }
+
+    private fun inspectPaymentPage() {
+        if (!paymentInFlight || handoffSent) return
+        if (state.selectedProvider == "1033" && PaymentPolicy.prexLink(web.url ?: "")) {
+            openPrexPayment(web.url!!); return
+        }
+        if (state.selectedProvider != "1002") return
+        // Only the original transaction handoff, never bank login, card fields, cookies or storage.
+        val script = """
+            (()=>{if(location.hostname!=='spf.sistarbanc.com.uy'||location.pathname!=='/spfe/PasajeBROU.jsp')return null;
+              const f=document.forms[0];if(!f||f.method.toLowerCase()!=='post'||f.action!=='https://ebanking.brou.com.uy/multipagos/billetera')return null;
+              if([...f.elements].some(e=>e.tagName==='INPUT'&&e.type!=='hidden'))return null;
+              return JSON.stringify({action:f.action,fields:[...f.elements].filter(e=>e.name).map(e=>[e.name,e.value])});})()
+        """.trimIndent()
+        web.evaluateJavascript(script) { raw ->
+            if (!paymentInFlight || handoffSent) return@evaluateJavascript
+            try {
+                val text = JSONTokener(raw ?: "null").nextValue() as? String ?: return@evaluateJavascript
+                val data = JSONObject(text)
+                val entries = data.getJSONArray("fields")
+                val fields = (0 until entries.length()).associate { val pair = entries.getJSONArray(it); pair.getString(0) to pair.getString(1) }
+                if (fields.size != entries.length()) { fail("El banco recibió un formato de solicitud distinto. No se repitió el pago."); return@evaluateJavascript }
+                if (paymentBrowser.openBrou(data.getString("action"), fields, state.amount ?: 0)) paymentOpened()
+                else fail("No pudimos traspasar la solicitud a eBROU con el monto esperado. No se volvió a enviar.")
+            } catch (_: Exception) { fail("No pudimos preparar el acceso a eBROU. No se repitió el pago.") }
+        }
+    }
+
     fun refresh() {
         if (state.busy) return
-        clearSecrets(); lastAction = ""; pageStage = ""; active = true
+        clearSecrets(); lastAction = ""; pageStage = ""; active = true; paymentInFlight = false; handoffSent = false
         state = state.copy(busy = true, minimum = null, amount = null, captcha = null, message = "")
         actionStarted = System.currentTimeMillis()
-        web.loadUrl(START)
+        awaitingNavigation = true; navigationGeneration++; polling = false
+        web.loadUrl(CARDS)
         handler.removeCallbacks(poll); handler.post(poll)
     }
 
@@ -161,7 +271,7 @@ class StmEngine(private val context: Context) {
 
     fun cancel() {
         sessionRequest++
-        clearSecrets(); active = false; handler.removeCallbacks(poll)
+        clearSecrets(); active = false; paymentInFlight = false; handler.removeCallbacks(poll)
         web.stopLoading(); web.loadUrl("about:blank"); host.crop = null
         state = UiState(hasSavedAccess = state.hasSavedAccess)
     }
@@ -191,12 +301,13 @@ class StmEngine(private val context: Context) {
     fun destroy() {
         destroyed = true; active = false; handler.removeCallbacksAndMessages(null); clearSecrets()
         (web.parent as? ViewGroup)?.removeView(web); web.destroy()
+        paymentBrowser.close()
     }
 
     private fun clearSecrets() { document = null; password = null; secretsExpireAt = 0L }
     private fun fail(message: String) {
         if (BuildConfig.DEBUG) captureDebugShape()
-        active = false; handler.removeCallbacks(poll); clearSecrets(); host.crop = null
+        active = false; paymentInFlight = false; handler.removeCallbacks(poll); clearSecrets(); host.crop = null; web.stopLoading()
         state = state.copy(stage = "blocked", busy = false, message = message, captcha = null)
     }
 
@@ -229,6 +340,7 @@ class StmEngine(private val context: Context) {
         val script = "window.BoleteraAdapter && window.BoleteraAdapter.command(${JSONObject.quote(action)}, ${JSONObject.quote(value)})"
         web.evaluateJavascript(script) { result ->
             if (active && !destroyed && request == sessionRequest && generation == navigationGeneration && result != "true") {
+                if (paymentInFlight) { fail("El proveedor no aceptó el siguiente paso. Revisá el estado del pago antes de repetirlo."); return@evaluateJavascript }
                 clearSecrets()
                 state = state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
             }
@@ -236,14 +348,23 @@ class StmEngine(private val context: Context) {
     }
 
     private fun inspect() {
-        if (!active || destroyed || polling || !NavigationPolicy.allowed(web.url ?: "")) return
+        if (!active || destroyed || polling || !allowedPage(web.url ?: "")) return
+        if (paymentInFlight && !NavigationPolicy.allowed(web.url ?: "")) {
+            inspectPaymentPage()
+            if (System.currentTimeMillis() - actionStarted > 45000) fail("El proveedor demoró demasiado. Revisá el pago antes de iniciar otro.")
+            return
+        }
+        if (awaitingNavigation) {
+            if (System.currentTimeMillis() - actionStarted > 35000) fail("No comenzó la nueva consulta. Volvé a ingresar.")
+            return
+        }
         if (secretsExpireAt != 0L && System.currentTimeMillis() > secretsExpireAt) {
             fail("El acceso quedó esperando demasiado tiempo. Por seguridad, ingresá nuevamente."); return
         }
         polling = true
         val generation = navigationGeneration
         val request = sessionRequest
-        web.evaluateJavascript(adapter + "\nJSON.stringify({origin:location.origin,snapshot:window.BoleteraAdapter.snapshot()});") { raw ->
+        web.evaluateJavascript(adapter + "\nJSON.stringify({origin:location.origin,path:location.pathname,snapshot:window.BoleteraAdapter.snapshot()});") { raw ->
             polling = false
             if (!active || destroyed || request != sessionRequest || generation != navigationGeneration) return@evaluateJavascript
             try {
@@ -251,7 +372,7 @@ class StmEngine(private val context: Context) {
                 val sample = JSONObject(decoded)
                 // WebView's reported URL can advance before the JavaScript document does.
                 // An old about:blank/login snapshot must never block the next document or execute actions in it.
-                if (!NavigationPolicy.snapshotMatches(sample.optString("origin"), web.url ?: "")) {
+                if (!NavigationPolicy.snapshotMatches(sample.optString("origin"), web.url ?: "", sample.optString("path"))) {
                     if (System.currentTimeMillis() - actionStarted > 35000) fail("No terminó de cargar el siguiente paso. Volvé a ingresar. Código: CAMBIO-PAGINA.")
                     return@evaluateJavascript
                 }
@@ -294,7 +415,7 @@ class StmEngine(private val context: Context) {
         }
         fun cents(key: String): Long? = if (data.has(key) && !data.isNull(key)) data.getLong(key) else null
         when (stage) {
-            "loading", "handoff" -> state = state.copy(stage = "connecting", busy = true)
+            "loading", "handoff" -> state = state.copy(stage = if (paymentInFlight) "openingPayment" else "connecting", busy = true)
             "start" -> if (password != null && lastAction != "start") act("start") else if (password == null) expired()
             "identity" -> if (password != null && lastAction != "identity") act("identity") else if (password == null) expired()
             "document" -> if (document != null && lastAction != "document") act("document", document!!) else if (document == null) expired()
@@ -307,6 +428,14 @@ class StmEngine(private val context: Context) {
                 if (list.isEmpty()) return // Never treat an unparsed/unfinished page as a completed login.
                 clearSecrets()
                 state = state.copy(stage = "cards", cards = list, message = "")
+                val preferred = choices.card
+                if (!choosingCard && !state.busy && lastAction != "card" && preferred != null) {
+                    if (list.any { it.id == preferred && it.active }) chooseCard(preferred)
+                    else {
+                        choices.card = null
+                        state = state.copy(message = "Tu boletera habitual ya no está habilitada. Elegí otra para continuar.")
+                    }
+                }
             }
             "cardsLoading" -> {
                 state = state.copy(stage = "connecting", busy = true, message = "Esperando que STM termine de mostrar las boleteras…")
@@ -326,9 +455,23 @@ class StmEngine(private val context: Context) {
                 }
             }
             "paymentBoundary" -> {
+                if (paymentInFlight) {
+                    state = state.copy(stage = "openingPayment", busy = true)
+                    if (!providerSubmitted && data.optString("selectedProvider") == state.selectedProvider && data.optBoolean("providerReady")) {
+                        providerSubmitted = true
+                        act("providerContinue", state.selectedProvider!!)
+                    }
+                    return
+                }
                 clearSecrets(); active = false; handler.removeCallbacks(poll)
+                val providers = data.optJSONArray("providers")
+                val list = if (providers == null) emptyList() else (0 until providers.length()).map {
+                    val provider = providers.getJSONObject(it)
+                    ProviderInfo(provider.getString("id"), provider.getString("name"))
+                }
+                val preferred = choices.provider?.takeIf { id -> list.any { it.id == id } }
                 state = state.copy(stage = "paymentBoundary", busy = false,
-                    message = "Llegamos a la selección de medio de pago. Esta APK todavía no puede cobrar con interfaz propia: no se seleccionó un proveedor ni se generó una solicitud de pago.")
+                    providers = list, selectedProvider = preferred, message = "")
             }
             "signedOut" -> expired()
             "unknown", "verification" -> if (System.currentTimeMillis() - actionStarted > 25000) {
@@ -343,7 +486,10 @@ class StmEngine(private val context: Context) {
             "El ingreso se interrumpió al pasar la app a segundo plano. Volvé a entrar con huella o manualmente."
             else "La app volvió a la pantalla de acceso sin completar la consulta. Pasame una captura con la referencia de abajo.")
     }
-    companion object { const val START = "https://stm.gub.uy/app/mistm/cuenta/" }
+    companion object {
+        const val START = "https://stm.gub.uy/app/mistm/cuenta/"
+        const val CARDS = "https://stm.gub.uy/app/mistm/cuenta/pages/tarjetas.xhtml"
+    }
 }
 
 /** One original WebView, cropped with native clipping. No copied CAPTCHA, CSS rewrite or overlay taps. */

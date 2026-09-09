@@ -1,5 +1,5 @@
 /* Runs in the ORIGINAL top-level page. Never returns input values, tokens or HTML.
-   Deliberately no CAPTCHA clicks and no payment submission command. */
+   No CAPTCHA automation or bank/card credentials. Bank authorization stays in Chrome. */
 (() => {
   'use strict';
   if (window.BoleteraAdapter) return;
@@ -107,7 +107,20 @@
       return { ...base, stage: 'amount', minimum: match ? money(match[1]) : null,
         balance: balanceField ? money(balanceField.value) : null };
     }
-    if (path.endsWith('recarga2.xhtml')) return { ...base, stage: 'paymentBoundary' };
+    if (path.endsWith('recarga2.xhtml')) {
+      // IDs and names verified against the live STM logos; list only options present now.
+      const names = { '1023': 'Bandes', '1032': 'BBVA', '1002': 'BROU', '94': 'Cabal',
+        '1014': 'Heritage', '1031': 'HSBC', '1019': 'Itaú', '1048': 'Mastercard',
+        '91': 'OCA', '101': 'PassCard', '1033': 'Prex', '1013': 'Santander',
+        '1017': 'Scotiabank', '97': 'Tarjeta D', '1049': 'Visa' };
+      const providers = [...document.querySelectorAll('div.banco[id^="id-"]')].filter(visible)
+        .map(el => ({ id: el.id.slice(3), name: names[el.id.slice(3)] }))
+        .filter(p => p.name);
+      const selected = document.querySelector('div.banco.selected[id^="id-"]');
+      const next = button(/^CONTINUAR$/i);
+      return { ...base, stage: 'paymentBoundary', providers, selectedProvider: selected?.id.slice(3) || null,
+        providerReady: !!next && !next.disabled };
+    }
     if (path.endsWith('logout.xhtml')) return { ...base, stage: 'signedOut' };
     return { ...base, stage: 'unknown' };
   }
@@ -156,6 +169,10 @@
         return click(button(/^CONTINUAR$/i));
       }
       return setValue(field, (cents / 100).toFixed(2).replace('.', ',')) && click(button(/^CONTINUAR$/i));
+    }
+    if (!state.error && !state.captcha && state.stage === 'paymentBoundary' && ['1033', '1002'].includes(value) && state.providers.some(p => p.id === value)) {
+      if (action === 'provider') return click(document.getElementById('id-' + value));
+      if (action === 'providerContinue' && state.selectedProvider === value && state.providerReady) return click(button(/^CONTINUAR$/i));
     }
     return false;
   }

@@ -173,3 +173,31 @@ test('PrimeFaces amount uses its numeric widget so the submitted amount matches'
   assert.equal(adapter.command('amount', '26000'), false);
   assert.equal(clicks, 1);
 });
+
+test('payment choices are read from currently available STM controls without selecting or paying', () => {
+  const { dom, adapter } = page('app/mistm/cuenta/pages/recarga2.xhtml', '<div class="banco" id="id-1033"><img></div><div class="banco" id="id-1002"><img></div><div class="banco" id="id-9999"><img></div><button>Continuar</button>');
+  let clicks = 0;
+  dom.window.document.querySelector('button').onclick = () => clicks++;
+  const snapshot = JSON.parse(JSON.stringify(adapter.snapshot()));
+  assert.deepEqual(snapshot.providers, [{id:'1033',name:'Prex'}, {id:'1002',name:'BROU'}]);
+  assert.equal(adapter.command('provider', '1033'), true);
+  assert.equal(adapter.command('providerContinue', '1033'), false);
+  assert.equal(adapter.command('pay', '1033'), false);
+  assert.equal(clicks, 0);
+});
+
+test('provider continuation requires the chosen supported method and is not a generic payment command', () => {
+  const { dom, adapter } = page('app/mistm/cuenta/pages/recarga2.xhtml', '<div class="banco" id="id-1033">Prex</div><div class="banco" id="id-1002">BROU</div><button disabled>Continuar</button>');
+  let requests = 0;
+  const next = dom.window.document.querySelector('button');
+  const prex = dom.window.document.getElementById('id-1033');
+  prex.onclick = () => { prex.classList.add('selected'); next.disabled = false; };
+  next.onclick = () => { requests++; next.disabled = true; };
+  assert.equal(adapter.command('providerContinue', '1033'), false);
+  assert.equal(adapter.command('provider', '1033'), true);
+  assert.equal(adapter.command('providerContinue', '1002'), false);
+  assert.equal(adapter.command('providerContinue', '1033'), true);
+  assert.equal(adapter.command('providerContinue', '1033'), false);
+  assert.equal(requests, 1);
+  assert.equal(adapter.command('provider', '1049'), false);
+});

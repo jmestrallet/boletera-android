@@ -6,6 +6,8 @@ import java.text.NumberFormat
 import java.util.Locale
 
 data class CardInfo(val id: String, val active: Boolean, val status: String)
+data class ProviderInfo(val id: String, val name: String)
+data class PendingPayment(val card: String, val provider: String, val amount: Long, val createdAt: Long)
 data class CaptchaRect(val x: Float, val y: Float, val width: Float, val height: Float)
 data class UiState(
     val stage: String = "welcome", val busy: Boolean = false, val message: String = "",
@@ -13,6 +15,8 @@ data class UiState(
     val balance: Long? = null, val minimum: Long? = null, val amount: Long? = null,
     val consultedAt: Long? = null, val captcha: CaptchaRect? = null,
     val hasSavedAccess: Boolean = false,
+    val providers: List<ProviderInfo> = emptyList(), val selectedProvider: String? = null,
+    val pendingPayment: PendingPayment? = null,
     val diagnostic: String = ""
 )
 
@@ -37,10 +41,10 @@ object NavigationPolicy {
         uri.scheme == "https" && uri.host in hosts && uri.userInfo == null && (uri.port == -1 || uri.port == 443)
     } catch (_: Exception) { false }
 
-    fun snapshotMatches(origin: String, currentUrl: String): Boolean = try {
+    fun snapshotMatches(origin: String, currentUrl: String, path: String? = null): Boolean = try {
         val page = java.net.URI(currentUrl)
         val sample = java.net.URI(origin)
         allowed(currentUrl) && allowed(origin) && sample.scheme == page.scheme && sample.host == page.host &&
-            (sample.port.takeIf { it != -1 } ?: 443) == (page.port.takeIf { it != -1 } ?: 443)
+            (sample.port.takeIf { it != -1 } ?: 443) == (page.port.takeIf { it != -1 } ?: 443) && (path == null || path == page.rawPath)
     } catch (_: Exception) { false }
 }

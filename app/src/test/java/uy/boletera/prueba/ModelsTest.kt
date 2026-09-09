@@ -11,6 +11,8 @@ class ModelsTest {
         assertFalse(NavigationPolicy.snapshotMatches("https://mi.iduruguay.gub.uy", "https://stm.gub.uy/app/"))
         assertFalse(NavigationPolicy.snapshotMatches("https://stm.gub.uy", "https://evil.test/"))
         assertFalse(NavigationPolicy.snapshotMatches("https://evil.test", "https://stm.gub.uy/app/"))
+        assertFalse(NavigationPolicy.snapshotMatches("https://stm.gub.uy", "https://stm.gub.uy/app/", "/app/recarga2.xhtml"))
+        assertTrue(NavigationPolicy.snapshotMatches("https://stm.gub.uy", "https://stm.gub.uy/app/", "/app/"))
     }
     @Test fun amountsAreExactAndRejectAmbiguity() {
         assertEquals(56400L, Amounts.parse("564"))

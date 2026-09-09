@@ -1,39 +1,46 @@
 # Compatibilidad de pago — 9 de septiembre de 2026
 
-## Conclusión actual
+## Alcance implementado en 0.1.5
 
-La APK 0.1.1 entregada permite probar el acceso nativo y el autocompletado local. No está demostrado el pago de una recarga STM con formulario propio. No se habilitará una solicitud de pago a partir de un autocompletado exitoso: son comprobaciones distintas.
+Se implementó el inicio de pagos con **Prex y eBROU**, conservando la boletera y el medio elegidos por cuenta. La app prepara la recarga con STM y abre la autorización del proveedor en una pestaña de Chrome. No captura ni guarda credenciales bancarias, números de tarjeta o CVV.
 
-## Evidencia consultada
+La excepción de mostrar el pago oficial en Chrome fue presentada al usuario porque la dirección anterior pedía una interfaz completamente propia. La aceptación de esa excepción sigue pendiente; desarrollar y probar el recorrido no equivale a aceptación del usuario ni a un cobro confirmado.
 
-Google documenta el autocompletado de información de pago dentro de apps Android y una preferencia para exigir biometría antes de completar tarjetas. Eso respalda el mecanismo general que usa la prueba local. No garantiza que una tarjeta guardada solo en Chrome esté disponible en el servicio configurado en un teléfono concreto, ni que la huella esté activada allí.
+## Evidencia real
 
+- **Prex:** el WebView recibió un bloqueo explícito que exige navegador oficial. El enlace de la misma operación abrió correctamente en Chrome, con el monto preparado en STM. Se observó el resumen y, en la investigación, el formulario de datos del titular y CAPTCHA. No se ingresaron datos financieros ni se completó un débito.
+- **eBROU:** STM entrega un formulario de transacción a `ebanking.brou.com.uy/multipagos/billetera`. Se comprobó un traspaso del formulario original a Chrome que llegó al acceso oficial del banco. La continuidad después de ingresar al banco y la autorización necesitan una prueba del usuario; no se dispone de sus credenciales bancarias.
+- **Visa:** durante la investigación inicial también se observó el bloqueo de WebView. No está incluida entre las opciones de pago habilitadas de esta versión.
+
+Elegir un proveedor y abrir su pago puede generar una referencia o intento pendiente. Eso no equivale a un débito ni permite afirmar que el servidor haya eliminado el intento al cerrar Chrome.
+
+## Cómo se conserva el recorrido
+
+Prex recibe el enlace original de su operación, limitado al dominio y las rutas observadas de Sistarbanc. No se copian cookies de la app a Chrome.
+
+eBROU requiere POST. La app conserva únicamente los campos originales de ese traspaso y comprueba el destino exacto, el monto en centésimos, la moneda y las direcciones de retorno. Un servidor temporal escucha solo en `127.0.0.1`, usa una dirección aleatoria de un solo uso y entrega a Chrome un formulario que se envía directamente a eBROU. No hay un servidor externo intermediario. El contenido no se escribe en disco, se entrega con `no-store` y una política que permite enviar el formulario únicamente al banco; el servidor se cierra al usarlo o a los 60 segundos.
+
+La app no modifica el agente de usuario ni intenta eludir el bloqueo del proveedor. Chrome conserva su pantalla, identidad de origen y controles de seguridad.
+
+## Resultado, interrupciones y reintentos
+
+Antes de iniciar la solicitud se guarda un aviso local por cuenta. Ese aviso impide iniciar otro pago automáticamente, incluso después de reiniciar la app. Olvidar las credenciales y preferencias no elimina el aviso de una operación pendiente.
+
+Al volver, se puede consultar el saldo sin reenviar la recarga. **Un cambio de saldo no se trata como confirmación de ese pago.** La confirmación se revisa en el proveedor. Para otra carga, el usuario indica que verificó que el pago terminó o que salió antes de autorizarlo; esta declaración solo libera la próxima recarga, no modifica el banco.
+
+No hay conciliación automática de operaciones implementada. La consulta de movimientos de la cuenta de prueba exigió un nivel de identidad superior; no se intentó sortear ese requisito.
+
+## Tarjeta guardada y huella
+
+Recordar Prex o eBROU no guarda una tarjeta bancaria ni su contraseña. La huella de acceso a STM es independiente de la autenticación del pago. Chrome y el proveedor determinan si se ofrece autocompletado, huella, contraseña, llave digital o CAPTCHA; no se promete que todos los pagos se resuelvan con una huella.
+
+Referencias oficiales:
+
+- [BROU: recarga STM mediante Multipagos eBROU](https://www.brou.com.uy/personas/servicios/multipagos/stm-en-linea).
+- [Prex: recarga de STM](https://www.prexcard.com/beneficiosprex?beneficio=6).
+- [Chrome: Custom Tabs y API de lanzamiento](https://developer.chrome.com/docs/android/custom-tabs/howto-custom-tab-low-level-api).
 - [Google: información de pago automáticamente en apps](https://support.google.com/googlepay/answer/9215533?hl=en).
-- [Android: preparar una app para autocompletado](https://developer.android.com/identity/autofill/autofill-optimize).
 
-La documentación pública de Fenicio para su propia integración con Sistarbanc requiere conexión del comercio y un ID Organismo. Es evidencia de una integración comercial de Fenicio, no de una API disponible para una app personal que recargue STM. La búsqueda realizada no encontró un contrato público de API/SDK que permita afirmar esa compatibilidad para esta app. Ausencia de documentación encontrada no demuestra imposibilidad.
+## Pendiente
 
-- [Fenicio: integración con Sistarbanc](https://guia.fenicio.help/integraciones/integradores/sistarbanc).
-
-## Verificación pendiente y orden acordado
-
-1. En el Android físico del usuario: ingreso completo, CAPTCHA original dentro del panel y lectura del saldo/mínimo. La prueba automática actual solo llega al acceso público.
-2. Guardar y recuperar el acceso con biometría real, cancelar y olvidar el acceso. El emulador sin biometría solo verificó que no se guarde en texto plano como alternativa.
-3. En la prueba local de autocompletado: observar si se ofrece la tarjeta y qué autenticación pide Android. No enviar números de tarjeta ni capturas con datos al desarrollador.
-4. Con el acceso anterior validado: comprobar el recorrido real del proveedor sin pagar automáticamente. Se necesita evidencia de los campos, verificaciones, sesión e identificación de operación antes de programar su envío. Una página completa o un navegador externo que resulte obligatorio debe reportarse antes de cambiar la experiencia acordada.
-5. Solo entonces implementar los estados de pago pendiente, confirmado y recarga acreditada, con reconciliación antes de reintentar y confirmación del usuario para el pago.
-
-## Auditoría del objetivo
-
-| Requisito | Evidencia actual | Estado |
-|---|---|---|
-| Interfaz propia y motor web separado | Código Compose/WebView y prueba de arranque Android | Implementado |
-| Login completo sin páginas completas | Sondeo público Android aprobado; no login completo en APK | Pendiente |
-| CAPTCHA original acotado e interactivo | Detector y recorte implementados; pruebas de geometría | Pendiente de desafío real |
-| Saldo, boletera operativa y mínimo de STM | Adaptador probado con fixtures; sin lectura autenticada en APK | Pendiente de validación real |
-| Credenciales cifradas con huella | Android Keystore implementado; alternativa plana rechazada en emulador | Pendiente de hardware |
-| Tarjeta guardada y huella en formulario propio | Mecanismo documentado por Google; prueba local incluida | Pendiente del teléfono |
-| Pago propio y estados sin duplicados | Motor se detiene antes de generar solicitud | Sin implementar |
-| APK privada para probar | Versión 0.1.1, 7.900.750 bytes, entrega privada verificada | Entregada |
-
-La entrega del archivo no cierra el objetivo. El siguiente dato decisivo es el resultado del ingreso y CAPTCHA en el teléfono, tal como establece el plan aprobado antes de validar el pago.
+Aceptar la excepción de Chrome; comprobar los dos recorridos en el teléfono con autenticación del usuario; verificar una recarga efectivamente autorizada y acreditada; probar biometría física y CAPTCHA real. No se describe esta app de prueba como lista para publicación general.

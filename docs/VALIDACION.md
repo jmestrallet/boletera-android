@@ -2,20 +2,22 @@
 
 ## Resultado
 
-Hay una APK Android con interfaz propia y motor local implementados. **No está validada para una recarga real ni para publicación.**
+La APK release 0.1.5 tiene interfaz propia para STM e inicia pagos reales con Prex y eBROU en Chrome. **Se comprobó el inicio de ambos recorridos, pero no una autorización bancaria ni acreditación. No está validada para publicación general. La excepción de Chrome está pendiente de aceptación del usuario.**
 
 | Comprobación | Resultado |
 |---|---|
-| Adaptador JavaScript: acceso, dinero, deuda, mínimo variable, tarjetas, origen, privacidad, CAPTCHA y límite de pago | 19 pruebas aprobadas; incluye formularios superpuestos, traspaso de identidad, selección de celda e importe mediante el control numérico de STM |
-| Modelos JVM: importes exactos, mínimo, política de navegación y origen de respuestas durante transiciones | 4 pruebas aprobadas |
+| Adaptador JavaScript: acceso, dinero, deuda, mínimo variable, tarjetas, origen, privacidad, CAPTCHA y límite de pago | 21 pruebas aprobadas; incluye formularios superpuestos, traspaso de identidad, selección de celda, importe mediante el control numérico de STM y medios de pago |
+| Modelos JVM: importes exactos, mínimo, política de navegación y origen de respuestas durante transiciones | 6 pruebas aprobadas, incluyendo destinos y formulario de pago |
 | Compilación desde clon público limpio de GitHub (`a6724d5`) | APK debug, 3 pruebas JVM, lint y 11 pruebas JS aprobados. Sin `local.properties` ni claves del proyecto; se usaron JDK/SDK instalados y caché de dependencias de la PC |
-| Emulador Android 16: arranque nativo, fixture en WebView, ausencia de guardado plano sin biometría, capturas habilitadas y recorrido offline usando StmEngine con login en URL protegida y tabla demorada hasta saldo/mínimo | 5 pruebas locales aprobadas |
+| Emulador Android 16: arranque nativo, fixture en WebView, ausencia de guardado plano sin biometría, capturas habilitadas y recorrido offline usando StmEngine con login en URL protegida y tabla demorada hasta saldo/mínimo | 7 pruebas locales aprobadas; también preferencias por cuenta, guardia de pago pendiente y traspaso eBROU de un solo uso |
 | Entrada pública real de STM desde WebView | Aprobada en Android 16 tras corregir la cadena TLS incompleta y reconocer la descripción incluida en el botón de identidad. Solo navegación pública; sin enviar documento ni contraseña |
-| Login real con credenciales del usuario en la APK | Comprobado en emulador Android 16 con credenciales autorizadas: la APK release 0.1.4 ingresó, mostró dos boleteras y llegó automáticamente al saldo y mínimo. Pendiente de confirmación en teléfono físico |
+| Login real con credenciales del usuario en la APK | Comprobado en emulador Android 16 con credenciales autorizadas: la APK release 0.1.5 ingresó, recordó la boletera operativa y llegó automáticamente al saldo y mínimo. Pendiente de confirmación en teléfono físico |
 | CAPTCHA real completo dentro del recorte | No validado |
 | Guardar y descifrar con huella física | Implementado; pendiente de dispositivo con biometría configurada |
 | Tarjeta guardada de Google y huella en pago | No validado. Solo hay una prueba local de autocompletado |
-| Pago o solicitud a Sistarbanc | No realizados por esta APK. Se detiene antes de seleccionar proveedor |
+| Inicio real Prex y eBROU | Comprobado con la APK release 0.1.5: Prex hasta resumen oficial con el importe elegido y eBROU hasta ingreso oficial del banco. Sin datos bancarios ni autorización |
+| Regreso y preferencias reales | Consultar saldo sin reingreso, aviso pendiente persistente, cambio de boletera y medio recordado comprobados |
+| Débito y acreditación | No comprobados |
 
 La versión 0.1.0 fallaba con `TLS_REJECTED_3` en Android. El servidor STM enviaba solamente el certificado final y omitía el intermedio. La versión 0.1.1 incluye el certificado público oficial Certum DV TLS G2 R39 como ancla adicional de confianza **solo para el dominio exacto stm.gub.uy dentro de esta aplicación**. No se modifica el almacén de Android. La cadena se verificó contra la raíz oficial; un nombre de servidor incorrecto fue rechazado. Android sigue comprobando TLS y el manejador de errores sigue cancelando, sin `proceed()`.
 
@@ -28,17 +30,23 @@ La ejecución de 0.1.3 también aprobó las seis pruebas Android, incluyendo un 
 La prueba real de 0.1.4 encontró problemas que los fixtures anteriores no reproducían: formularios de documento y contraseña superpuestos, el traspaso por `ih.montevideo.gub.uy`, selección PrimeFaces que requiere un clic en una celda y el botón de recarga sin etiqueta propia. Corregidos esos pasos, la APK release llegó automáticamente a la consulta real de saldo y mínimo. No se publican datos de la cuenta ni capturas del recorrido autenticado.
 
 Al elegir el importe, apareció además un rechazo porque el campo visible no actualizaba el valor interno de PrimeFaces. Se corrigió usando el método del control numérico observado. Ese adaptador corregido se ejecutó contra la sesión real en una compilación de desarrollo y llegó a `recarga2.xhtml` sin errores, sin seleccionar proveedor ni solicitar pago. La APK final incorpora ese mismo código y pasó 19 pruebas JS, 4 JVM y lint; el recorrido Android de seis pruebas aprobó antes de esta última corrección exclusiva del importe. No se repitió un ingreso completo con el binario final tras esa corrección. Durante el ingreso real no apareció un desafío CAPTCHA; no se lo considera validado.
+## Validación final de 0.1.5
+
+Con la APK release final se abrió el ingreso real de eBROU y se regresó a la consulta de saldo sin iniciar sesión otra vez. También se verificaron el diálogo de revisión, la liberación manual tras salir sin autorizar y el cambio de boletera. Prex había llegado a su resumen oficial con la misma implementación de pago; las correcciones posteriores afectaron el regreso y el diálogo. La elección de boletera y Prex sobrevivió a una actualización e ingreso nuevo. Ningún recorrido ingresó credenciales bancarias, autorizó un débito o comprobó acreditación. No se publican datos de la cuenta ni capturas autenticadas.
+
+Después de la última corrección del regreso se ejecutaron las ocho pruebas Android: todas aprobadas, incluyendo el sondeo público. El build final aprobó 21 pruebas JS, 6 JVM y lint. El diálogo se inspeccionó visualmente en el emulador.
+
 ## Evidencia local
 
 - JVM: `app/build/test-results/testDebugUnitTest/`.
 - Emulador: `app/build/outputs/androidTest-results/connected/debug/` y `app/build/reports/androidTests/connected/debug/`.
 - Lint: `app/build/reports/lint-results-debug.html`.
 - Captura de pantalla nativa sin datos personales: `outputs/welcome-test.png`.
-- Entrega: `outputs/boletera-prueba-0.1.4.apk` (7901586 bytes), SHA-256 `3ebfeb5d4bd35091d57ab88b8b38500fd2c10567d461ef64f3bef3028a7c629a`. Firma verificada, igual que las versiones anteriores.
+- Entrega: `outputs/boletera-prueba-0.1.5.apk` (7918446 bytes), SHA-256 `6aacf505b3abacc4bdf4d1efe99956fbaf11d3eafbcad1d98d4a4047d30e1e37`. Firma verificada, igual que las versiones anteriores.
 
 ## Criterio para continuar
 
 1. Instalar la APK de prueba en un Android físico y comprobar si la conexión segura a STM funciona.
 2. Si funciona, validar ingreso, CAPTCHA y saldo/mínimo reales; ante una pantalla no reconocida, reparar el adaptador sin ampliar la excepción a páginas completas.
 3. Probar guardado con huella, reinicio de app, cancelación biométrica y eliminación del acceso. No reemplazar un fallo biométrico por almacenamiento plano.
-4. Resolver una ruta de pago compatible con interfaz propia antes de habilitar cobros. No representar el monto preparado ni un autocompletado exitoso como dinero acreditado.
+4. Confirmar la aceptación de Chrome para el pago y verificar en el teléfono la autorización y acreditación de una recarga. No representar el monto preparado, el regreso o un cambio de saldo como confirmación del pago.

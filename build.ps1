@@ -18,6 +18,6 @@ try {
     & $gradle --no-daemon --console=plain @tasks
     if ($LASTEXITCODE -ne 0) { throw 'Falló la compilación o sus comprobaciones.' }
     New-Item -ItemType Directory -Force outputs | Out-Null
-    Copy-Item app/build/outputs/apk/release/app-release.apk outputs/boletera-prueba-0.1.4.apk -Force
-    Get-FileHash outputs/boletera-prueba-0.1.4.apk -Algorithm SHA256
+    Copy-Item app/build/outputs/apk/release/app-release.apk outputs/boletera-prueba-0.1.5.apk -Force
+    Get-FileHash outputs/boletera-prueba-0.1.5.apk -Algorithm SHA256
 } finally { Pop-Location }

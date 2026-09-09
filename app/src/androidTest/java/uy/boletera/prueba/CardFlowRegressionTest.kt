@@ -19,28 +19,31 @@ class CardFlowRegressionTest {
 
     @Test fun protectedUrlLoginAndDelayedCardsKeepAccessUntilRowsAreActuallyRead() {
         lateinit var engine: StmEngine
+        var authenticated = false
         compose.runOnIdle {
             engine = StmEngine(compose.activity)
+            engine.forgetChoices()
             val delegate = engine.web.webViewClient
             engine.web.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
                     val root = "https://stm.gub.uy/app/mistm/cuenta/pages/"
                     val html = when (request.url.path) {
-                        "/app/mistm/cuenta/" -> "<script>location.href='${root}tarjetas.xhtml'</script>"
-                        "/app/mistm/cuenta/pages/tarjetas.xhtml" -> if (request.url.getQueryParameter("authenticated") != "1") {
+                        "/app/mistm/cuenta/" -> if (authenticated) "<button onclick=\"location.href='https://mi.iduruguay.gub.uy/login'\">INGRESAR CON USUARIO GUB.UY</button>" else "<script>location.href='${root}tarjetas.xhtml'</script>"
+                        "/app/mistm/cuenta/pages/tarjetas.xhtml" -> if (!authenticated && request.url.getQueryParameter("authenticated") != "1") {
                             "<button onclick=\"location.href='https://mi.iduruguay.gub.uy/login'\">INGRESAR CON USUARIO GUB.UY</button>"
                         } else {
                             val rows = """<table><tbody><tr onclick="location.href='${root}principal.xhtml'"><td><span>ABCD1234</span><span>Operativa</span></td></tr><tr><td><span>DEAD5678</span><span>Pte. Anular (Caducidad G.U.)</span></td></tr></tbody></table>"""
                             "<div id='form1:tablaTarjetas_data'></div><script>setTimeout(()=>{document.getElementById('form1:tablaTarjetas_data').innerHTML=${org.json.JSONObject.quote(rows)}},2500)</script>"
                         }
                         "/login" -> """<form><input id="documento"><button type="button">Continuar</button></form><form><input type="password"><button type="button" onclick="if(document.querySelector('input[type=password]').value==='synthetic-offline-only') location.href='https://ih.montevideo.gub.uy/commonauth'">Continuar</button></form>"""
-                        "/commonauth" -> "<script>location.href='${root}tarjetas.xhtml?authenticated=1'</script>"
+                        "/commonauth" -> { authenticated = true; "<script>location.href='${root}tarjetas.xhtml?authenticated=1'</script>" }
                         "/app/mistm/cuenta/pages/principal.xhtml" -> """
                             <p>Saldo disponible*: ${'$'} -304</p><button onclick="location.href='${root}recarga1.xhtml'">Recargar</button>
                         """.trimIndent()
                         "/app/mistm/cuenta/pages/recarga1.xhtml" -> """
-                            <p>Tu recarga mínima deberá ser de ${'$'} 564 .</p><label>Saldo actual *</label><input id="recarga1:saldoActual" value="${'$'} -304"><input id="recarga1:monto_input"><button>CONTINUAR</button>
+                            <p>Tu recarga mínima deberá ser de ${'$'} 564 .</p><label>Saldo actual *</label><input id="recarga1:saldoActual" value="${'$'} -304"><input id="recarga1:monto_input"><button onclick="location.href='${root}recarga2.xhtml'">CONTINUAR</button>
                         """.trimIndent()
+                        "/app/mistm/cuenta/pages/recarga2.xhtml" -> "<div class='banco' id='id-1033'>Prex</div><div class='banco' id='id-1002'>BROU</div><button>Continuar</button>"
                         else -> ""
                     }
                     return WebResourceResponse("text/html", "UTF-8", html.byteInputStream())
@@ -64,11 +67,40 @@ class CardFlowRegressionTest {
                 assertEquals(-30400L, engine.state.balance)
                 assertEquals("ABCD1234", engine.state.selectedCard)
                 assertFalse(engine.state.busy)
+                engine.prepare(56400)
+            }
+            compose.waitUntil(20000) { engine.state.stage == "paymentBoundary" }
+            compose.runOnIdle {
+                assertEquals(2, engine.state.providers.size)
+                engine.chooseProvider("1033")
+                assertEquals("1033", engine.state.selectedProvider)
+                engine.connect("00000000", "synthetic-offline-only")
+            }
+            // A new login automatically selects the remembered operational card.
+            compose.waitUntil(20000) { engine.state.stage == "balance" && engine.state.minimum == 56400L }
+            compose.runOnIdle {
+                assertEquals("ABCD1234", engine.state.selectedCard)
+                engine.prepare(56400)
+            }
+            compose.waitUntil(20000) { engine.state.stage == "paymentBoundary" }
+            compose.runOnIdle {
+                assertEquals("1033", engine.state.selectedProvider)
+                engine.changeCard()
+            }
+            try {
+                compose.waitUntil(20000) { engine.state.stage == "cards" && !engine.state.busy }
+            } catch (error: Throwable) {
+                throw AssertionError("Change card: stage=${engine.state.stage}, busy=${engine.state.busy}, reference=${engine.state.diagnostic}", error)
+            }
+            compose.runOnIdle {
+                engine.chooseCard("DEAD5678")
+                assertEquals("cards", engine.state.stage)
             }
         } finally {
             compose.runOnIdle {
                 (engine.host.parent as? ViewGroup)?.removeView(engine.host)
                 engine.destroy()
+                engine.forgetChoices()
             }
         }
     }

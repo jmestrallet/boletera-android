@@ -66,6 +66,8 @@ class MainActivity : FragmentActivity() {
         var amountText by remember(state.selectedCard, state.minimum) { mutableStateOf("") }
         var showProbe by remember { mutableStateOf(false) }
         var showForget by remember { mutableStateOf(false) }
+        var changeProvider by remember(state.stage) { mutableStateOf(false) }
+        var reviewPayment by remember { mutableStateOf(false) }
         BackHandler(enabled = state.stage != "welcome" || showProbe) {
             showProbe = false; document = ""; password = ""; engine.cancel()
         }
@@ -81,7 +83,7 @@ class MainActivity : FragmentActivity() {
                     when (state.stage) {
                         "welcome" -> {
                             Text("Tu próxima carga,\nsin las vueltas.", fontSize = 33.sp, lineHeight = 37.sp, fontWeight = FontWeight.Bold, color = Ink)
-                            Text("Consultá tu saldo y prepará el monto justo.", color = Muted, fontSize = 16.sp)
+                            Text("Tu saldo, tu boletera y tu medio habitual.", color = Muted, fontSize = 16.sp)
                             WhiteCard {
                                 Text("Entrar a tu STM", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
                                 if (state.hasSavedAccess && !manual) {
@@ -123,14 +125,19 @@ class MainActivity : FragmentActivity() {
                                 }
                                 Text("Por ahora: Usuario gub.uy. Otros métodos quedan para una próxima prueba.", color = Muted, fontSize = 12.sp)
                             }
-                            Text("Aplicación independiente, no oficial de STM. Esta versión consulta y prepara; todavía no cobra.", color = Muted, fontSize = 12.sp)
+                            Text("Aplicación independiente, no oficial de STM. Prex y eBROU autorizan el pago en su pantalla oficial de Chrome.", color = Muted, fontSize = 12.sp)
                         }
                         "connecting" -> {
                             Title("Entrando a STM")
                             Text("Estamos recorriendo los pasos del sitio por vos.", color = Muted)
                         }
+                        "openingPayment" -> {
+                            Title("Abriendo el pago")
+                            Text("Estamos preparando ${Amounts.format(state.amount)} con ${if (state.selectedProvider == "1033") "Prex" else "eBROU"}. Completás la autorización en Chrome.", color = Muted)
+                        }
                         "cards" -> {
                             Title("Elegí tu boletera")
+                            Text("Vamos a recordar tu elección para las próximas cargas.", color = Muted, fontSize = 14.sp)
                             state.cards.forEach { card ->
                                 WhiteCard {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -145,6 +152,7 @@ class MainActivity : FragmentActivity() {
                         }
                         "balance" -> {
                             Text("TU BOLETERA ${state.selectedCard?.takeLast(4) ?: ""}", color = Muted, fontSize = 12.sp, letterSpacing = 1.sp)
+                            TextButton(onClick = { engine.changeCard() }, enabled = !state.busy) { Text("Cambiar boletera") }
                             Surface(color = Ink, shape = RoundedCornerShape(26.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(25.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                                     Text("Saldo informado por STM", color = Color(0xFFBEC8CE), fontSize = 14.sp)
@@ -154,10 +162,14 @@ class MainActivity : FragmentActivity() {
                                 }
                             }
                             Text("Puede haber viajes de las últimas 72 horas todavía sin descontar.", color = Muted, fontSize = 12.sp)
+                            if (state.pendingPayment != null) {
+                                Notice("Hay un pago por revisar. Consultá su resultado en Prex o eBROU antes de iniciar otra carga; un cambio de saldo por sí solo no confirma ese pago.")
+                                OutlinedButton(onClick = { reviewPayment = true }, modifier = Modifier.fillMaxWidth()) { Text("Ya revisé el pago anterior") }
+                            }
                             WhiteCard {
                                 Text("¿Cuánto querés cargar?", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
                                 Text("Mínimo informado: ${Amounts.format(state.minimum)}", color = Muted)
-                                Primary("Elegir mínimo · ${Amounts.format(state.minimum)}", enabled = !state.busy && state.minimum != null) {
+                                Primary("Elegir mínimo · ${Amounts.format(state.minimum)}", enabled = !state.busy && state.minimum != null && state.pendingPayment == null) {
                                     state.minimum?.let { engine.prepare(it) }
                                 }
                                 OutlinedTextField(amountText, { amountText = it }, label = { Text("Otro monto en pesos") }, singleLine = true,
@@ -166,7 +178,7 @@ class MainActivity : FragmentActivity() {
                                 val valid = Amounts.valid(parsed, state.minimum)
                                 if (valid && state.balance != null) Text("Te quedarían ${Amounts.format(state.balance + parsed!!)} antes de viajes pendientes.", color = Muted, fontSize = 13.sp)
                                 if (amountText.isNotEmpty() && !valid) Text("Ingresá un monto igual o mayor al mínimo, con hasta 2 decimales.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-                                OutlinedButton(onClick = { parsed?.let { engine.prepare(it) } }, enabled = valid && !state.busy, modifier = Modifier.fillMaxWidth()) { Text("Elegir este monto") }
+                                OutlinedButton(onClick = { parsed?.let { engine.prepare(it) } }, enabled = valid && !state.busy && state.pendingPayment == null, modifier = Modifier.fillMaxWidth()) { Text("Elegir este monto") }
                             }
                             TextButton(onClick = { engine.refresh() }, enabled = !state.busy) { Text("Actualizar saldo y mínimo") }
                         }
@@ -175,18 +187,41 @@ class MainActivity : FragmentActivity() {
                             Text("Este es el desafío original del sitio. Completalo para seguir.", color = Muted)
                         }
                         "paymentBoundary" -> {
-                            Title("Monto preparado")
+                            Title("Tu recarga")
                             WhiteCard {
                                 Text(Amounts.format(state.amount), fontSize = 40.sp, fontWeight = FontWeight.Bold)
-                                Text("Sin pagar · sin solicitud de cobro", color = Muted)
-                                Text("El pago con diseño propio y tarjeta guardada todavía necesita validación. No vamos a sustituirlo por la página completa.")
+                                Text("Boletera · ${state.selectedCard?.takeLast(4) ?: ""}", color = Muted)
+                                val preferred = state.providers.find { it.id == state.selectedProvider }
+                                if (preferred != null && !changeProvider) {
+                                    Text("Tu medio habitual: ${preferred.name}", fontWeight = FontWeight.SemiBold)
+                                    TextButton(onClick = { changeProvider = true }) { Text("Cambiar medio de pago") }
+                                } else {
+                                    Text("¿Con qué querés pagar?", fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Recordaremos tu elección en este celular. Podés cambiarla cuando quieras.", color = Muted, fontSize = 13.sp)
+                                    state.providers.filter { it.id in PaymentPolicy.supported }.sortedBy { if (it.id == "1033") 0 else 1 }.forEach { provider ->
+                                        OutlinedButton(onClick = { engine.chooseProvider(provider.id); changeProvider = false }, modifier = Modifier.fillMaxWidth()) {
+                                            Text(if (provider.id == "1002") "eBROU" else provider.name)
+                                        }
+                                    }
+                                    if (state.providers.isEmpty()) Text("No pudimos leer los medios disponibles de STM. Volvé al saldo para consultar de nuevo.", color = Muted)
+                                }
                             }
-                            OutlinedButton(onClick = { showProbe = true }, modifier = Modifier.fillMaxWidth()) { Text("Probar autocompletado de Android") }
+                            Text("El pago abre la pantalla oficial en Chrome. Ahí se completan los datos y la autorización que pida Prex o eBROU.", color = Muted, fontSize = 14.sp)
+                            Primary("Pagar ${Amounts.format(state.amount)}", enabled = !state.busy && state.selectedProvider in PaymentPolicy.supported && state.pendingPayment == null) { engine.beginPayment() }
                             Primary("Volver al saldo") { engine.refresh() }
+                        }
+                        "paymentReview" -> {
+                            Title("Tu pago en ${if (state.pendingPayment?.provider == "1033") "Prex" else "eBROU"}")
+                            Text("La autorización y el resultado se muestran en la pantalla oficial. Cerrar Chrome no confirma ni cancela un pago autorizado.", color = Muted)
+                            Text(Amounts.format(state.pendingPayment?.amount), fontSize = 38.sp, fontWeight = FontWeight.Bold)
+                            Text("Podés consultar el saldo sin volver a enviar la recarga.", color = Muted)
+                            Primary("Consultar saldo") { engine.refresh() }
+                            OutlinedButton(onClick = { reviewPayment = true }, modifier = Modifier.fillMaxWidth()) { Text("Ya revisé el resultado") }
                         }
                         "blocked" -> {
                             Title("Nos detenemos acá")
-                            Text("No se completó ninguna carga. Podés volver a intentar el acceso sin que se repita un pago.", color = Muted)
+                            Text(if (state.pendingPayment == null) "No se inició un pago. Podés volver a intentar el acceso." else "Hay una solicitud por revisar. Comprobá su resultado en el proveedor antes de iniciar otra carga.", color = Muted)
+                            if (state.pendingPayment != null) OutlinedButton(onClick = { reviewPayment = true }) { Text("Ya revisé el resultado") }
                             Primary("Volver al inicio") { engine.cancel() }
                         }
                     }
@@ -216,9 +251,18 @@ class MainActivity : FragmentActivity() {
             }
         }
         if (showProbe) AutofillProbe { showProbe = false }
+        if (reviewPayment) AlertDialog(onDismissRequest = { reviewPayment = false }, title = { Text("Antes de otra recarga") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Si autorizaste el pago, verificá su resultado en Prex o eBROU. Si sigue pendiente o no sabés cómo terminó, no lo repitas.")
+                    OutlinedButton(onClick = { reviewPayment = false; engine.acknowledgePayment() }, modifier = Modifier.fillMaxWidth()) { Text("Salí sin autorizar el pago") }
+                }
+            },
+            confirmButton = { TextButton(onClick = { reviewPayment = false; engine.acknowledgePayment() }) { Text("Ya verifiqué que terminó") } },
+            dismissButton = { TextButton(onClick = { reviewPayment = false }) { Text("Volver") } })
         if (showForget) AlertDialog(onDismissRequest = { showForget = false }, title = { Text("¿Olvidar este acceso?") },
-            text = { Text("Se eliminan las credenciales cifradas y la sesión local. Para volver a entrar tendrás que escribirlas.") },
-            confirmButton = { TextButton(onClick = { vault.forget(); engine.savedAccess(false); engine.logout(); engine.notice("Acceso guardado y sesión local eliminados."); showForget = false }) { Text("Olvidar") } },
+            text = { Text("Se eliminan las credenciales cifradas, las preferencias y la sesión local. Esto no cancela un pago en curso; su aviso se conserva para cuando vuelvas a ingresar.") },
+            confirmButton = { TextButton(onClick = { vault.forget(); engine.forgetChoices(); engine.savedAccess(false); engine.logout(); engine.notice("Acceso guardado, preferencias y sesión local eliminados."); showForget = false }) { Text("Olvidar") } },
             dismissButton = { TextButton(onClick = { showForget = false }) { Text("Cancelar") } })
     }
 }

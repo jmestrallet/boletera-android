@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.1.5-prueba
+
+- Recuerda la boletera operativa y el medio de pago por cuenta, con opciones para cambiarlos.
+- Habilita Pagar con Prex y eBROU: prepara la solicitud real en STM y abre el proveedor en Chrome. La excepción visual de Chrome queda pendiente de aceptación del usuario.
+- Conserva el formulario original de eBROU mediante un traspaso local de un solo uso, validando destino, moneda e importe; las credenciales bancarias se ingresan en el proveedor.
+- Guarda un aviso antes de iniciar el pago para evitar otro intento automático al volver o reiniciar. Consultar saldo no reenvía el pago ni declara acreditación.
+- Corrige el regreso a saldo y el cambio de boletera sin volver al inicio público de STM ni aceptar respuestas del documento anterior.
+
+APK release comprobada contra STM real en Android 16: acceso, preferencias conservadas entre ingresos, Prex hasta resumen oficial, eBROU hasta ingreso oficial y regreso al saldo. No se ingresaron datos bancarios ni se autorizó un pago. Aprobadas 21 pruebas JS, 6 JVM, lint y las 8 pruebas Android finales. Teléfono, CAPTCHA, biometría y acreditación pendientes.
+
 ## 0.1.4-prueba
 
 - Selecciona Continuar dentro del formulario correspondiente al documento o la contraseña.

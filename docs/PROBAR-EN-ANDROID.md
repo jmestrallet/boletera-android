@@ -1,18 +1,17 @@
-# Cómo probar Boletera
+# Cómo probar Boletera 0.1.5
 
-El archivo para instalar es **boletera-prueba-0.1.4.apk**, dentro de la carpeta `outputs` y disponible en el enlace de Drive de la entrega. Instalalo encima de la versión anterior, sin desinstalarla, para conservar el acceso cifrado.
+Instalá **boletera-prueba-0.1.5.apk** encima de la versión anterior, sin desinstalarla, para conservar tu acceso guardado. Esta candidata incluye pagos reales con Prex/eBROU mediante Chrome; la aceptación de esa excepción de interfaz todavía está pendiente.
 
-1. Descargalo desde el enlace de Drive en tu celular, usando tu cuenta de Google.
-2. Abrilo desde Archivos e instalalo. Android puede pedirte habilitar la instalación desde esa aplicación.
-3. Abrí **Boletera · Prueba**. Escribí el documento y la contraseña de gub.uy.
-4. Marcá **Guardar acceso con huella** si querés usar esa opción. Android te pedirá biometría para guardarlo cifrado. En el próximo ingreso aparecerá **Entrar con huella**.
-5. Si aparece el CAPTCHA, completalo dentro del panel. Si no funciona o se corta, cancelá y contame en qué paso se frenó.
-6. Si llega al saldo, compará el valor y el mínimo con STM. Elegir un monto en esta versión **no paga**.
+1. Ingresá a STM. Si ya guardaste el acceso, podés usar la huella.
+2. Elegí tu boletera una sola vez. En los siguientes ingresos la app la usa automáticamente si sigue habilitada. **Cambiar boletera** permite elegir otra.
+3. Compará el saldo y el mínimo informados por STM y elegí el importe.
+4. Elegí **Prex** o **eBROU**. La próxima vez aparece ese medio seleccionado, con la opción de cambiarlo.
+5. **Pagar** prepara una solicitud real y abre la pantalla oficial en Chrome. Revisá allí el importe y completá la autenticación que te pida el proveedor. La app no guarda datos bancarios. No está garantizado que se pueda pagar solo con huella.
+6. Al volver, podés **Consultar saldo** sin repetir la solicitud. La confirmación del cobro se revisa en el proveedor; un cambio de saldo no identifica por sí solo esa operación.
+7. Antes de otra carga, indicá que verificaste que el pago terminó o que saliste sin autorizarlo. Si autorizaste y no conocés el resultado, revisalo antes de repetir. El aviso se conserva aunque reinicies la app.
 
-**Estado:** 0.1.4 fue probada con ingreso real en un emulador Android 16: mostró las boleteras y llegó automáticamente al saldo y mínimo. También se comprobó contra STM la corrección del importe hasta el paso anterior al pago. Falta confirmar el resultado en el teléfono y probar la huella física y un CAPTCHA real.
+**Capturas:** habilitadas. Para reportar un fallo, alcanza con la versión, el paso, el mensaje y la referencia. No compartas capturas con contraseñas, datos bancarios o enlaces de pago.
 
-**Capturas:** están habilitadas. El número de versión aparece arriba. Si se frena, incluí el mensaje y la línea **Referencia** que aparece abajo (puede requerir desplazarse). Esa referencia contiene etapas y conteos, sin datos de la cuenta. Revisá igualmente la captura antes de compartirla.
+**Olvidar acceso guardado:** elimina las credenciales cifradas, las preferencias y la sesión STM local. No cancela pagos. Se conserva el aviso de una operación pendiente para cuando vuelvas a ingresar con esa cuenta.
 
-**Para borrar el acceso:** tocá **Olvidar acceso guardado**. Eso elimina las credenciales cifradas y la sesión local. Desinstalar también elimina la clave local; volver a instalar exige ingresar los datos nuevamente.
-
-No hace falta enviarme la contraseña ni una captura con datos bancarios para reportar cómo funcionó. Alcanzan el paso, el mensaje que veas y el modelo de celular.
+Los recorridos de acceso y traspaso se prueban en emulador. La autorización dentro de Prex/eBROU, la huella física y la acreditación de una recarga requieren comprobación en tu teléfono. Ver [validación](VALIDACION.md) y [pago](COMPATIBILIDAD-PAGO.md).
