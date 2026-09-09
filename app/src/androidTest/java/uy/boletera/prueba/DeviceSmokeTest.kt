@@ -27,7 +27,7 @@ class DeviceSmokeTest {
         compose.runOnIdle {
             val vault = AccessVault(compose.activity)
             assertFalse(vault.exists)
-            assertTrue(compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
+            assertEquals(0, compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 
@@ -75,12 +75,11 @@ class DeviceSmokeTest {
     }
 
     @Test fun captureEmptyNativeWelcomeForVisualReview() {
-        // Isolated test only: no credentials/account data exist. Production always uses FLAG_SECURE.
-        compose.runOnIdle { compose.activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+        // The real activity permits screenshots, as requested for reporting prototype errors.
+        compose.runOnIdle { assertEquals(0, compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) }
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
         File(compose.activity.getExternalFilesDir(null), "welcome-test.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        compose.runOnIdle { compose.activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) }
     }
 }

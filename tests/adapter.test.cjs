@@ -58,6 +58,17 @@ test('only operational cards can be selected', () => {
   assert.equal(adapter.command('card', 'ABCD1234'), true);
   assert.equal(clicks, 1);
 });
+
+test('card labels in adjacent elements remain separate without whitespace in HTML', () => {
+  const { dom, adapter } = page('app/mistm/cuenta/pages/tarjetas.xhtml', '<table><tbody><tr><td><img><span>ABCD1234</span><span>Operativa</span></td><td><a>›</a></td></tr><tr><td><span>DEAD5678</span><span>Pte. Anular (Caducidad G.U.)</span></td></tr></tbody></table>');
+  assert.equal(adapter.snapshot().cards.length, 2);
+  assert.equal(adapter.snapshot().cards[0].active, true);
+  assert.equal(adapter.snapshot().cards[1].active, false);
+  let clicks = 0;
+  dom.window.document.querySelector('tr').onclick = () => clicks++;
+  assert.equal(adapter.command('card', 'ABCD1234'), true);
+  assert.equal(clicks, 1);
+});
 test('credential contents never appear in snapshots; input is a literal', () => {
   const { dom, adapter } = page('login', '<input type="password" placeholder="Ingresá tu contraseña"><button>Continuar</button>', 'mi.iduruguay.gub.uy');
   const secret = `synthetic'\"\\);alert(1);`;

@@ -3,7 +3,6 @@ package uy.boletera.prueba
 import android.os.Bundle
 import android.text.InputType
 import android.view.View
-import android.view.WindowManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import androidx.activity.compose.BackHandler
@@ -42,8 +41,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var vault: AccessVault
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Prevent credentials and payment fields from appearing in screenshots, recents and casting.
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        // Screenshots are enabled at the owner's request to report problems in this prototype.
         engine = StmEngine(this)
         vault = AccessVault(this)
         engine.savedAccess(vault.exists)
@@ -76,7 +74,7 @@ class MainActivity : FragmentActivity() {
                 Row(Modifier.fillMaxWidth().background(Ink).padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("boletera", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 25.sp)
                     Spacer(Modifier.weight(1f))
-                    Text("PRUEBA 01", color = Lime, fontSize = 11.sp, letterSpacing = 1.5.sp)
+                    Text(BuildConfig.VERSION_NAME, color = Lime, fontSize = 11.sp, letterSpacing = 1.sp)
                 }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     if (state.message.isNotBlank()) Notice(state.message)

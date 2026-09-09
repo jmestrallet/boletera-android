@@ -194,10 +194,11 @@ class StmEngine(private val context: Context) {
         lastAction = action; actionStarted = System.currentTimeMillis()
         state = state.copy(busy = true, message = "")
         val generation = navigationGeneration
+        val request = sessionRequest
         // JSONObject.quote escapes user input as a literal; it can never become executable code.
         val script = "window.BoleteraAdapter && window.BoleteraAdapter.command(${JSONObject.quote(action)}, ${JSONObject.quote(value)})"
         web.evaluateJavascript(script) { result ->
-            if (generation == navigationGeneration && result != "true") {
+            if (active && !destroyed && request == sessionRequest && generation == navigationGeneration && result != "true") {
                 clearSecrets()
                 state = state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
             }
@@ -211,12 +212,20 @@ class StmEngine(private val context: Context) {
         }
         polling = true
         val generation = navigationGeneration
-        web.evaluateJavascript(adapter + "\nJSON.stringify(window.BoleteraAdapter.snapshot());") { raw ->
+        val request = sessionRequest
+        web.evaluateJavascript(adapter + "\nJSON.stringify({origin:location.origin,snapshot:window.BoleteraAdapter.snapshot()});") { raw ->
             polling = false
-            if (!active || destroyed || generation != navigationGeneration) return@evaluateJavascript
+            if (!active || destroyed || request != sessionRequest || generation != navigationGeneration) return@evaluateJavascript
             try {
                 val decoded = JSONTokener(raw ?: "null").nextValue() as? String ?: return@evaluateJavascript
-                applySnapshot(JSONObject(decoded))
+                val sample = JSONObject(decoded)
+                // WebView's reported URL can advance before the JavaScript document does.
+                // An old about:blank/login snapshot must never block the next document or execute actions in it.
+                if (!NavigationPolicy.snapshotMatches(sample.optString("origin"), web.url ?: "")) {
+                    if (System.currentTimeMillis() - actionStarted > 35000) fail("No terminó de cargar el siguiente paso. Volvé a ingresar. Código: CAMBIO-PAGINA.")
+                    return@evaluateJavascript
+                }
+                applySnapshot(sample.getJSONObject("snapshot"))
             } catch (_: Exception) { fail("No pudimos interpretar esta pantalla de STM. No se avanzó ni se pagó.") }
         }
     }

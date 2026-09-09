@@ -4,6 +4,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ModelsTest {
+    @Test fun staleDocumentOriginsAreDiscardedDuringNavigation() {
+        assertTrue(NavigationPolicy.snapshotMatches("https://stm.gub.uy", "https://stm.gub.uy/app/mistm/cuenta/pages/tarjetas.xhtml"))
+        assertTrue(NavigationPolicy.snapshotMatches("https://stm.gub.uy:443", "https://stm.gub.uy/app/"))
+        assertFalse(NavigationPolicy.snapshotMatches("null", "https://stm.gub.uy/app/"))
+        assertFalse(NavigationPolicy.snapshotMatches("https://mi.iduruguay.gub.uy", "https://stm.gub.uy/app/"))
+        assertFalse(NavigationPolicy.snapshotMatches("https://stm.gub.uy", "https://evil.test/"))
+        assertFalse(NavigationPolicy.snapshotMatches("https://evil.test", "https://stm.gub.uy/app/"))
+    }
     @Test fun amountsAreExactAndRejectAmbiguity() {
         assertEquals(56400L, Amounts.parse("564"))
         assertEquals(56425L, Amounts.parse("564,25"))

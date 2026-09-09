@@ -35,4 +35,11 @@ object NavigationPolicy {
         val uri = java.net.URI(url)
         uri.scheme == "https" && uri.host in hosts && uri.userInfo == null && (uri.port == -1 || uri.port == 443)
     } catch (_: Exception) { false }
+
+    fun snapshotMatches(origin: String, currentUrl: String): Boolean = try {
+        val page = java.net.URI(currentUrl)
+        val sample = java.net.URI(origin)
+        allowed(currentUrl) && allowed(origin) && sample.scheme == page.scheme && sample.host == page.host &&
+            (sample.port.takeIf { it != -1 } ?: 443) == (page.port.takeIf { it != -1 } ?: 443)
+    } catch (_: Exception) { false }
 }

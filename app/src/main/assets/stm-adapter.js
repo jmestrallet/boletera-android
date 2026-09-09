@@ -44,9 +44,20 @@
     return { x: Math.max(0, r.left), y: Math.max(0, r.top), width: r.width, height: r.height,
       expanded: /\/bframe/.test(frame.src) };
   };
+  const rowText = el => {
+    // Labels may be separate spans/divs with NO whitespace between them in the HTML.
+    // textContent would turn the card number and its status into a single word.
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const parts = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.parentElement?.closest('script, style')) continue;
+      parts.push(node.textContent);
+    }
+    return parts.join(' ').replace(/\s+/g, ' ').trim();
+  };
   const rows = () => [...document.querySelectorAll('tbody tr, [role="row"]')].filter(visible)
     .map((el, index) => {
-      const s = text(el), id = s.match(/\b[A-F0-9]{8}\b/i)?.[0];
+      const s = rowText(el), id = s.match(/\b[A-F0-9]{8}\b/i)?.[0];
       const active = /\bOperativa\b/i.test(s) && !/no operativa/i.test(s);
       return id ? { index, id, status: active ? 'Operativa' : 'No operativa', active } : null;
     }).filter(Boolean);

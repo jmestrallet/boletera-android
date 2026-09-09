@@ -6,7 +6,7 @@ El código y la documentación se publican para permitir revisión y colaboraci�
 
 ## Probar en el celular
 
-1. Pasá `outputs/boletera-prueba-0.1.1.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado.
+1. Pasá `outputs/boletera-prueba-0.1.2.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.
@@ -29,7 +29,7 @@ Si el acceso, CAPTCHA o certificado falla, la app se detiene. No abre Chrome ni 
 
 La protección concreta de la clave depende del hardware del teléfono; no se afirma que todos los dispositivos tengan StrongBox. No hay alternativa que guarde texto plano. Si falta biometría compatible, queda el ingreso manual. Agregar/quitar biometría o cambiar la seguridad del dispositivo puede invalidar la clave; en ese caso hay que **Olvidar acceso guardado** y configurarlo de nuevo.
 
-Para enviar las credenciales al sitio, necesariamente existen brevemente descifradas en memoria. El motor descarta sus referencias al completar el ingreso, cancelar, pasar a segundo plano o superar tres minutos. No se registran en consola ni se guardan en estado restaurable. La app bloquea capturas y vistas de recientes; el test visual desactiva esa protección exclusivamente en una pantalla vacía del emulador.
+Para enviar las credenciales al sitio, necesariamente existen brevemente descifradas en memoria. El motor descarta sus referencias al completar el ingreso, cancelar, pasar a segundo plano o superar tres minutos. No se registran en consola ni se guardan en estado restaurable. Desde 0.1.2 las capturas están habilitadas a pedido del usuario para reportar problemas. Antes de compartir una captura, revisá que no incluya datos personales o de tarjeta.
 
 Un nuevo ingreso explícito limpia primero la sesión web local para no mostrar accidentalmente otra cuenta. **Cerrar sesión local** borra cookies/almacenamiento WebView pero conserva el acceso cifrado. **Olvidar acceso guardado** elimina ambos. El respaldo en la nube y la transferencia de datos de la aplicación están excluidos.
 

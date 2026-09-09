@@ -6,12 +6,12 @@ Hay una APK Android con interfaz propia y motor local implementados. **No está 
 
 | Comprobación | Resultado |
 |---|---|
-| Adaptador JavaScript: acceso con descripción dentro del botón, dinero, deuda, mínimo variable, tarjetas, origen, privacidad, CAPTCHA y límite de pago | 11 pruebas aprobadas |
-| Modelos JVM: importes exactos, mínimo y política de navegación | 3 pruebas aprobadas |
+| Adaptador JavaScript: acceso con descripción dentro del botón, dinero, deuda, mínimo variable, tarjetas, origen, privacidad, CAPTCHA y límite de pago | 12 pruebas aprobadas; incluye números y estados en elementos contiguos sin espacios |
+| Modelos JVM: importes exactos, mínimo, política de navegación y origen de respuestas durante transiciones | 4 pruebas aprobadas |
 | Compilación desde clon público limpio de GitHub (`a6724d5`) | APK debug, 3 pruebas JVM, lint y 11 pruebas JS aprobados. Sin `local.properties` ni claves del proyecto; se usaron JDK/SDK instalados y caché de dependencias de la PC |
-| Emulador Android 16: arranque nativo, lectura de fixture en WebView real, ausencia de guardado plano sin biometría y captura de pantalla vacía para revisar diseño | 4 pruebas aprobadas |
+| Emulador Android 16: arranque nativo, fixture en WebView, ausencia de guardado plano sin biometría, capturas habilitadas y recorrido completo offline desde tabla compacta hasta saldo/mínimo usando StmEngine | 5 pruebas locales aprobadas |
 | Entrada pública real de STM desde WebView | Aprobada en Android 16 tras corregir la cadena TLS incompleta y reconocer la descripción incluida en el botón de identidad. Solo navegación pública; sin enviar documento ni contraseña |
-| Login real con credenciales del usuario en la APK | No realizado |
+| Login real con credenciales del usuario en la APK | Usuario informó que 0.1.1 llegó a selección de boletera con lista vacía y luego se bloqueó. Correcciones en 0.1.2 pendientes de confirmar en su teléfono |
 | CAPTCHA real completo dentro del recorte | No validado |
 | Guardar y descifrar con huella física | Implementado; pendiente de dispositivo con biometría configurada |
 | Tarjeta guardada de Google y huella en pago | No validado. Solo hay una prueba local de autocompletado |
@@ -21,7 +21,7 @@ La versión 0.1.0 fallaba con `TLS_REJECTED_3` en Android. El servidor STM envia
 
 Fuente del certificado: https://repository.certum.pl/certumdvtlsg2r39ca.pem. SHA-256 del certificado DER: `83C0A5A76844C840DFAF820FFD02ADF6573A26823EF6AF758A3384A0AC044083`.
 
-La ejecución final en Android 16 aprobó las cinco pruebas (cuatro locales y el sondeo público). Los fixtures reproducen estructura conocida con datos ficticios y solo verifican la implementación; no acreditan un login completo ni una recarga real.
+La ejecución final de 0.1.2 en Android 16 aprobó las seis pruebas (cinco locales y el sondeo público). Los fixtures usan datos ficticios; no acreditan un login completo ni una recarga real. El test de tabla compacta falló con cero boleteras antes de la corrección y luego aprobó con dos; el recorrido Android llegó al saldo y mínimo sin mostrar páginas completas. La corrección de respuestas de un documento anterior está probada con datos controlados, pero no se demostró que sea la única causa del bloqueo informado en el teléfono.
 
 ## Evidencia local
 
@@ -29,7 +29,7 @@ La ejecución final en Android 16 aprobó las cinco pruebas (cuatro locales y el
 - Emulador: `app/build/outputs/androidTest-results/connected/debug/` y `app/build/reports/androidTests/connected/debug/`.
 - Lint: `app/build/reports/lint-results-debug.html`.
 - Captura de pantalla nativa sin datos personales: `outputs/welcome-test.png`.
-- Entrega: `outputs/boletera-prueba-0.1.1.apk`.
+- Entrega: `outputs/boletera-prueba-0.1.2.apk` (7.900.966 bytes), SHA-256 `1491181b78fcbb4008f9bb8458c3b2537f484cd8dc5c1da1ea4f5a405d946f52`. Firma verificada, igual que 0.1.1.
 
 ## Criterio para continuar
 
