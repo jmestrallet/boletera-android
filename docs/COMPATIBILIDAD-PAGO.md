@@ -34,6 +34,8 @@ No hay conciliación automática de operaciones implementada. La consulta de mov
 
 Recordar Prex o eBROU no guarda una tarjeta bancaria ni su contraseña. La huella de acceso a STM es independiente de la autenticación del pago. Chrome y el proveedor determinan si se ofrece autocompletado, huella, contraseña, llave digital o CAPTCHA; no se promete que todos los pagos se resuelvan con una huella.
 
+Se investigó un servicio opcional de Android para ofrecer perfiles de titular dentro de Chrome. Es técnicamente distinto de controlar una Custom Tab y requiere cambiar el proveedor de autocompletado; no está implementado en la APK ni validado contra Prex. Ver [la propuesta y sus consecuencias](PERFILES-PREX.md).
+
 Referencias oficiales:
 
 - [BROU: recarga STM mediante Multipagos eBROU](https://www.brou.com.uy/personas/servicios/multipagos/stm-en-linea).
