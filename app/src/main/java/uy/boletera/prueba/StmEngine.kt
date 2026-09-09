@@ -33,6 +33,8 @@ class StmEngine(private val context: Context) {
     private var navigationGeneration = 0
     private var secretsExpireAt = 0L
     private var sessionRequest = 0
+    private val stageTrail = ArrayDeque<String>()
+    private var interruptedAccess = false
     val web = WebView(context)
     val host = CaptchaHost(context, web)
     private val poll = object : Runnable {
@@ -103,6 +105,7 @@ class StmEngine(private val context: Context) {
         if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
         clearSecrets()
         document = doc; password = pass
+        interruptedAccess = false; stageTrail.clear()
         secretsExpireAt = System.currentTimeMillis() + 180000
         lastAction = ""; pageStage = ""; actionStarted = System.currentTimeMillis()
         state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess)
@@ -174,7 +177,11 @@ class StmEngine(private val context: Context) {
         state = state.copy(message = "Sesión local eliminada. El acceso cifrado se conserva hasta que elijas olvidarlo.")
     }
 
-    fun pause() { handler.removeCallbacks(poll); clearSecrets() }
+    fun pause() {
+        handler.removeCallbacks(poll)
+        if (document != null || password != null) interruptedAccess = true
+        clearSecrets()
+    }
     fun resume() {
         if (active) { handler.removeCallbacks(poll); handler.post(poll) }
     }
@@ -233,6 +240,14 @@ class StmEngine(private val context: Context) {
     private fun applySnapshot(data: JSONObject) {
         val stage = data.optString("stage", "unknown")
         val changed = stage != pageStage
+        val knownStages = setOf("loading", "start", "identity", "document", "password", "cards", "cardsLoading", "balance", "amount", "paymentBoundary", "signedOut", "unknown", "verification", "blocked")
+        if (changed) {
+            if (stageTrail.size >= 6) stageTrail.removeFirst()
+            stageTrail.addLast(if (stage in knownStages) stage else "unknown")
+        }
+        val shape = if (stage == "cards" || stage == "cardsLoading")
+            " · tabla=${if (data.optBoolean("tablePresent")) 1 else 0}, filas=${data.optInt("rowCount").coerceIn(0, 999)}, visibles=${data.optInt("visibleRowCount").coerceIn(0, 999)}, leídas=${(data.optJSONArray("cards")?.length() ?: 0).coerceIn(0, 999)}" else ""
+        state = state.copy(diagnostic = stageTrail.joinToString(" → ") + shape)
         if (changed) { lastAction = ""; state = state.copy(busy = false); actionStarted = System.currentTimeMillis() }
         pageStage = stage
         val c = data.optJSONObject("captcha")
@@ -256,6 +271,7 @@ class StmEngine(private val context: Context) {
         }
         fun cents(key: String): Long? = if (data.has(key) && !data.isNull(key)) data.getLong(key) else null
         when (stage) {
+            "loading" -> state = state.copy(stage = "connecting", busy = true)
             "start" -> if (password != null && lastAction != "start") act("start") else if (password == null) expired()
             "identity" -> if (password != null && lastAction != "identity") act("identity") else if (password == null) expired()
             "document" -> if (document != null && lastAction != "document") act("document", document!!) else if (document == null) expired()
@@ -263,10 +279,17 @@ class StmEngine(private val context: Context) {
                 act("password", password!!)
             } else if (!state.busy && lastAction != "password") expired()
             "cards" -> {
-                clearSecrets()
                 val cards = data.optJSONArray("cards") ?: return
                 val list = (0 until cards.length()).map { cards.getJSONObject(it) }.map { CardInfo(it.getString("id"), it.getBoolean("active"), it.getString("status")) }
-                state = state.copy(stage = "cards", cards = list)
+                if (list.isEmpty()) return // Never treat an unparsed/unfinished page as a completed login.
+                clearSecrets()
+                state = state.copy(stage = "cards", cards = list, message = "")
+            }
+            "cardsLoading" -> {
+                state = state.copy(stage = "connecting", busy = true, message = "Esperando que STM termine de mostrar las boleteras…")
+                if (System.currentTimeMillis() - actionStarted > 20000) {
+                    fail("No pudimos leer la lista de boleteras. Esto no significa que no tengas ninguna. Pasame una captura con la referencia que aparece abajo.")
+                }
             }
             "balance" -> {
                 clearSecrets()
@@ -293,7 +316,9 @@ class StmEngine(private val context: Context) {
     }
     private fun expired() {
         clearSecrets(); active = false; handler.removeCallbacks(poll)
-        state = state.copy(stage = "welcome", busy = false, message = "STM pide ingresar nuevamente. Usá tu huella o ingresá manualmente.")
+        state = state.copy(stage = "welcome", busy = false, message = if (interruptedAccess)
+            "El ingreso se interrumpió al pasar la app a segundo plano. Volvé a entrar con huella o manualmente."
+            else "La app volvió a la pantalla de acceso sin completar la consulta. Pasame una captura con la referencia de abajo.")
     }
     companion object { const val START = "https://stm.gub.uy/app/mistm/cuenta/" }
 }

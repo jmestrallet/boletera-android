@@ -1,6 +1,7 @@
 .tools/
 .gradle/
 .kotlin/
+.codex-remote-attachments/
 local.properties
 **/build/
 node_modules/

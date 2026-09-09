@@ -17,7 +17,7 @@ import org.junit.runner.RunWith
 class CardFlowRegressionTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
-    @Test fun hiddenEngineReadsCompactCardLabelsAndReachesBalanceAcrossNavigation() {
+    @Test fun protectedUrlLoginAndDelayedCardsKeepAccessUntilRowsAreActuallyRead() {
         lateinit var engine: StmEngine
         compose.runOnIdle {
             engine = StmEngine(compose.activity)
@@ -27,9 +27,13 @@ class CardFlowRegressionTest {
                     val root = "https://stm.gub.uy/app/mistm/cuenta/pages/"
                     val html = when (request.url.path) {
                         "/app/mistm/cuenta/" -> "<script>location.href='${root}tarjetas.xhtml'</script>"
-                        "/app/mistm/cuenta/pages/tarjetas.xhtml" -> """
-                            <table><tbody><tr onclick="location.href='${root}principal.xhtml'"><td><span>ABCD1234</span><span>Operativa</span></td></tr><tr><td><span>DEAD5678</span><span>Pte. Anular (Caducidad G.U.)</span></td></tr></tbody></table>
-                        """.trimIndent()
+                        "/app/mistm/cuenta/pages/tarjetas.xhtml" -> if (request.url.getQueryParameter("authenticated") != "1") {
+                            "<button onclick=\"location.href='https://mi.iduruguay.gub.uy/login'\">INGRESAR CON USUARIO GUB.UY</button>"
+                        } else {
+                            val rows = """<table><tbody><tr onclick="location.href='${root}principal.xhtml'"><td><span>ABCD1234</span><span>Operativa</span></td></tr><tr><td><span>DEAD5678</span><span>Pte. Anular (Caducidad G.U.)</span></td></tr></tbody></table>"""
+                            "<div id='form1:tablaTarjetas_data'></div><script>setTimeout(()=>{document.getElementById('form1:tablaTarjetas_data').innerHTML=${org.json.JSONObject.quote(rows)}},2500)</script>"
+                        }
+                        "/login" -> """<input type="password"><button onclick="if(document.querySelector('input').value==='synthetic-offline-only') location.href='${root}tarjetas.xhtml?authenticated=1'">Continuar</button>"""
                         "/app/mistm/cuenta/pages/principal.xhtml" -> """
                             <p>Saldo disponible*: ${'$'} -304</p><button onclick="location.href='${root}recarga1.xhtml'">Recargar</button>
                         """.trimIndent()

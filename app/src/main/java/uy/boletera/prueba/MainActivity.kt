@@ -141,7 +141,7 @@ class MainActivity : FragmentActivity() {
                                     else Text("No está habilitada para esta prueba.", color = Muted)
                                 }
                             }
-                            if (state.cards.isEmpty()) Notice("No encontramos boleteras en esta pantalla. Volvé a consultar.")
+                            if (state.cards.isEmpty()) Notice("Todavía no pudimos leer las boleteras.")
                         }
                         "balance" -> {
                             Text("TU BOLETERA ${state.selectedCard?.takeLast(4) ?: ""}", color = Muted, fontSize = 12.sp, letterSpacing = 1.sp)
@@ -211,6 +211,7 @@ class MainActivity : FragmentActivity() {
                     }
                     if (state.stage != "welcome") TextButton(onClick = { engine.logout() }) { Text("Cerrar sesión local") }
                     if (state.hasSavedAccess) TextButton(onClick = { showForget = true }) { Text("Olvidar acceso guardado") }
+                    if (state.diagnostic.isNotBlank()) Text("Referencia: ${state.diagnostic}", color = Muted, fontSize = 11.sp)
                 }
             }
         }

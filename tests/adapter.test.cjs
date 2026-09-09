@@ -13,6 +13,7 @@ test('identity provider button may contain its descriptive children', () => {
 });
 function page(path, html, host = 'stm.gub.uy') {
   const dom = new JSDOM(html, { url: `https://${host}/${path}`, runScripts: 'outside-only' });
+  Object.defineProperty(dom.window.document, 'readyState', { configurable: true, value: 'complete' });
   dom.window.HTMLElement.prototype.getBoundingClientRect = function () {
     return { x: 0, y: 0, left: 12, top: 20, width: 304, height: 78, right: 316, bottom: 98 };
   };
@@ -68,6 +69,23 @@ test('card labels in adjacent elements remain separate without whitespace in HTM
   dom.window.document.querySelector('tr').onclick = () => clicks++;
   assert.equal(adapter.command('card', 'ABCD1234'), true);
   assert.equal(clicks, 1);
+});
+
+test('a protected card URL showing login is not an authenticated empty account', () => {
+  const { adapter } = page('app/mistm/cuenta/pages/tarjetas.xhtml', '<button>INGRESAR CON USUARIO GUB.UY</button>');
+  assert.equal(adapter.snapshot().stage, 'start');
+});
+
+test('a card page still loading does not report zero cards as a completed login', () => {
+  const { adapter } = page('app/mistm/cuenta/pages/tarjetas.xhtml', '<div id="form1:tablaTarjetas_data"></div>');
+  assert.equal(adapter.snapshot().stage, 'cardsLoading');
+});
+
+test('an unfinished document is never classified as an authenticated card page', () => {
+  const { dom, adapter } = page('app/mistm/cuenta/pages/tarjetas.xhtml', '<table><tbody><tr><td>ABCD1234 Operativa</td></tr></tbody></table>');
+  Object.defineProperty(dom.window.document, 'readyState', { configurable: true, value: 'loading' });
+  assert.equal(adapter.snapshot().stage, 'loading');
+  assert.equal(adapter.command('card', 'ABCD1234'), false);
 });
 test('credential contents never appear in snapshots; input is a literal', () => {
   const { dom, adapter } = page('login', '<input type="password" placeholder="Ingresá tu contraseña"><button>Continuar</button>', 'mi.iduruguay.gub.uy');

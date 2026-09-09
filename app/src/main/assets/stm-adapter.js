@@ -63,6 +63,7 @@
     }).filter(Boolean);
   function snapshot() {
     if (!trusted()) return { stage: 'blocked' };
+    if (document.readyState !== 'complete') return { stage: 'loading' };
     const path = location.pathname;
     const cap = captcha();
     const error = [...document.querySelectorAll('[role="alert"], .ui-messages-error, .ui-message-error')]
@@ -75,7 +76,16 @@
       if (button(/^Usuario Gub\.uy(?:$|\s|Realiza)/i)) return { ...base, stage: 'identity' };
       return { ...base, stage: cap ? 'verification' : 'unknown' };
     }
-    if (path.endsWith('tarjetas.xhtml')) return { ...base, stage: 'cards', cards: rows() };
+    // A protected URL may still contain the sign-in page during authentication.
+    // Its path alone is never evidence that the account is authenticated.
+    if (button(/INGRESAR CON USUARIO GUB\.UY/i)) return { ...base, stage: 'start' };
+    if (path.endsWith('tarjetas.xhtml')) {
+      const cards = rows();
+      return { ...base, stage: cards.length ? 'cards' : 'cardsLoading', cards,
+        rowCount: document.querySelectorAll('tbody tr, [role="row"]').length,
+        visibleRowCount: [...document.querySelectorAll('tbody tr, [role="row"]')].filter(visible).length,
+        tablePresent: !!document.getElementById('form1:tablaTarjetas_data') };
+    }
     if (path.endsWith('principal.xhtml')) {
       const s = text(document.body);
       const match = s.match(/Saldo disponible\*?\s*:\s*(-?\s*\$?\s*-?\s*\d[\d.,]*)/i);
@@ -89,7 +99,6 @@
         balance: balanceField ? money(balanceField.value) : null };
     }
     if (path.endsWith('recarga2.xhtml')) return { ...base, stage: 'paymentBoundary' };
-    if (button(/INGRESAR CON USUARIO GUB\.UY/i)) return { ...base, stage: 'start' };
     if (path.endsWith('logout.xhtml')) return { ...base, stage: 'signedOut' };
     return { ...base, stage: 'unknown' };
   }

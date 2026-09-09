@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.1.3-prueba
+
+- No clasifica un documento que todavía está cargando como una cuenta autenticada.
+- Reconoce el formulario de acceso aunque se muestre bajo la dirección protegida de boleteras.
+- Espera filas legibles antes de descartar los datos temporales de ingreso; una tabla sin interpretar ya no se anuncia como ausencia de boleteras.
+- Si el acceso vuelve a aparecer, distingue la interrupción por segundo plano del regreso al formulario. No atribuye automáticamente el error a una sesión vencida en STM.
+- Muestra una referencia con las últimas etapas y conteos de filas. No incluye documento, contraseña, número de tarjeta, cookies ni direcciones de sesión.
+- Excluye las capturas adjuntas del repositorio público.
+
+El recorrido de prueba reproduce un formulario de login bajo la dirección de tarjetas y una tabla que aparece con demora. El resultado real de esta versión debe confirmarse en el teléfono.
+
 ## 0.1.2-prueba
 
 - Corrige la lectura de boleteras cuyo número y estado aparecen en elementos HTML contiguos sin espacios. Antes se concatenaban y la lista quedaba vacía.
