@@ -18,6 +18,7 @@ internal data class ErrorPresentation(val title:String,val explanation:String,va
 internal fun errorPresentation(message:String):ErrorPresentation {
     val text=message.lowercase()
     return when {
+        "documento o contraseña incorrectos" in text -> ErrorPresentation("Revisá tus datos","El documento o la contraseña de gub.uy no son correctos. Corregilos para volver a intentar.","DATOS DE ACCESO")
         "conexión segura" in text || "certificado" in text -> ErrorPresentation("No pudimos conectar\nde forma segura","No se pudo verificar la seguridad de la conexión. Cerrá este paso y probá más tarde.","CONEXIÓN SEGURA")
         "conectar" in text || "conexión" in text || "internet" in text -> ErrorPresentation("La conexión\nse interrumpió","Revisá tu conexión a internet. También puede haber una interrupción del servicio.","CONEXIÓN")
         "demor" in text || "demasiado tiempo" in text || "no respondió" in text -> ErrorPresentation("El servicio\nno respondió","Este paso demoró o devolvió un error. Podés volver al inicio e intentarlo más tarde.","SERVICIO")
@@ -64,7 +65,7 @@ internal fun errorPresentation(message:String):ErrorPresentation {
             }
         }
         Column(verticalArrangement=Arrangement.spacedBy(4.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-            Primary(if(payment)"Volver a Boletera" else "Volver al inicio",action=onExit)
+            Primary(if(info.code=="DATOS DE ACCESO")"Corregir datos" else if(payment)"Volver a Boletera" else "Volver al inicio",action=onExit)
             OutlinedButton(onClick={},enabled=false,modifier=Modifier.fillMaxWidth()) {Text("Enviar error al desarrollador")}
             Text("Próximamente",style=MaterialTheme.typography.labelSmall,color=Muted)
         }

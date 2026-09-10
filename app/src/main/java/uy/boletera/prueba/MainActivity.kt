@@ -239,7 +239,13 @@ class MainActivity : FragmentActivity() {
                             }
                             "blocked" -> {
                                 AppErrorScreen(state.message,state.diagnostic,payment=state.activePayment!=null,
-                                    onExit=if(state.activePayment!=null)engine::refresh else engine::cancel)
+                                    onExit={
+                                        if(state.activePayment!=null)engine.refresh() else {
+                                            val accessError=errorPresentation(state.message).code=="DATOS DE ACCESO"
+                                            engine.cancel()
+                                            if(accessError)manual=true
+                                        }
+                                    })
                             }
                         }
                         // One stable host: transitions never duplicate or recreate the authenticated browser.

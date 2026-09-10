@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.25
+## Versión vigente: 0.2.26
+
+El dueño compartió el reporte de un tercero: al equivocarse en la contraseña, la pantalla decía que el servicio no respondió. La captura no mostraba la versión ni la respuesta exacta de gub.uy, por lo que no acredita una causa única ni permite medir el tiempo normal de acceso. En el código se encontraron la prioridad del error HTTP sobre el cuerpo reconocido y la ausencia de una presentación específica para credenciales rechazadas.
+
+El adaptador identifica mensajes explícitos y visibles de documento/usuario/contraseña incorrectos únicamente en el acceso del proveedor de identidad. Devuelve un código de clasificación, sin texto del proveedor ni valores ingresados. CAPTCHA, bloqueo de cuenta, caída de servicio, textos ocultos e instrucciones condicionales no se clasifican como contraseña incorrecta. Ese código precede al error HTTP genérico, detiene el intento y limpia credenciales temporales. La pantalla muestra Revisá tus datos y Corregir datos; ese botón abre el formulario manual aunque exista acceso guardado.
+
+61 pruebas JavaScript aprobadas, ocho JVM y lint/release aprobados (compilación inicial 17 s; ajuste final del patrón 6 s). Ocho pruebas Android aprobadas en 28,288 s (`outputs/login-android-0.2.26.txt`): rechazo con respuesta 200, rechazo con 401, servicio caído con 503, corrección manual y acceso ficticio exitoso, cuatro casos existentes de recuperación de sesión y pantalla genérica de error. Se comprobó un solo envío por intento y limpieza de las credenciales temporales. Captura revisada: `outputs/login-rejected-0.2.26.png`, en 1080 × 2340, 420 dpi y letra 1×.
+
+APK código 44, 8.630.447 bytes, SHA-256 `8839288a5207379d1019b4de09e6162c4e5df64301a01b815ae64a10c07866d4`, misma firma. Todas las navegaciones de prueba de acceso/STM se respondieron localmente. No se hicieron intentos de acceso con cuentas reales, cambios en el teléfono físico ni pagos. Falta contrastar el mensaje exacto del caso reportado si vuelve a ocurrir.
+
+## Versión anterior: 0.2.25
 
 El dueño mostró el formulario con número, vencimiento y CVV completos por Google y señaló que todavía debía tocar Continuar. Se implementó el avance propuesto: las acciones de autocompletado de Android se identifican por campo, se exige la entrega de los tres y su validación, y se continúa una sola vez al siguiente paso del proveedor. La escritura manual no se interpreta como autocompletado. Se conservan las comprobaciones del proveedor, CAPTCHA, limpieza al salir y confirmación financiera explícita. No se copió la tarjeta de la captura a pruebas ni documentación.
 

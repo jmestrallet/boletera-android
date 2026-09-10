@@ -86,6 +86,18 @@
         (location.hostname !== 'stm.gub.uy' && path === '/sending-saml-response')) return { ...base, stage: 'handoff' };
     if (location.hostname !== 'stm.gub.uy') {
       if (path !== '/login') return { ...base, stage: 'unknown' };
+      // Classify the provider's visible rejection, never the entered values or an HTTP code alone.
+      const rejected = [...document.querySelectorAll('[role="alert"], .ui-messages-error, .ui-message-error, .alert, .error, .invalid-feedback, mat-error, .mat-error, .text-danger, .error-message, p')]
+        .filter(visible).some(el => {
+          if(el.closest('[hidden],[aria-hidden="true"]'))return false;
+          const s=text(el).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+          if(s.length>500 || /captcha|verificacion|bloquead|demasiados intentos/.test(s))return false;
+          if(el.tagName==='P' && !el.closest('[role="alert"],.alert,.error,.invalid-feedback,.error-message') &&
+             !/^(?:(?:el|la|los|las) )?(?:documento|usuario|contrasena|password|credenciales|datos ingresados|incorrect|invalid)/.test(s))return false;
+          return /(?:documento|usuario|contrasena|password|credenciales|datos ingresados).{0,100}(?:incorrect[oa]s?|invalid(?:[oa]s?)?|no (?:son |es )correct[oa]s?|no coinciden?|no es valid[oa])/.test(s) ||
+            /(?:incorrect[oa]s?|invalid(?:[oa]s?)?).{0,60}(?:documento|usuario|contrasena|password|credenciales)/.test(s);
+        });
+      if(rejected)base.authError='credentials';
       if (input(/password|contrase/i)) return { ...base, stage: 'password' };
       if (input(/documento|document|dni/i)) return { ...base, stage: 'document' };
       if (button(/^Usuario Gub\.uy(?:$|\s|Realiza)/i)) return { ...base, stage: 'identity' };

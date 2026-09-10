@@ -526,6 +526,11 @@ class StmEngine(private val context: Context) {
             return
         }
         if (recoveringSession && stage in setOf("document", "password", "signedOut")) { expired(); return }
+        if (data.optString("authError") == "credentials" && !accountVerified && !paymentInFlight) {
+            pendingHttpError = null
+            fail("Documento o contraseña incorrectos. Revisalos e intentá de nuevo.")
+            return
+        }
         if (pendingHttpError != null && stage != "loading") {
             val message = pendingHttpError!!; pendingHttpError = null
             if (loginStage && recoveringSession) expired() else fail(message)

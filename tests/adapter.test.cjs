@@ -3,6 +3,23 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { JSDOM } = require('jsdom');
 const source = fs.readFileSync('app/src/main/assets/stm-adapter.js', 'utf8');
+test('login identifies explicit rejected credentials without returning provider text or entered values', () => {
+  for(const message of ['Documento o contraseña incorrectos','El documento y la contraseña ingresados no son correctos','Usuario inválido','Invalid username or password','Los datos ingresados no son correctos']) {
+    const {adapter}=page('login',`<input type="password" value="synthetic-secret"><p class="error-message">${message}</p>`,'mi.iduruguay.gub.uy');
+    const snapshot=adapter.snapshot();
+    assert.equal(snapshot.authError,'credentials',message);
+    assert.equal(JSON.stringify(snapshot).includes('synthetic-secret'),false);
+    assert.equal(JSON.stringify(snapshot).includes(message),false);
+  }
+});
+test('network failures, captcha, lockout and hidden or instructional text do not accuse credentials', () => {
+  for(const markup of ['<div role="alert">El servicio no está disponible</div>','<div role="alert">CAPTCHA incorrecto</div>',
+    '<div role="alert">Cuenta bloqueada por contraseña incorrecta</div>','<p>Si la contraseña es incorrecta, intentá nuevamente.</p>',
+    '<div class="error" style="display:none">Contraseña incorrecta</div>','<div class="error" aria-hidden="true">Contraseña incorrecta</div>']) {
+    assert.equal(page('login',`<input type="password">${markup}`,'mi.iduruguay.gub.uy').adapter.snapshot().authError,undefined,markup);
+  }
+  assert.equal(page('login','<p>Contraseña incorrecta</p>','stm.gub.uy').adapter.snapshot().authError,undefined);
+});
 test('identity provider button may contain its descriptive children', () => {
   const { dom, adapter } = page('login', '<button>Usuario Gub.uy<span>Realiza trámites con tu número de documento y contraseña</span><span>Básico o intermedio</span></button>', 'mi.iduruguay.gub.uy');
   let clicks = 0;

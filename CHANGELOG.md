@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.26-prueba — errores de acceso claros
+
+- Los mensajes visibles de gub.uy que rechazan documento o contraseña se clasifican antes del error HTTP genérico. Se muestra Revisá tus datos, una explicación directa y Corregir datos.
+- Corregir datos vuelve al formulario manual, incluso si hay acceso guardado. Se detiene el intento rechazado y se limpian las credenciales temporales.
+- Caídas del servicio, problemas de CAPTCHA, bloqueo de cuenta y mensajes ocultos no se etiquetan como contraseña incorrecta. No se estima el tiempo normal de ingreso a partir de pruebas ficticias.
+
 ## 0.2.25-prueba — autocompletado y actualizaciones
 
 - Cuando Android autocompleta número, vencimiento y CVV válidos, se continúa una sola vez con Sistarbanc. No se infiere autocompletado a partir de escritura manual. Se respetan CAPTCHA, estado del proveedor y limpieza al salir; la confirmación financiera final continúa siendo explícita.
