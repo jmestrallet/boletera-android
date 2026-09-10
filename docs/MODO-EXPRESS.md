@@ -1,6 +1,8 @@
 # Express — atajo puntual desde 0.2.10
 
-La recarga común conserva el botón principal **Recargar boletera**, con elección de importe y medio. Debajo aparece un control secundario **Modo Express** solo cuando la cuenta ya tiene lo necesario. No hay encendido/apagado, activación persistente, pantalla de configuración ni confirmación posterior del modo.
+La recarga común conserva el botón principal **Recargar boletera**, con elección de importe y medio. Debajo aparece un control secundario **Modo Express** solo cuando la cuenta ya tiene lo necesario. No hay encendido/apagado ni activación persistente.
+
+Desde 0.2.11, antes de iniciar se muestra una explicación con el mínimo actual, Prex, datos habituales, gesto y verificaciones humanas. **Aceptar y continuar** inicia esa recarga; **Ahora no**, Atrás o cerrar no inician nada. **No volver a mostrar** está desmarcado inicialmente y solo se guarda al aceptar. Si se marca, las siguientes pulsaciones completas inician directamente. Un toque corto siempre permite volver a consultar la explicación. Olvidar el acceso restablece también esta preferencia de ayuda del teléfono.
 
 ## Cuándo aparece
 
@@ -13,8 +15,8 @@ Si falta cualquiera de esos datos, Express se oculta. Los datos se guardan media
 
 ## Una recarga Express
 
-1. Mantené apretado **Modo Express** durante 1,2 segundos. El control muestra Prex y el importe mínimo antes del gesto, llena su anillo y emite pulsos. Soltar antes cancela; un toque corto no inicia nada.
-2. Al completar el gesto, comienza esa única solicitud con el mínimo vigente, la boletera habitual y el titular predeterminado. La app vuelve a comprobar el mínimo y las opciones devueltas por STM.
+1. Mantené apretado **Modo Express** durante 1,2 segundos. El control muestra Prex y el importe mínimo antes del gesto, llena su anillo y emite pulsos. Soltar antes cancela; un toque corto abre la ayuda sin iniciar una solicitud.
+2. Al completar el gesto, se muestra la explicación salvo que hayas elegido no volver a mostrarla. Después de aceptar, o directamente si la omitiste, comienza esa única solicitud con el mínimo vigente, la boletera habitual y el titular predeterminado. La app vuelve a comprobar las condiciones y las opciones devueltas por STM.
 3. En Prex se avanza por el resumen únicamente si moneda e importe coinciden. Se avanza por el titular si coincide con el perfil elegido, el formulario original es válido y no aparece una verificación o dato adicional.
 4. El recorrido se detiene en el CAPTCHA original, si lo pide, o en el número de tarjeta. Con CAPTCHA se conserva el botón para continuar después de resolverlo: no se lee su respuesta ni se afirma poder detectar su resolución desde otro origen. En el formulario de tarjeta se enfoca el número para facilitar la sugerencia del sistema. La tarjeta guardada y su autorización con huella pertenecen a Android/Google; Boletera no almacena esos datos ni los envía automáticamente.
 

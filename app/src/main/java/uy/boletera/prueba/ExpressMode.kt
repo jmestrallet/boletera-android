@@ -29,7 +29,7 @@ import kotlinx.coroutines.delay
 
 /** A one-shot shortcut. No activation preference, configuration screen, or change to ordinary recharge. */
 @OptIn(ExperimentalFoundationApi::class)
-@Composable internal fun ExpressShortcut(amount: Long?, enabled: Boolean, onStart: () -> Unit) {
+@Composable internal fun ExpressShortcut(amount: Long?, enabled: Boolean, onExplain: (() -> Unit)? = null, onStart: () -> Unit) {
     val interaction=remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     var fired by remember { mutableStateOf(false) }
@@ -52,7 +52,7 @@ import kotlinx.coroutines.delay
         Surface(color=Panel,shape=RoundedCornerShape(24.dp),modifier=Modifier.fillMaxWidth()
             .graphicsLayer { scaleX=scale;scaleY=scale;shape=RoundedCornerShape(24.dp);clip=true }
             .combinedClickable(interactionSource=interaction,indication=ripple(),enabled=enabled,
-                onClick={haptic.performHapticFeedback(HapticFeedbackType.ContextClick)},
+                onClick={haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onExplain?.invoke()},
                 onLongClickLabel="Recargar el mínimo con Prex",onLongClick=::start)
             .semantics { if(enabled) customActions=listOf(CustomAccessibilityAction("Recargar ${Amounts.format(amount)} con Prex") { start();true }) }) {
             Row(Modifier.padding(horizontal=18.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {

@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.10
+## Versión vigente: 0.2.11
+
+Ayuda previa de Express con aceptación explícita y preferencia de no mostrar; guía de boletos local accesible desde saldo y Configuración, con fuentes públicas verificadas el 10/9/2026. [Contenido y fuentes](BOLETOS-Y-TARIFAS.md).
+
+48 pruebas JavaScript, ocho JVM, release y lint aprobados. Cinco pruebas Android iniciales aprobaron en 56,337 s (`outputs/guide-tests-0.2.11.txt`): guía, aceptación sin selección implícita, gestos/visibilidad de Express y recorrido completo interceptado. Este último comprueba cancelar el aviso sin abrir pago ni guardar la casilla, aceptar con la casilla, continuidad única hasta tarjeta y siguiente pulsación sin aviso. No se envían datos bancarios reales.
+
+Dos pruebas aprobaron con pantalla 360 × 640 dp, letra 2× y animación desactivada (6,711 s). Tras el ajuste del color del aviso y limpieza de su preferencia al olvidar el acceso, tres pruebas finales aprobaron en ese tamaño (6,539 s, `outputs/guide-final-small-0.2.11.txt`), incluyendo acceso a la guía desde Configuración sin sesión. Se inspeccionaron capturas claras/oscuras, el detalle metropolitano y la pantalla pequeña; el texto se desplaza y las acciones permanecen accesibles.
+
+APK código 29, SHA-256 `5abd5a2d5fa4a80bb6d359be3ef68b2ec83055380df76dbbdd38d35ffdd40321`; firma idéntica a 0.2.10. Build release/JVM/lint: 41 s; compilación final de pruebas Android: 12 s. Teléfono del usuario sin modificar. Pago y acreditación reales siguen pendientes; esta versión no agrega una cuenta regresiva de bloqueo.
+
+## Versión anterior: 0.2.10
 
 Express se rehízo como atajo puntual secundario: se oculta si faltan datos habituales, no tiene configuración ni estado encendido/apagado y no reemplaza Recargar boletera. Usa Prex, mínimo vigente y titular predeterminado. Además, Atrás desde la selección de boleteras regresa al saldo sin cancelar el acceso. [Flujo y condiciones](MODO-EXPRESS.md).
 

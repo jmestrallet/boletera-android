@@ -96,6 +96,14 @@ class MainActivity : FragmentActivity() {
             }
         }
         var showSettings by rememberSaveable { mutableStateOf(false) }
+        var showTicketGuide by rememberSaveable { mutableStateOf(false) }
+        var showExpressHelp by rememberSaveable { mutableStateOf(false) }
+        val helpPreferences=remember { getSharedPreferences("feature_help",MODE_PRIVATE) }
+        fun requestExpress() {
+            if(!engine.expressAvailable || state.busy)return
+            if(helpPreferences.getBoolean("express_skip_intro_v1",false))engine.startExpress()
+            else showExpressHelp=true
+        }
         if (state.stage == "embeddedPrex") {
             EmbeddedPrexScreen(engine.prexPayment, state.activePayment, engine::leavePrexPayment)
             return
@@ -120,7 +128,7 @@ class MainActivity : FragmentActivity() {
         val stage = if(state.stage=="connecting" && state.selectedCard!=null && state.balance!=null && state.amount==null) "balance" else state.stage
         val scroll = rememberScrollState()
         val pullState = rememberPullToRefreshState()
-        LaunchedEffect(stage) { scroll.scrollTo(0) }
+        LaunchedEffect(stage) { scroll.scrollTo(0);if(stage!="balance")showExpressHelp=false }
         fun back() {
             document=""; password=""
             if(engine.returnFromCardPicker())return
@@ -176,7 +184,8 @@ class MainActivity : FragmentActivity() {
                                 }
                             }
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
-                                onExpressCharge=if(engine.expressAvailable)engine::startExpress else null)
+                                onExpressCharge=if(engine.expressAvailable)::requestExpress else null,
+                                onExpressHelp={showExpressHelp=true},onTicketGuide={showTicketGuide=true})
                             "connecting" -> {
                                 LoadingState(if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", "Estamos consultando el sitio. Tu información va a aparecer acá.")
                                 TextButton(onClick=::back) { Text("Cancelar") }
@@ -233,8 +242,16 @@ class MainActivity : FragmentActivity() {
             }
         }
         if(showAmount)AmountSheet(state,{showAmount=false}){amount->showAmount=false;engine.prepare(amount)}
+        if(showTicketGuide)TicketGuideSheet {showTicketGuide=false}
+        if(showExpressHelp && stage=="balance")ExpressIntroDialog(state.minimum,
+            onClose={showExpressHelp=false},onAccept={skip->
+                helpPreferences.edit().putBoolean("express_skip_intro_v1",skip).apply()
+                showExpressHelp=false
+                if(engine.expressAvailable && !state.busy)engine.startExpress()
+            })
         if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",state.diagnostic,
-            onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall={updates.install(this@MainActivity)},onClose={showSettings=false})
+            onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall={updates.install(this@MainActivity)},onClose={showSettings=false},
+            onTicketGuide={showSettings=false;showTicketGuide=true})
 
         if (showPayerPicker) PayerPicker(engine.payerProfiles,state.payerProfileId,
             onChoose={engine.choosePayer(it);showPayerPicker=false},
@@ -246,7 +263,7 @@ class MainActivity : FragmentActivity() {
         if (showForget) AlertDialog(onDismissRequest = { showForget = false }, title = { Text("¿Olvidar este acceso?") },
             text = { Text("Se eliminan las credenciales cifradas, las preferencias y la sesión local.") },
             confirmButton = { TextButton(onClick = {
-                if (engine.forgetChoices()) { vault.forget(); engine.savedAccess(false); engine.logout(); engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.") }
+                if (engine.forgetChoices()) { helpPreferences.edit().clear().apply();vault.forget(); engine.savedAccess(false); engine.logout(); engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.") }
                 showForget = false
             }) { Text("Olvidar") } },
             dismissButton = { TextButton(onClick = { showForget = false }) { Text("Cancelar") } })

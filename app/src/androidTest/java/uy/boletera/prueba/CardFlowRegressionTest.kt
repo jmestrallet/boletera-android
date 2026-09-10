@@ -46,13 +46,14 @@ class CardFlowRegressionTest {
         instrumentation.addMonitor(monitor)
         val preferences = JourneyPreferences(compose.activity).apply { useAccount("00000000") }
         compose.runOnIdle {
+            compose.activity.getSharedPreferences("feature_help",0).edit().clear().commit()
             engine = MainActivity::class.java.getDeclaredField("engine").apply { isAccessible = true }.get(compose.activity) as StmEngine
             engine.forgetChoices()
             val paymentDelegate = engine.prexPayment.web.webViewClient
             engine.prexPayment.web.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
                     if (request.isForMainFrame) paymentLoads.computeIfAbsent(request.url.toString()) { java.util.concurrent.atomic.AtomicInteger() }.incrementAndGet()
-                    if(paymentLoads[request.url.toString()]?.get()==3) {
+                    if((paymentLoads[request.url.toString()]?.get()?:0)>=3) {
                         val shortcut="""<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>confirmar-pago,alta-cliente,alta-tarjeta{display:block}input{display:block}</style>
                             <stepper-pago><confirmar-pago><form><div><b>Moneda:</b><p>UYU</p></div><div><b>Total:</b><p>564,00</p></div><button type="button">Continuar</button></form></confirmar-pago></stepper-pago>
                             <script>window.summaryClicks=0;window.payerClicks=0;window.cardClicks=0;window.chosenPayer=false;
@@ -227,6 +228,17 @@ class CardFlowRegressionTest {
             }
             compose.onNodeWithText("Recargar boletera").assertExists()
             compose.onNodeWithText("Modo Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
+            compose.onNodeWithText("Así funciona Express").assertIsDisplayed()
+            compose.runOnIdle { assertEquals("balance",engine.state.stage);assertEquals(2,paymentLoads[newLink]?.get()) }
+            compose.onNodeWithText("No volver a mostrar").performScrollTo().performClick()
+            compose.onNodeWithText("Ahora no").performClick()
+            compose.runOnIdle {
+                assertEquals("balance",engine.state.stage)
+                assertFalse(compose.activity.getSharedPreferences("feature_help",0).getBoolean("express_skip_intro_v1",false))
+            }
+            compose.onNodeWithText("Modo Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
+            compose.onNodeWithText("No volver a mostrar").performScrollTo().performClick()
+            compose.onNodeWithText("Aceptar y continuar").performClick()
             compose.runOnIdle { engine.startExpress() } // Duplicate cannot initiate another submission.
             compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" }
             compose.onNodeWithText("Número de tarjeta").assertExists()
@@ -236,12 +248,20 @@ class CardFlowRegressionTest {
                 assertEquals(56400L,engine.state.activePayment?.amount)
                 assertEquals(firstPayer.id,engine.state.activePayment?.payerProfileId)
                 assertEquals(3,paymentLoads[newLink]?.get())
+                assertTrue(compose.activity.getSharedPreferences("feature_help",0).getBoolean("express_skip_intro_v1",false))
             }
+            compose.onNodeWithContentDescription("Volver").performClick()
+            compose.waitUntil(15000) { engine.state.stage=="balance" && !engine.state.busy }
+            compose.onNodeWithText("Modo Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
+            compose.onNodeWithText("Así funciona Express").assertDoesNotExist()
+            compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" }
+            assertEquals(4,paymentLoads[newLink]?.get())
         } finally {
             instrumentation.removeMonitor(monitor)
             compose.runOnIdle {
                 engine.cancel()
                 engine.forgetChoices()
+                compose.activity.getSharedPreferences("feature_help",0).edit().clear().commit()
             }
         }
     }

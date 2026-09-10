@@ -61,7 +61,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit,
-    onExpressCharge: (() -> Unit)? = null) {
+    onExpressCharge: (() -> Unit)? = null, onExpressHelp: (() -> Unit)? = null, onTicketGuide: (() -> Unit)? = null) {
     val colors=MaterialTheme.colorScheme
     val touch = remember { MutableInteractionSource() }
     val held by touch.collectIsPressedAsState()
@@ -99,7 +99,7 @@ import java.util.Locale
             }
         }
             Primary("Recargar boletera",enabled=!state.busy && state.minimum!=null,action=onCharge)
-            if(onExpressCharge!=null) ExpressShortcut(state.minimum,enabled=!state.busy,onStart=onExpressCharge)
+            if(onExpressCharge!=null) ExpressShortcut(state.minimum,enabled=!state.busy,onExplain=onExpressHelp,onStart=onExpressCharge)
             Surface(color=Panel,shape=RoundedCornerShape(24.dp)) {
                 Row(Modifier.fillMaxWidth().padding(20.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
                     Surface(color=colors.secondaryContainer,shape=RoundedCornerShape(14.dp),modifier=Modifier.size(44.dp)) { Box(contentAlignment=Alignment.Center) { AppGlyph(Glyph.Card,tint=colors.onSecondaryContainer) } }
@@ -112,6 +112,11 @@ import java.util.Locale
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             AppGlyph(Glyph.Info,Modifier.size(18.dp),tint=Muted)
             Text("Los viajes de las últimas 72 horas pueden estar pendientes de descuento.",style=MaterialTheme.typography.bodySmall,color=Muted,modifier=Modifier.weight(1f))
+        }
+        if(onTicketGuide!=null) TextButton(onClick=onTicketGuide,modifier=Modifier.align(Alignment.CenterHorizontally)) {
+            AppGlyph(Glyph.Info,Modifier.size(18.dp),tint=Muted)
+            Spacer(Modifier.width(8.dp))
+            Text("Boletos y tarifas",color=Muted,style=MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -174,7 +179,8 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun SettingsSheet(updates: AppUpdates, appearance: String, onAppearance: (String) -> Unit, hasSavedAccess: Boolean,
-    canLogout: Boolean, diagnostic: String, onForget: () -> Unit, onLogout: () -> Unit, onInstall: () -> Unit, onClose: () -> Unit) {
+    canLogout: Boolean, diagnostic: String, onForget: () -> Unit, onLogout: () -> Unit, onInstall: () -> Unit, onClose: () -> Unit,
+    onTicketGuide: (() -> Unit)? = null) {
     var details by remember { mutableStateOf(false) }
     val haptic=LocalHapticFeedback.current
     val view=LocalView.current
@@ -182,6 +188,9 @@ import java.util.Locale
     ModalBottomSheet(onDismissRequest=onClose,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=Paper) {
         Column(Modifier.fillMaxWidth().widthIn(max=560.dp).align(Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(24.dp)) {
             Text("Configuración",style=MaterialTheme.typography.headlineLarge,color=Ink)
+            if(onTicketGuide!=null)TextButton(onClick=onTicketGuide) {
+                AppGlyph(Glyph.Ticket,tint=LocalContentColor.current);Spacer(Modifier.width(8.dp));Text("Boletos y tarifas")
+            }
             Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
                 Text("Apariencia",style=MaterialTheme.typography.titleMedium,color=Ink)
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {

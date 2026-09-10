@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.11-prueba — ayuda de Express y guía de boletos
+
+- Express muestra una explicación antes del primer uso, con Aceptar y continuar, Ahora no y No volver a mostrar. La preferencia se guarda solo al aceptar. El toque corto vuelve a abrir la ayuda.
+- Boletos y tarifas, discreto al pie de la boletera y accesible desde Configuración: precios, explicaciones desplegables, paradas de intercambio y combinación urbana/suburbana.
+- Guía disponible sin conexión, con fecha de revisión y enlaces a IM/Cutcsa; distingue precio electrónico, efectivo, categorías y complemento suburbano.
+- Cancelar la explicación no inicia solicitudes. Se mantienen la pulsación sostenida y los controles originales del pago.
+
 ## 0.2.10-prueba — Express como atajo y regreso al saldo
 
 - Recargar boletera sigue como acción principal. Express es un botón secundario por pulsación sostenida; no tiene configuración ni encendido/apagado.
