@@ -1,6 +1,14 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Candidato vigente: 0.1.12
+## Candidato vigente: 0.1.13
+
+Se reprodujo con una regresión JavaScript que la ausencia temporal del formulario se clasificaba como página original. Ahora conserva la carga nativa hasta reconocer el siguiente paso. El navegador comienza oculto y vuelve a ocultarse al navegar; las respuestas anteriores no pueden cambiar el estado de la nueva navegación.
+
+Pasaron 40 pruebas JavaScript, 7 JVM, lint y compilación release. En Android, `PrexLoadingTest` montó la pantalla real de la app con una página ficticia magenta que demoró 3,5 segundos en presentar el resumen: seis capturas durante la espera no mostraron píxeles magenta y luego apareció el resumen. También pasó `EmbeddedPrexPaymentTest`, que comprueba la conservación de la página. Ambas pruebas interceptan la red: no iniciaron operaciones reales. Resultado local: `outputs/loading-0.1.13-test.txt`.
+
+APK instalada en el OnePlus y versión comprobada: `0.1.13-prueba`, código 14. SHA-256: `7AB5A9F959FE321DFB4495EDC163923E1A711AD6007693A2C80792A23AF75704`. La corrección del destello todavía no se recorrió contra la pasarela real en el teléfono. El usuario pospuso los pagos reales para continuar el desarrollo. No se publicó una versión remota.
+
+## Candidato anterior: 0.1.12
 
 Se mejoró el panel del CAPTCHA para conservar el componente original en una posición estable y adaptar sus dimensiones a la ventana real de la app. Pasaron 39 pruebas JavaScript, 7 JVM, lint, compilación y la matriz Android del panel con contenido ficticio, más la prueba de retención de la página. La APK está instalada en el OnePlus; el checkbox real se ve completo. [Evidencia y límites](CAPTCHA-RESPONSIVO.md). La verificación humana y el pago completo siguen pendientes.
 

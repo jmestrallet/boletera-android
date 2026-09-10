@@ -20,7 +20,8 @@
     const summary = single('stepper-pago confirmar-pago');
     const client = single('stepper-pago alta-cliente');
     const root = summary || client;
-    const stage = summary ? 'summary' : client ? 'payer' : 'original';
+    const original = single('alta-tarjeta,alta-tarjeta-externo,seleccion-tarjeta,finalizar-pago,resultado-pago,pago-redes');
+    const stage = summary ? 'summary' : client ? 'payer' : original ? 'original' : 'loading';
     if (sentStep && sentStep !== stage) sentStep = null;
     if (!root) return {stage};
     // Only summary text and explicitly named ordinary payer fields are read.

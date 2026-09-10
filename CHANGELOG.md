@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.1.13-prueba — carga sin destello de la página
+
+- Conserva la pantalla de carga nativa mientras Sistarbanc prepara el formulario, evitando mostrar brevemente la página original.
+- Oculta el navegador al comenzar una navegación y descarta respuestas de la navegación anterior.
+- Mantiene disponible «Ver pantalla de Sistarbanc» durante la carga como salida manual.
+
+Verificado con una carga ficticia demorada en Android y prueba de conservación de sesión. Instalada en el OnePlus; no se inició ni autorizó un pago. Candidato local sin publicación remota.
+
 ## 0.1.12-prueba — panel adaptable
 
 - Presenta el componente original del CAPTCHA en una posición estable sin copiarlo ni recrearlo; restaura su presentación al volver a la página original.

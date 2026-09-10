@@ -45,16 +45,18 @@ class EmbeddedPrexPayment(context: Context) {
     private var destroyed = false
     private var payer: PayerProfile? = null
     private var visible = false
+    private var navigationVersion = 0
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val profileStatus = object : Runnable {
         override fun run() {
             if (destroyed || !visible || originalLink == null) return
+            val version = navigationVersion
             web.evaluateJavascript("window.BoleteraNative ? JSON.stringify(window.BoleteraNative.snapshot()) : null") { raw ->
-                if (!destroyed && visible) try {
+                if (!destroyed && visible && version == navigationVersion) try {
                     val decoded = org.json.JSONTokener(raw).nextValue() as? String
                     if (decoded != null) {
                         val state = org.json.JSONObject(decoded)
-                        nativeStage = state.optString("stage", "original")
+                        nativeStage = state.optString("stage", "loading")
                         val rows = state.optJSONArray("rows")
                         summaryRows = if (rows == null) emptyList() else (0 until rows.length()).map {
                             rows.getJSONArray(it).let { row -> row.getString(0) to row.getString(1) }
@@ -66,10 +68,10 @@ class EmbeddedPrexPayment(context: Context) {
                         expandedChallenge = state.optBoolean("expanded")
                         cssViewportWidth = state.optDouble("viewportWidth", 0.0).toFloat()
                     }
-                } catch (_: Exception) { nativeStage = "original" }
+                } catch (_: Exception) { nativeStage = "loading" }
             }
             web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer ? window.BoleteraPayer.status() : 'waiting'; } else { 'waiting'; }") { raw ->
-                if (!destroyed && visible) {
+                if (!destroyed && visible && version == navigationVersion) {
                     val status = try { org.json.JSONTokener(raw).nextValue() as? String } catch (_: Exception) { null }
                     payerConflict = status == "conflict"
                     payerNotice = when (status) {
@@ -86,6 +88,7 @@ class EmbeddedPrexPayment(context: Context) {
     private val verificationScript = context.assets.open("prex-verification.js").bufferedReader().use { it.readText() }
     private val payerScript = context.assets.open("prex-payer.js").bufferedReader().use { it.readText() }
     val web = WebView(context).apply {
+        alpha = 0f
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.allowFileAccess = false
@@ -114,6 +117,8 @@ class EmbeddedPrexPayment(context: Context) {
                 return true
             }
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                navigationVersion++
+                view.alpha = 0f
                 if (url == "about:blank" || url == null) return
                 if (!allowedDestination(url)) {
                     view.stopLoading()
@@ -127,7 +132,7 @@ class EmbeddedPrexPayment(context: Context) {
                 message = ""
             }
             override fun onPageFinished(view: WebView, url: String?) {
-                if (url == null || !allowedDestination(url)) return
+                if (url == null || url != view.url || !allowedDestination(url)) return
                 busy = false
                 if (PaymentPolicy.gateway(url)) {
                     view.evaluateJavascript(verificationScript + "\n" + nativeScript + "\n" + payerScript, null)
@@ -204,6 +209,7 @@ class EmbeddedPrexPayment(context: Context) {
 
     fun reset() {
         if (destroyed) return
+        navigationVersion++
         hide()
         web.stopLoading()
         web.loadUrl("about:blank")

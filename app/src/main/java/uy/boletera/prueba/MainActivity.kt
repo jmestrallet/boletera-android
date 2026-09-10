@@ -336,7 +336,7 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-@Composable private fun EmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: PendingPayment?, onClose: () -> Unit) {
+@Composable internal fun EmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: PendingPayment?, onClose: () -> Unit) {
     var showOriginal by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     LaunchedEffect(payment.nativeStage) { showOriginal = false }
@@ -411,7 +411,7 @@ class MainActivity : FragmentActivity() {
                             Primary("Continuar a la tarjeta", payment.canContinue, payment::advance)
                             TextButton(onClick = { editing = true }, enabled = payment.chosenPayer != null) { Text("Editar datos para este pago") }
                         }
-                        if (payment.nativeStage != "loading") TextButton(onClick = { showOriginal = true }) { Text("Ver pantalla de Sistarbanc") }
+                        TextButton(onClick = { showOriginal = true }) { Text("Ver pantalla de Sistarbanc") }
                     }
                     if (!native && payment.nativeStage in listOf("summary", "payer")) TextButton(onClick = { showOriginal = false }, modifier = Modifier.align(Alignment.TopEnd).background(Paper)) { Text("Volver a mis datos") }
                 }

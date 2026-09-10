@@ -28,6 +28,20 @@ test('foreign origin, duplicate actions, and unknown card steps do not receive c
  }finally{dom.window.close();}
 });
 
+test('keeps the native loading screen while the provider builds or replaces its form',()=>{
+ const dom=setup();try {
+  const d=dom.window.document,api=dom.window.BoleteraNative;
+  const summary=d.querySelector('section');
+  d.body.replaceChildren(d.createElement('stepper-pago'));
+  assert.equal(api.snapshot().stage,'loading');
+  d.querySelector('stepper-pago').append(summary);
+  assert.equal(api.snapshot().stage,'summary');
+  summary.remove();assert.equal(api.snapshot().stage,'loading');
+  const card=d.createElement('alta-tarjeta');card.innerHTML='<input autocomplete="cc-number">';d.querySelector('stepper-pago').append(card);
+  assert.equal(api.snapshot().stage,'original');
+ }finally{dom.window.close();}
+});
+
 test('only original visible CAPTCHA geometry is exposed; provider dialogs remain visible',()=>{
  const dom=setup();try {const d=dom.window.document,api=dom.window.BoleteraNative;
  const sections=d.querySelectorAll('section');sections[0].setAttribute('aria-expanded','false');sections[1].setAttribute('aria-expanded','true');
