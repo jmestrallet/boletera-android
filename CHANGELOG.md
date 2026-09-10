@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.5-prueba — respuesta al tacto y movimiento
+
+- Botones con compresión, resorte de retorno, cambio de forma y desplazamiento de la flecha. Un pulso breve acompaña cada activación; mantener presionado no repite la acción.
+- La boletera se inclina y comprime al tocarla. Toque o pulsación larga abre la selección de boletera; la pulsación larga usa el pulso nativo de Android. El gesto de desplazamiento se conserva.
+- Los importes cambian suavemente de forma y color, con un indicador que aparece con resorte. Importe, apariencia y medio de pago responden al cambiar la selección.
+- Se respetan las preferencias de animación y respuesta táctil del sistema.
+
 ## 0.2.4-prueba — instalador automático
 
 - Actualizar ahora descarga y verifica la APK; al terminar abre la confirmación de Android sin otro toque.

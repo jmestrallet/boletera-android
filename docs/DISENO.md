@@ -33,3 +33,19 @@ Los ocho pares principales de color medidos superan 4,5:1. El menor contraste de
 - [Google Sans v14.000](https://github.com/googlefonts/googlesans/releases/tag/v14.000) y [Material Symbols](https://github.com/google/material-design-icons). Sus licencias se distribuyen en `app/src/main/assets/licenses/`.
 
 La dirección visual es propia; Boletera no está diseñada, avalada ni publicada por Google o STM.
+
+## Respuesta al tacto · 0.2.5
+
+Los botones se comprimen al 97% durante la pulsación y vuelven con resorte; mantienen su espacio en el diseño. La flecha acompaña el gesto con 4 dp de desplazamiento. El pulso táctil se produce al activar, no al empezar a tocar: cancelar o deslizar fuera no confirma una acción. Una pulsación sostenida no introduce repetición ni dispara un pago antes de soltar.
+
+La boletera se comprime al 97,5% y gira -1,2 grados al tocarla; toque o pulsación larga abre el selector existente. La pulsación larga utiliza la respuesta nativa de Compose/Android, una vez por reconocimiento del gesto. La alternativa visible Cambiar boletera sigue disponible. El gesto se deshabilita durante una consulta.
+
+El importe seleccionado cambia de superficie y curvatura; la marca aparece con resorte dentro de un espacio fijo. Cambiar importe, apariencia o medio de pago emite un pulso de selección. Volver a elegir la misma opción no genera otro pulso. La configuración de Android controla la respuesta táctil y la escala de duración de Compose; no se pide permiso de vibración ni se usan patrones permanentes.
+
+Referencias consultadas el 10/09/2026:
+
+- [Material 3 Expressive: sistema de movimiento](https://m3.material.io/blog/m3-expressive-motion-theming).
+- [Apple: movimiento](https://developer.apple.com/design/human-interface-guidelines/motion).
+- [Android: respuesta táctil semántica y ajustes del usuario](https://developer.android.com/develop/ui/views/haptics/haptic-feedback).
+
+Es una implementación propia inspirada en esos criterios. No acredita equivalencia de calidad con productos de Google o Apple, medición de fluidez a 120 Hz ni validación física en Xiaomi.

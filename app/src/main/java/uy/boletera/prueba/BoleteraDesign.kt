@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -145,11 +147,14 @@ internal enum class Glyph { Ticket, Arrow, Back, Close, Settings, Check, Lock, F
 @Composable internal fun Primary(label: String, enabled: Boolean = true, action: () -> Unit) {
     val interaction=remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val radius by animateDpAsState(if(pressed)20.dp else 32.dp,spring(dampingRatio=0.85f,stiffness=900f),label="button shape")
-    Button(onClick=action,enabled=enabled,interactionSource=interaction,shape=RoundedCornerShape(radius),
-        modifier=Modifier.fillMaxWidth().heightIn(min=60.dp),contentPadding=PaddingValues(horizontal=24.dp,vertical=16.dp)) {
+    val haptic = LocalHapticFeedback.current
+    val radius by animateDpAsState(if(pressed)20.dp else 32.dp,spring(dampingRatio=0.72f,stiffness=700f),label="button shape")
+    val compression by animateFloatAsState(if(pressed)0.97f else 1f,spring(dampingRatio=0.65f,stiffness=650f),label="button press")
+    val arrowOffset by animateDpAsState(if(pressed)4.dp else 0.dp,spring(dampingRatio=0.7f,stiffness=650f),label="button arrow")
+    Button(onClick={ haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); action() },enabled=enabled,interactionSource=interaction,shape=RoundedCornerShape(radius),
+        modifier=Modifier.fillMaxWidth().heightIn(min=60.dp).graphicsLayer { scaleX=compression; scaleY=compression },contentPadding=PaddingValues(horizontal=24.dp,vertical=16.dp)) {
         Text(label,style=MaterialTheme.typography.labelLarge,modifier=Modifier.weight(1f))
-        Spacer(Modifier.width(12.dp)); AppGlyph(Glyph.Arrow,tint=LocalContentColor.current)
+        Spacer(Modifier.width(12.dp)); AppGlyph(Glyph.Arrow,modifier=Modifier.offset(x=arrowOffset),tint=LocalContentColor.current)
     }
 }
 

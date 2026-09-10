@@ -6,6 +6,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -53,8 +58,13 @@ import java.util.Locale
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit) {
     val colors=MaterialTheme.colorScheme
+    val touch = remember { MutableInteractionSource() }
+    val held by touch.collectIsPressedAsState()
+    val compression by animateFloatAsState(if(held)0.975f else 1f,spring(dampingRatio=0.65f,stiffness=500f),label="wallet press")
+    val tilt by animateFloatAsState(if(held)-1.2f else 0f,spring(dampingRatio=0.6f,stiffness=450f),label="wallet tilt")
     Column(verticalArrangement=Arrangement.spacedBy(24.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -63,7 +73,10 @@ import java.util.Locale
             }
             IconButton(onClick=onChangeCard,enabled=!state.busy) { AppGlyph(Glyph.Card,label="Cambiar boletera",tint=colors.primary) }
         }
-        Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.semantics {
+        Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.graphicsLayer { scaleX=compression; scaleY=compression; rotationZ=tilt }.combinedClickable(
+            interactionSource=touch, indication=androidx.compose.material3.ripple(), enabled=!state.busy,
+            onClickLabel="Cambiar boletera", onLongClickLabel="Elegir boletera", onClick=onChangeCard, onLongClick=onChangeCard
+        ).semantics {
             customActions=listOf(CustomAccessibilityAction("Actualizar saldo") { if (!state.busy) { onRefresh(); true } else false })
         }) {
             Column(Modifier.fillMaxWidth().padding(28.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
@@ -116,13 +129,16 @@ import java.util.Locale
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 choices.forEachIndexed { i,value ->
                     val active=!custom&&selected==value
-                    Surface(color=if(active)Lime else Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.fillMaxWidth().selectable(active,role=Role.RadioButton) {
-                        custom=false; selected=value; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    val fill by animateColorAsState(if(active)Lime else Panel,spring(stiffness=650f),label="amount surface")
+                    val radius by animateDpAsState(if(active)30.dp else 20.dp,spring(dampingRatio=0.7f,stiffness=550f),label="amount shape")
+                    val checkScale by animateFloatAsState(if(active)1f else 0f,spring(dampingRatio=0.6f,stiffness=500f),label="amount check")
+                    Surface(color=fill,shape=RoundedCornerShape(radius),modifier=Modifier.fillMaxWidth().selectable(active,enabled=!state.busy,role=Role.RadioButton) {
+                        if(!active) { custom=false; selected=value; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                     }) {
                         Row(Modifier.padding(horizontal=20.dp,vertical=18.dp),verticalAlignment=Alignment.CenterVertically) {
                             Text(Amounts.format(value),style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f),color=if(active)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
                             if(i==0)Text("Mínimo",style=MaterialTheme.typography.bodyMedium,color=if(active)MaterialTheme.colorScheme.onPrimaryContainer else Muted,modifier=Modifier.padding(end=16.dp))
-                            if(active)AppGlyph(Glyph.Check,tint=MaterialTheme.colorScheme.onPrimaryContainer) else Spacer(Modifier.size(24.dp))
+                            AppGlyph(Glyph.Check,modifier=Modifier.graphicsLayer { scaleX=checkScale; scaleY=checkScale; alpha=checkScale.coerceIn(0f,1f) },tint=MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                 }
@@ -156,6 +172,7 @@ import java.util.Locale
 @Composable internal fun SettingsSheet(updates: AppUpdates, appearance: String, onAppearance: (String) -> Unit, hasSavedAccess: Boolean,
     canLogout: Boolean, diagnostic: String, onForget: () -> Unit, onLogout: () -> Unit, onInstall: () -> Unit, onClose: () -> Unit) {
     var details by remember { mutableStateOf(false) }
+    val haptic=LocalHapticFeedback.current
     ModalBottomSheet(onDismissRequest=onClose,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=Paper) {
         Column(Modifier.fillMaxWidth().widthIn(max=560.dp).align(Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(24.dp)) {
             Text("Configuración",style=MaterialTheme.typography.headlineLarge,color=Ink)
@@ -163,7 +180,8 @@ import java.util.Locale
                 Text("Apariencia",style=MaterialTheme.typography.titleMedium,color=Ink)
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     listOf(Triple("system","Sistema",Glyph.Phone),Triple("light","Claro",Glyph.Sun),Triple("dark","Oscuro",Glyph.Moon)).forEach { (value,label,glyph) ->
-                        Surface(color=if(appearance==value)Lime else Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.weight(1f).selectable(appearance==value,role=Role.RadioButton){onAppearance(value)}) {
+                        val selectionRadius by animateDpAsState(if(appearance==value)28.dp else 20.dp,spring(dampingRatio=0.7f,stiffness=550f),label="appearance shape")
+                        Surface(color=if(appearance==value)Lime else Panel,shape=RoundedCornerShape(selectionRadius),modifier=Modifier.weight(1f).selectable(appearance==value,role=Role.RadioButton){if(appearance!=value){haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove);onAppearance(value)}}) {
                             Column(Modifier.padding(vertical=16.dp,horizontal=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)) {
                                 AppGlyph(glyph,tint=if(appearance==value)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
                                 Text(label,style=MaterialTheme.typography.bodyMedium,color=if(appearance==value)MaterialTheme.colorScheme.onPrimaryContainer else Ink)

@@ -40,7 +40,13 @@ class DesignMotionDemo {
             }
         }
         android.os.SystemClock.sleep(1200)
-        compose.onNodeWithText("Recargar boletera").performScrollTo().performClick()
+        compose.onNodeWithText("Saldo disponible").performTouchInput { down(center) }
+        android.os.SystemClock.sleep(350)
+        compose.onNodeWithText("Saldo disponible").performTouchInput { up() }
+        android.os.SystemClock.sleep(650)
+        compose.onNodeWithText("Recargar boletera").performScrollTo().performTouchInput { down(center) }
+        android.os.SystemClock.sleep(250)
+        compose.onNodeWithText("Recargar boletera").performTouchInput { up() }
         android.os.SystemClock.sleep(900)
         compose.onNodeWithText("$ 500").performClick()
         android.os.SystemClock.sleep(800)

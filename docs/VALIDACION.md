@@ -1,6 +1,14 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.4
+## Versión vigente: 0.2.5
+
+Respuesta al tacto: botones con compresión y retorno, pulsación larga de la boletera y selección animada de importes. Ocho pruebas Android aprobadas en tamaño habitual: dos de gestos y emisión de pulsos, cinco de interfaz y una del recorrido STM/Prex interceptado. Otras siete aprobadas en 360 × 640 dp y con animación desactivada. La pulsación larga selecciona una sola vez, deslizar no selecciona, cancelar no activa y los controles deshabilitados no ejecutan acciones. Compilación release y lint aprobados.
+
+La respuesta táctil se comprobó mediante captura de eventos en el emulador, no mediante valoración física en un teléfono. La grabación usa componentes reales de la app y datos ficticios; no prueba un pago real ni una tasa de cuadros. Registro de pantalla chica: `outputs/touch-small-no-motion-0.2.5.txt`. Demostración: `outputs/motion-demo-0.2.5.txt` (una prueba adicional aprobada).
+
+APK 0.2.5-prueba, código 23, SHA-256 `00970BFFE9917D0EA880F03EBB7ED01560FB70441A62EA0CBCEC5C11BDF4F1B8`. Se entrega para actualizar desde GitHub. La conversión del formulario de tarjeta de Sistarbanc a campos nativos no forma parte de esta versión.
+
+## Versión anterior: 0.2.4
 
 Actualizar ahora conserva la descarga y verificación existentes y solicita abrir el instalador al completarlas. Si la app está en segundo plano, espera al regreso. La solicitud se consume antes de abrir Android para evitar repeticiones. Al habilitar la instalación desde Boletera y volver, se reanuda automáticamente; rechazar el permiso conserva la opción manual sin insistir.
 

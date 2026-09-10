@@ -6,6 +6,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 
 /** Payment preparation only. The provider still owns the authorization. */
@@ -17,6 +19,7 @@ import androidx.compose.ui.unit.dp
     onChoosePayer: () -> Unit,
     onEditPayer: (PayerProfile) -> Unit
 ) {
+    val haptic=LocalHapticFeedback.current
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -32,7 +35,7 @@ import androidx.compose.ui.unit.dp
                 available.forEach { provider ->
                     FilterChip(
                         selected = state.selectedProvider == provider.id,
-                        onClick = { onProvider(provider.id) },
+                        onClick = { if(state.selectedProvider!=provider.id){ haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onProvider(provider.id) } },
                         enabled = !state.busy,
                         label = { Text(if (provider.id == "1033") "Prex" else "eBROU") },
                         leadingIcon = { AppGlyph(if (state.selectedProvider == provider.id) Glyph.Check else Glyph.Card, tint = LocalContentColor.current) },
