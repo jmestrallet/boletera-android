@@ -10,17 +10,17 @@ La 0.1.9 corrige la conexión segura de Sistarbanc en Android 11; se reprodujo e
 
 **Objetivo pendiente:** completar y verificar el recorrido real de pago desde Boletera. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. El CAPTCHA, Google en el teléfono, la autorización y la acreditación requieren comprobación real. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
 
-**[Descargar la versión 0.2.1](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.1)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+**[Descargar la versión 0.2.2](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.2)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
-La **0.2.1** rediseña la experiencia completa: saldo protagonista, importe en un panel, tipografía Google Sans, iconos Material Symbols, modo claro/oscuro y transiciones nativas. Conserva Configuración y las actualizaciones desde GitHub. [Diseño, referencias y comprobaciones](docs/DISENO.md). El archivo es `outputs/boletera-prueba-0.2.1.apk`.
+La **0.2.2** rediseña la experiencia completa: saldo protagonista, importe en un panel, tipografía Google Sans, iconos Material Symbols, modo claro/oscuro y transiciones nativas. Conserva Configuración y las actualizaciones desde GitHub. [Diseño, referencias y comprobaciones](docs/DISENO.md). El archivo es `outputs/boletera-prueba-0.2.2.apk`.
 
 Desde 0.1.15, las próximas versiones publicadas en este repositorio se pueden descargar desde Configuración, sin buscar el archivo a mano. Se incluyen las publicaciones de prueba porque esta app todavía está en prueba. Primero se comprueba la descarga y la firma; luego **Instalar actualización** abre la confirmación de Android. La primera vez puede pedir **Permitir desde esta fuente**: al volver, tocá Instalar actualización nuevamente. Una actualización conserva los datos guardados. Si tu candidato local es más nuevo que GitHub, no ofrece volver a una versión anterior.
 
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Las versiones anteriores se conservan con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
 
-1. Pasá `outputs/boletera-prueba-0.2.1.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
+1. Pasá `outputs/boletera-prueba-0.2.2.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.
@@ -31,6 +31,8 @@ En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y
 Si el acceso, CAPTCHA o certificado falla, la app se detiene. No cambia el servicio de autocompletado de Android; los perfiles propios son solo datos ordinarios del titular. La compatibilidad de Google con el formulario dentro del WebView todavía requiere prueba en el teléfono. Para reportar el problema alcanza con el texto del mensaje y el modelo/versión de Android; no compartas contraseñas ni números bancarios.
 
 Desde 0.2.1, salir de Prex vuelve al saldo y permite iniciar otra recarga sin revisión manual. Al regresar de eBROU también se actualiza el saldo. La app ya no guarda solicitudes como pagos pendientes ni conserva enlaces para reabrirlas. Esto no confirma ni cancela una operación del proveedor. Se mantiene la protección contra toques duplicados mientras se abre el pago.
+
+Desde 0.2.2, al abrir la app con un acceso guardado se solicita la huella automáticamente. Cancelar permite reintentar con el botón o ingresar manualmente; cerrar sesión no vuelve a abrir la huella por sí solo.
 
 Los avisos, incluido el fallo de desbloqueo, aparecen flotando en la parte inferior sin mover el contenido; se cierran solos o con la cruz.
 

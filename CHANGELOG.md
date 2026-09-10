@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.2-prueba — huella al abrir
+
+- Con acceso guardado, se solicita automáticamente la huella al abrir la app, cuando la pantalla ya está activa.
+- Cancelar o fallar conserva el acceso y permite reintentar o ingresar manualmente. No se repite al cerrar sesión, recomponer la pantalla o regresar de otra aplicación.
+- Se conserva el mismo desbloqueo cifrado mediante Android.
+
 ## 0.2.1-prueba — recarga sin revisión manual
 
 - Se retiran el cartel, la confirmación manual, la recuperación de enlaces y el bloqueo persistente de solicitudes anteriores. Al salir de Prex se consulta el saldo; regresar de eBROU también lo actualiza.

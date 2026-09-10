@@ -1,6 +1,14 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.1
+## Versión vigente: 0.2.2
+
+Al abrir una instancia nueva de la app con acceso guardado, se solicita el desbloqueo al alcanzar el estado activo de Android. La misma función atiende el botón manual. El intento automático queda consumido aunque falle o se cancele, no se repite al cerrar sesión o volver de otra app, y ese estado sobrevive a la recreación de la pantalla. El cifrado y la autorización biométrica de AccessVault no se modificaron.
+
+Pasaron tres pruebas Android: acceso guardado ilegible dispara automáticamente el intento sin credenciales reales, ausencia de acceso conserva el ingreso manual y el aviso sigue flotando sin mover el contenido. También se comprobó que cerrar sesión y recrear la pantalla no repiten el intento, y que una nueva apertura sí lo repite conservando el archivo guardado. La prueba usa datos inválidos a propósito y no representa una lectura de huella física ni un ingreso real. Registro: `outputs/automatic-unlock-0.2.2-test.txt`. Compilación release y lint aprobados.
+
+APK 0.2.2-prueba, código 20, SHA-256 `C8A69C5DFB6CD275A048C588416EB32059B51ECAD7E0444D3C078FD2A87FB6D2`. Se entrega en GitHub para actualizar desde la app. No se instaló en el teléfono durante esta entrega.
+
+## Versión anterior: 0.2.1
 
 Se retiraron el bloqueo persistente, la revisión manual y la recuperación de enlaces de solicitudes anteriores. El contexto de pago existe solo durante la pantalla activa; al salir de Prex se limpia y se consulta el saldo. Regresar de eBROU dispara esa misma consulta. Los marcadores antiguos se eliminan al abrir la app, conservando accesos, perfiles y favoritos. Esto no cancela ni confirma pagos en el proveedor.
 

@@ -21,6 +21,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.withResumed
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +62,27 @@ class MainActivity : FragmentActivity() {
     @Composable private fun App(appearance: String, onAppearance: (String) -> Unit) {
         val state = engine.state
         val updates: AppUpdates = viewModel()
+        var automaticUnlockHandled by rememberSaveable { mutableStateOf(false) }
+        var authenticating by remember { mutableStateOf(false) }
+        fun unlockSavedAccess() {
+            if (authenticating || state.busy || state.stage != "welcome") return
+            authenticating = true
+            vault.unlock { doc, pass ->
+                authenticating = false
+                if (!isDestroyed && !isFinishing) {
+                    if (doc != null && pass != null) engine.connect(doc, pass)
+                    else engine.notice("No se desbloqueó el acceso. Podés volver a intentar o ingresar manualmente.")
+                }
+            }
+        }
+        LaunchedEffect(Unit) {
+            lifecycle.withResumed {
+                if (!automaticUnlockHandled) {
+                    automaticUnlockHandled = true
+                    if (vault.exists && state.stage == "welcome") unlockSavedAccess()
+                }
+            }
+        }
         var showSettings by rememberSaveable { mutableStateOf(false) }
         if (state.stage == "embeddedPrex") {
             EmbeddedPrexScreen(engine.prexPayment, state.activePayment, engine::leavePrexPayment)
@@ -78,7 +100,6 @@ class MainActivity : FragmentActivity() {
         var password by remember { mutableStateOf("") }
         var revealPassword by remember { mutableStateOf(false) }
         var save by remember { mutableStateOf(false) }
-        var authenticating by remember { mutableStateOf(false) }
         var showForget by remember { mutableStateOf(false) }
         var showAmount by remember { mutableStateOf(false) }
         var changeProvider by remember(state.stage) { mutableStateOf(false) }
@@ -113,12 +134,7 @@ class MainActivity : FragmentActivity() {
                                         Text("Tu acceso está protegido en este teléfono.",style=MaterialTheme.typography.bodyMedium,color=Muted)
                                         Box(Modifier.fillMaxWidth().padding(vertical=8.dp),contentAlignment=Alignment.Center) { AppGlyph(Glyph.Fingerprint,Modifier.size(56.dp),tint=MaterialTheme.colorScheme.primary) }
                                         Primary(if(authenticating)"Esperando tu huella…" else "Entrar con huella",enabled=!authenticating&&!state.busy) {
-                                            authenticating=true
-                                            vault.unlock { doc,pass ->
-                                                authenticating=false
-                                                if(doc!=null&&pass!=null)engine.connect(doc,pass)
-                                                else engine.notice("No se desbloqueó el acceso. Podés volver a intentar o ingresar manualmente.")
-                                            }
+                                            unlockSavedAccess()
                                         }
                                         TextButton(onClick={manual=true},modifier=Modifier.align(Alignment.CenterHorizontally)) { Text("Ingresar manualmente") }
                                     } else {
