@@ -1,6 +1,10 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.1.16
+## Versión vigente: 0.2.0
+
+La serie 0.2 identifica el rediseño entregado en 0.1.16. Este cambio modifica únicamente la numeración, la documentación y el nombre del APK: versión 0.2.0-prueba, código Android 18. Pasaron nuevamente las 40 pruebas JavaScript, 7 JVM, lint y compilación release. SHA-256: 60A4A17863C9AA45CA579D43C58EBEEE6464607BDFF824E017C6B711FD979007. La revisión visual de 0.1.16 sigue siendo la evidencia de este mismo diseño. La versión instalada en el teléfono sigue siendo 0.1.16; 0.2.0 se entrega para actualizar desde GitHub.
+
+## Versión anterior: 0.1.16
 
 Rediseño nativo de acceso, saldo, importe, configuración y datos del titular. Incluye temas claro/oscuro, Google Sans y Material Symbols. [Decisiones y referencias](DISENO.md).
 

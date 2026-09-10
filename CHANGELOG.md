@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.2.0-prueba — nueva etapa visual
+
+El rediseño pasa a la serie 0.2. Código de versión Android 18 para permitir actualizar desde 0.1.16. Misma experiencia y funcionamiento que la entrega anterior.
+
 ## 0.1.16-prueba — nueva experiencia
 
 - Rediseño de acceso, saldo, recarga, titulares y configuración; tipografía Google Sans, iconos Material Symbols e identidad adaptable en el inicio de Android.
