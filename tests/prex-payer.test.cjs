@@ -86,3 +86,53 @@ test('los datos previos de otro titular requieren una acción explícita, sin to
     assert.equal(dom.window.BoleteraPayer.status(), 'filled');
   } finally { dom.window.close(); }
 });
+
+test('elige CI por defecto o EXT explícito y conserva el cambio manual posterior', () => {
+  for (const desired of ['CI', 'EXT']) {
+    const dom = setup(form(split).replace('<form>', '<form><select formcontrolname="tipoDocumentoControl"><option value="">Tipo Documento</option><option value="CI">Cédula de Identidad</option><option value="EXT">Documento Extranjero</option></select>'));
+    try {
+      const select = dom.window.document.querySelector('select');
+      let changes = 0;
+      select.addEventListener('change', () => changes++);
+      dom.window.BoleteraPayer.use({...profile, ...(desired === 'EXT' ? {documentType:'EXT', document:'AB12345'} : {})});
+      assert.equal(select.value, desired);
+      assert.equal(changes, 1);
+      select.value = desired === 'CI' ? 'EXT' : 'CI';
+      dom.window.BoleteraPayer.status();
+      assert.notEqual(select.value, desired);
+      assert.equal(changes, 1);
+    } finally { dom.window.close(); }
+  }
+});
+
+test('selecciona la opción del mat-select original y solo en su panel asociado', async () => {
+  for (const desired of ['CI', 'EXT']) {
+    const dom = setup(form(split).replace('<form>', '<form><mat-select role="combobox" formcontrolname="tipoDocumentoControl"><div class="mat-select-trigger"><span class="mat-select-placeholder">Tipo Documento</span></div></mat-select>') + '<div role="listbox" id="ajeno"><mat-option role="option">Cédula de Identidad</mat-option></div>');
+    try {
+      const doc = dom.window.document, select = doc.querySelector('mat-select');
+      let picked = '', unrelated = 0, opens = 0, submits = 0;
+      doc.getElementById('ajeno').onclick = () => unrelated++;
+      doc.querySelector('form').onsubmit = e => {e.preventDefault(); submits++;};
+      select.querySelector('.mat-select-trigger').onclick = () => {
+        opens++;
+        // Angular attaches its overlay asynchronously, outside the form.
+        setTimeout(() => {
+          select.setAttribute('aria-controls', 'doc-panel');
+          const panel = doc.createElement('div'); panel.id = 'doc-panel'; panel.setAttribute('role','listbox');
+          for (const [value, label] of [['CI','Cédula de Identidad'],['EXT','Documento Extranjero']]) {
+            const option = doc.createElement('mat-option'); option.setAttribute('role','option'); option.textContent=label;
+            option.onclick = () => {picked=value; select.innerHTML='<span class="mat-select-value-text">'+label+'</span>'; panel.remove();};
+            panel.append(option);
+          }
+          doc.body.append(panel);
+        }, 0);
+      };
+      dom.window.BoleteraPayer.use({...profile, documentType:desired});
+      await new Promise(resolve => setTimeout(resolve, 20));
+      assert.equal(picked, desired);
+      assert.equal(dom.window.BoleteraPayer.status(), 'filled');
+      assert.equal(opens, 1);
+      assert.equal(unrelated, 0); assert.equal(submits, 0);
+    } finally { dom.window.close(); }
+  }
+});

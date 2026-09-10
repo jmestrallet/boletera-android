@@ -376,17 +376,25 @@ class MainActivity : FragmentActivity() {
     var given by remember(id) { mutableStateOf(existing?.givenName.orEmpty()) }
     var family by remember(id) { mutableStateOf(existing?.familyName.orEmpty()) }
     var document by remember(id) { mutableStateOf(existing?.document.orEmpty()) }
+    var documentType by remember(id) { mutableStateOf(existing?.documentType ?: "CI") }
     var email by remember(id) { mutableStateOf(existing?.email.orEmpty()) }
     var phone by remember(id) { mutableStateOf(existing?.phone.orEmpty()) }
     var error by remember(id) { mutableStateOf("") }
-    val profile = PayerProfile(id, label.trim(), given.trim(), family.trim(), document, email.trim(), phone)
+    val profile = PayerProfile(id, label.trim(), given.trim(), family.trim(), document.trim(), email.trim(), phone, documentType)
     AlertDialog(onDismissRequest = onClose, title = { Text(if (existing == null) "Nueva Prex" else "Datos del titular") }, text = {
         Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Estos datos se guardan cifrados en este celular. No incluyen el número ni el código de la tarjeta.", color = Muted)
             OutlinedTextField(label, { label = it.take(80) }, label = { Text("Nombre del perfil · por ejemplo, Mi Prex") }, singleLine = true)
             OutlinedTextField(given, { given = it.take(80) }, label = { Text("Nombre del titular") }, singleLine = true)
             OutlinedTextField(family, { family = it.take(80) }, label = { Text("Apellido del titular") }, singleLine = true)
-            OutlinedTextField(document, { document = it.filter(Char::isDigit).take(8) }, label = { Text("Cédula uruguaya, sin puntos ni guion") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            Text("Tipo de documento")
+            listOf("CI" to "Cédula uruguaya", "EXT" to "Documento extranjero").forEach { (type, title) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = documentType == type, onClick = { documentType = type })
+                    TextButton(onClick = { documentType = type }) { Text(title) }
+                }
+            }
+            OutlinedTextField(document, { document = if (documentType == "CI") it.filter(Char::isDigit).take(8) else it.take(40) }, label = { Text(if (documentType == "CI") "Cédula uruguaya, sin puntos ni guion" else "Número de documento extranjero") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = if (documentType == "CI") KeyboardType.Number else KeyboardType.Text))
             OutlinedTextField(email, { email = it.take(120) }, label = { Text("Correo electrónico") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
             OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(15) }, label = { Text("Celular, con código de país si corresponde") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
             if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)

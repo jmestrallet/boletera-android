@@ -1,5 +1,9 @@
 # Perfiles para Prex: viabilidad y decisión del usuario
 
+## Tipo de documento desde 0.1.10
+
+El perfil permite elegir cédula uruguaya (predeterminada) o documento extranjero. Los perfiles guardados antes de esta versión conservan cédula por defecto. La selección se aplica al control original del proveedor cuando está vacío; no cambia una selección distinta preexistente sin la acción explícita para aplicar el perfil y respeta las correcciones manuales posteriores. Los documentos extranjeros admiten letras.
+
 ## Estado implementado en 0.1.8 — 10 de septiembre de 2026
 
 La versión incorpora perfiles ordinarios de titular dentro de Boletera, sin instalar ni elegir un `AutofillService` propio. Conserva el servicio Android que use el usuario, incluido Google; su funcionamiento efectivo con la tarjeta en el WebView requiere prueba física.

@@ -16,8 +16,8 @@ android {
         applicationId = "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.1.9-prueba"
+        versionCode = 11
+        versionName = "0.1.10-prueba"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }

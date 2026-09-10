@@ -15,18 +15,20 @@ import javax.crypto.spec.GCMParameterSpec
 /** Identifies a payer profile chosen by the user, never a verified bank card or its credentials. */
 data class PayerProfile(
     val id: String, val label: String, val givenName: String, val familyName: String,
-    val document: String, val email: String, val phone: String
+    val document: String, val email: String, val phone: String,
+    val documentType: String = "CI"
 ) {
     fun valid() = Regex("[A-Za-z0-9-]{1,80}").matches(id) &&
         listOf(label, givenName, familyName).all { it.isNotBlank() && it.length <= 80 } &&
-        Regex("[0-9]{7,8}").matches(document) && email.length <= 120 &&
+        (if (documentType == "CI") Regex("[0-9]{7,8}").matches(document)
+        else documentType == "EXT" && document.isNotBlank() && document.length <= 40 && document.none { it.isISOControl() }) && email.length <= 120 &&
         Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+").matches(email) && Regex("[0-9]{9,15}").matches(phone)
     fun json() = JSONObject().put("id", id).put("label", label).put("givenName", givenName)
-        .put("familyName", familyName).put("document", document).put("email", email).put("phone", phone)
+        .put("familyName", familyName).put("document", document).put("email", email).put("phone", phone).put("documentType", documentType)
     companion object {
         fun from(value: JSONObject) = PayerProfile(value.getString("id"), value.getString("label"),
             value.getString("givenName"), value.getString("familyName"), value.getString("document"),
-            value.getString("email"), value.getString("phone")).also { require(it.valid()) }
+            value.getString("email"), value.getString("phone"), value.optString("documentType", "CI")).also { require(it.valid()) }
     }
 }
 

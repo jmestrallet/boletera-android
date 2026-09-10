@@ -2,7 +2,7 @@
 
 ## Estado vigente: 0.1.9
 
-Se corrigió la cadena de confianza de Sistarbanc para Android 11. En el OnePlus 6T físico se reprodujeron los rechazos de ambos dominios y se verificó HTTPS y WebView con la configuración corregida, mediante una app de diagnóstico separada sin operación ni cuenta. [Evidencia TLS](TLS-ANDROID11.md). El recorrido de pago completo sigue pendiente.
+Se corrigiÃ³ la cadena de confianza de Sistarbanc para Android 11. En el OnePlus 6T fÃ­sico se reprodujeron los rechazos de ambos dominios y se verificÃ³ HTTPS y WebView con la configuraciÃ³n corregida, mediante una app de diagnÃ³stico separada sin operaciÃ³n ni cuenta. [Evidencia TLS](TLS-ANDROID11.md). El recorrido de pago completo sigue pendiente.
 
 ## Base funcional: 0.1.8
 

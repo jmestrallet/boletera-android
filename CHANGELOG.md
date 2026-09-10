@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.1.10-prueba
+
+- Los perfiles usan cédula uruguaya por defecto y permiten elegir documento extranjero. Los perfiles anteriores se interpretan como cédula sin volver a pedir datos.
+- Selecciona el tipo de documento en el control original de Prex, además de completar el número. Respeta los cambios manuales posteriores.
+- Los documentos extranjeros conservan letras; una cédula sigue requiriendo entre 7 y 8 dígitos.
+
+Pruebas automáticas cubren el valor por defecto, la elección extranjera, las opciones del selector original y la conservación de cambios manuales. No se autoriza ni confirma un pago automáticamente.
+
 ## 0.1.9-prueba
 
 - Corrige el rechazo TLS de los dominios de Sistarbanc en Android 11. Incluye el certificado público R46 firmado por USERTrust, validado contra el almacén del OnePlus 6T, solamente para los dos dominios exactos de la pasarela.

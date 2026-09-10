@@ -4,7 +4,7 @@ App independiente y no oficial, de código abierto bajo licencia MIT, con interf
 
 El código y la documentación se publican para permitir revisión y colaboración. Con 0.1.5 se comprobaron en un emulador Android 16 el ingreso real, saldo/mínimo, preferencias, el inicio real de Prex/eBROU y el regreso al saldo. La integración nueva de 0.1.8 se probó con formularios ficticios; por separado se midió el detector público sin operación. La autorización bancaria, la acreditación, el CAPTCHA real y la huella física siguen pendientes. Consultá [el estado de validación](docs/VALIDACION.md) y [las comprobaciones pendientes de pago](docs/COMPATIBILIDAD-PAGO.md).
 
-La 0.1.9 corrige la conexi�n segura de Sistarbanc en Android 11; se reprodujo el fallo y se verific� la correcci�n en un OnePlus 6T. Ver [evidencia TLS](docs/TLS-ANDROID11.md).
+La 0.1.9 corrige la conexión segura de Sistarbanc en Android 11; se reprodujo el fallo y se verificó la corrección en un OnePlus 6T. Ver [evidencia TLS](docs/TLS-ANDROID11.md).
 
 ## Probar en el celular
 
@@ -14,7 +14,7 @@ La 0.1.9 corrige la conexi�n segura de Sistarbanc en Android 11; se reprodujo el
 
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Las versiones anteriores se conservan con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
 
-1. Pasá `outputs/boletera-prueba-0.1.9.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
+1. Pasá `outputs/boletera-prueba-0.1.10.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.
