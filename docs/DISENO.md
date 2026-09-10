@@ -40,7 +40,7 @@ Los botones se comprimen al 97% durante la pulsación y vuelven con resorte; man
 
 La boletera se comprime al 97,5% y gira -1,2 grados al tocarla; toque o pulsación larga abre el selector existente. La pulsación larga utiliza la respuesta nativa de Compose/Android, una vez por reconocimiento del gesto. La alternativa visible Cambiar boletera sigue disponible. El gesto se deshabilita durante una consulta.
 
-El importe seleccionado cambia de superficie y curvatura; la marca aparece con resorte dentro de un espacio fijo. Cambiar importe, apariencia o medio de pago emite un pulso de selección. Volver a elegir la misma opción no genera otro pulso. La configuración de Android controla la respuesta táctil y la escala de duración de Compose; no se pide permiso de vibración ni se usan patrones permanentes.
+El importe seleccionado cambia de superficie y curvatura; la marca aparece con resorte dentro de un espacio fijo. Cambiar importe, apariencia o medio de pago emite un pulso de selección. Volver a elegir la misma opción no genera otro pulso. La configuración de Android controla la respuesta táctil y la escala de duración de Compose; hasta 0.2.22 no se pedía permiso de vibración. La revisión 0.2.23 usa efectos directos con permiso normal VIBRATE y sin patrones permanentes.
 
 Referencias consultadas el 10/09/2026:
 
@@ -99,3 +99,11 @@ Cambiar boletera queda exclusivamente en el botón de intercambio, sin acción d
 ## Tarjeta y regreso — 0.2.22
 
 Un dato de tarjeta incompleto recibe foco, explicación y desplazamiento sobre el teclado. Siguiente salta al primer dato pendiente, incluido CVV si Google completó los otros dos. La confirmación STM deja de exigir otro toque: desde el comprobante se sigue el retorno original y se vuelve al saldo consultado. Una espera prolongada permite revisar esa misma solicitud, sin iniciar otra.
+
+## Pie y vibración — 0.2.23
+
+Los dos textos del pie pasan de 12/18 sp a 11/14 sp. La guía ocupa 90 dp para dar más ancho al aviso completo de las 72 horas; el espacio tras Recarga mínima pasa de 24 a 12 dp. Se conserva el área táctil de 48 dp y el desplazamiento con letra ampliada. En la configuración comprobada del teléfono, el aviso ocupa dos renglones y la home entra completa.
+
+El dueño indicó que no sentía Probar vibración. La consulta de su teléfono mostró respuesta táctil activada e intensidad 2, sin eventos de Boletera en el registro consultado; eso no identifica por sí solo la causa exacta. Se sustituye la vía basada en la vista por Vibrator con efectos CLICK y DOUBLE_CLICK (prueba), clasificados como TOUCH. Android 8/9 usa pulsos cortos equivalentes; Android 10+ usa efectos predefinidos con compatibilidad del sistema. Se declara el permiso normal VIBRATE. No se cambia el ajuste del teléfono ni se saltea HAPTIC_FEEDBACK_ENABLED. [Referencia Android](https://developer.android.com/develop/ui/views/haptics/haptics-apis).
+
+La interfaz informa que se solicitaron los pulsos, sin afirmar que se sintieron. La percepción física queda pendiente en el teléfono del dueño. No se instaló ni ejecutó la versión corregida en ese teléfono durante esta comprobación.

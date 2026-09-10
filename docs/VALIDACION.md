@@ -1,6 +1,18 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.22
+## Versión vigente: 0.2.23
+
+El pie conserva el aviso completo de las 72 horas y Boletos y tarifas. Ambos textos pasan a 11 sp con interlineado de 14 sp, la guía reserva 90 dp y la separación desde Recarga mínima baja a 12 dp. Se conserva el área táctil de 48 dp. La consulta de pantalla del teléfono dio 1080 × 2340, 420 dpi y letra 1×; no se cambió su configuración.
+
+La home se probó en emulador con esas medidas: prueba inicial aprobada en 9,883 s (`outputs/footer-fit-0.2.23.txt`). Captura oscura revisada (`outputs/footer-home-0.2.23.png`): aviso en dos renglones, guía completa y home sin desplazamiento, también comprobada con saldo negativo. Con letra mayor el contenido puede desplazarse para preservar su lectura.
+
+El dueño informó que no sentía la vibración. En su teléfono la respuesta táctil estaba activada, intensidad 2; el registro consultado no contenía peticiones de Boletera. No se afirma que eso identifique la causa exacta. Se agregó una vía directa con efectos CLICK y DOUBLE_CLICK, uso TOUCH y permiso normal VIBRATE, respetando HAPTIC_FEEDBACK_ENABLED. La interfaz distingue petición, ajuste apagado, falta de motor y error sin confundir petición con percepción física.
+
+Cinco pruebas Android aprobadas en 14,321 s (`outputs/footer-haptics-final-0.2.23.txt`): botón real de prueba, respeto del ajuste apagado y restauración del ajuste del emulador, home/guía/ayuda y respuesta de controles sin duplicados. El servicio Android del emulador registró DOUBLE_CLICK finalizado en 166 ms y pulsos CLICK (`outputs/haptic-service-0.2.23.txt`). No demuestra todavía que se sienta en el teléfono del dueño.
+
+Ocho pruebas JVM, release y lint aprobados; compilación final en 26 s. No cambió JavaScript ni el recorrido de pago. APK código 41, SHA-256 `c3453da3c4ecd3e5f235287e81531dbcec82450fc475b0e14eadff757e7da315`, 8.612.927 bytes, misma firma. No se instaló ni se ejecutó la corrección en el teléfono físico y no se hicieron operaciones financieras.
+
+## Versión anterior: 0.2.22
 
 El dueño reportó tres recargas reales y describió cuatro molestias: Express sin avance visible, aviso de error seguido por avance normal, CVV vacío tras la huella sin foco visible y otra pantalla antes del saldo. Su relato acredita esas observaciones; no permite atribuir con certeza el aviso original a un único componente. Se corrigieron causas reproducibles y se agregó una salida para esperas prolongadas.
 

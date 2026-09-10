@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.23-prueba — pie de la home y vibración
+
+- Texto de las 72 horas y Boletos y tarifas ligeramente menor, con renglones más compactos y más ancho para el aviso.
+- Se acerca el pie a Recarga mínima para que entre completo; se conserva el texto y el área táctil de la guía.
+- La respuesta táctil usa efectos directos de Android y Probar vibración pide dos pulsos. Se respeta la preferencia del sistema y se distingue petición realizada, ajuste apagado y motor no disponible.
+
 ## 0.2.22-prueba — esperas, CVV y regreso al saldo
 
 - Siguiente y Continuar enfocan el primer dato faltante de tarjeta y lo muestran por encima del teclado. El CVV tiene indicación de autocompletado para Android; si el proveedor no lo entrega, se pide ingresarlo. Boletera no lo guarda.

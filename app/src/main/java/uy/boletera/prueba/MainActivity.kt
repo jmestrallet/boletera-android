@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -51,8 +52,11 @@ class MainActivity : FragmentActivity() {
         val preferences = getSharedPreferences("appearance", MODE_PRIVATE)
         setContent {
             var appearance by remember { mutableStateOf(preferences.getString("theme", "system") ?: "system") }
+            val haptics=remember {AppHaptics(this@MainActivity)}
+            CompositionLocalProvider(LocalHapticFeedback provides haptics) {
             BoleteraTheme(appearance) {
                 App(appearance) { appearance = it; preferences.edit().putString("theme", it).apply() }
+            }
             }
         }
     }

@@ -88,6 +88,7 @@ import java.util.Locale
         }
             Primary("Recargar boletera",enabled=!state.busy && state.minimum!=null,action=onCharge)
             if(onExpressCharge!=null) ExpressShortcut(state.minimum,enabled=!state.busy,onExplain=onExpressHelp,preparing=expressPreparing,providerName=expressProvider,onStart=onExpressCharge)
+        Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Surface(color=Panel,shape=RoundedCornerShape(24.dp)) {
                 Row(Modifier.fillMaxWidth().padding(20.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
                     Surface(color=colors.secondaryContainer,shape=RoundedCornerShape(14.dp),modifier=Modifier.size(44.dp)) { Box(contentAlignment=Alignment.Center) { AppGlyph(Glyph.Ticket,tint=colors.onSecondaryContainer) } }
@@ -100,15 +101,16 @@ import java.util.Locale
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             Row(Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.Top) {
                 AppGlyph(Glyph.Info,Modifier.size(16.dp),tint=Muted)
-                Text("Los viajes de las últimas 72 horas pueden estar pendientes de descuento.",style=MaterialTheme.typography.bodySmall,color=Muted,modifier=Modifier.weight(1f))
+                Text("Los viajes de las últimas 72 horas pueden estar pendientes de descuento.",style=MaterialTheme.typography.bodySmall.copy(fontSize=11.sp,lineHeight=14.sp),color=Muted,modifier=Modifier.weight(1f))
             }
             if(onTicketGuide!=null) Row(
-                Modifier.width(106.dp).heightIn(min=48.dp).clickable(onClickLabel="Abrir guía",role=Role.Button,onClick=onTicketGuide)
+                Modifier.width(90.dp).heightIn(min=48.dp).clickable(onClickLabel="Abrir guía",role=Role.Button,onClick=onTicketGuide)
                     .semantics(mergeDescendants=true) {contentDescription="Boletos y tarifas"},
                 horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.Top) {
                 AppGlyph(Glyph.Info,Modifier.size(16.dp),tint=Muted)
-                Text("Boletos y\ntarifas",color=Muted,style=MaterialTheme.typography.bodySmall,modifier=Modifier.weight(1f))
+                Text("Boletos y\ntarifas",color=Muted,style=MaterialTheme.typography.bodySmall.copy(fontSize=11.sp,lineHeight=14.sp),modifier=Modifier.weight(1f))
             }
+        }
         }
     }
 }
@@ -179,7 +181,8 @@ import java.util.Locale
     var details by remember { mutableStateOf(false) }
     val haptic=LocalHapticFeedback.current
     val view=LocalView.current
-    var pulseAccepted by remember { mutableStateOf<Boolean?>(null) }
+    val vibration=remember(view.context) {AppHaptics(view.context)}
+    var pulseResult by remember { mutableStateOf<PulseResult?>(null) }
     ModalBottomSheet(onDismissRequest=onClose,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=Paper) {
         Column(Modifier.fillMaxWidth().widthIn(max=560.dp).align(Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(24.dp)) {
             Text("Configuración",style=MaterialTheme.typography.headlineLarge,color=Ink)
@@ -215,8 +218,13 @@ import java.util.Locale
             WhiteCard {
                 Text("Respuesta táctil",style=MaterialTheme.typography.titleMedium)
                 Text("Probá la vibración en este teléfono.",style=MaterialTheme.typography.bodyMedium,color=Muted)
-                OutlinedButton(onClick={pulseAccepted=view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("Probar vibración")}
-                if(pulseAccepted!=null)Text(if(pulseAccepted==true)"Si no la sentís, revisá la respuesta táctil en los ajustes del teléfono." else "Android no habilitó el pulso. Revisá la respuesta táctil en los ajustes del teléfono.",style=MaterialTheme.typography.bodySmall,color=Muted)
+                OutlinedButton(onClick={pulseResult=vibration.testPulse()},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("Probar vibración")}
+                if(pulseResult!=null)Text(when(pulseResult) {
+                    PulseResult.Requested->"Se pidieron dos pulsos. Si no los sentís, revisá la intensidad de respuesta táctil del teléfono."
+                    PulseResult.Disabled->"La respuesta táctil está apagada en Android. Podés activarla en los ajustes del teléfono."
+                    PulseResult.Unavailable->"Android no informa un motor de vibración disponible."
+                    else->"Android no pudo iniciar la vibración."
+                },style=MaterialTheme.typography.bodySmall,color=Muted)
             }
             if(hasSavedAccess||canLogout) WhiteCard {
                 Text("En este teléfono",style=MaterialTheme.typography.titleMedium)
