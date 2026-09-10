@@ -33,3 +33,7 @@ Se eliminó la configuración separada de Express y su sustitución del botón p
 Se comprueban visibilidad condicionada, permanencia del botón común, toque corto/cancelación/pulsación completa, interrupción, aislamiento de las preferencias por cuenta y exclusión de duplicados. El recorrido Android interceptado comprueba que una sola pulsación llega al formulario de tarjeta pasando una vez por resumen/titular y sin pulsar Continuar en la tarjeta. CAPTCHA, autocompletado físico y acreditación no quedan demostrados por ese laboratorio.
 
 Desde 0.2.14, la ayuda no usa la expresión titular habitual. El mínimo nunca es un monto fijo: se lee de STM, se borra al actualizar/cambiar de cuenta y se vuelve a validar antes de avanzar. Sin un mínimo reconocido, la recarga no se habilita.
+
+## Esperas — 0.2.22
+
+El panel conserva el estado de un paso ya enviado aunque Express deje de avanzar. Tras 30 segundos sin progreso, fuera de un CAPTCHA, ofrece Revisar esta solicitud o Volver al saldo. La primera opción muestra la página ya abierta, sin cargar una solicitud nueva; no desbloquea un envío pendiente ni confirma un pago. Si el proveedor finalmente avanza, desaparece el aviso. También cubre una página cargada cuyo contenido todavía no se reconoce, para evitar un indicador sin salida.

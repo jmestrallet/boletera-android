@@ -286,7 +286,7 @@ class MainActivity : FragmentActivity() {
     val expressAdvancing=payment.expressPhase=="advancing"
     val expressVerification=payment.expressPhase=="verification"
     LaunchedEffect(payment.nativeStage) { showOriginal = false }
-    val completion = payment.nativeStage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "returnBalance", "sessionExpired")
+    val completion = payment.nativeStage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "returnBalance", "sessionExpired") || payment.returningToWallet && payment.nativeStage=="loading"
     LaunchedEffect(payment.nativeStage) { if(payment.nativeStage in listOf("returnBalance", "sessionExpired")) onClose() }
     val native = (completion || payment.nativeStage in listOf("summary", "payer", "card", "loading")) && !showOriginal
     LaunchedEffect(native, payment.nativeStage, payment.expandedChallenge, payment.challenge != null) {
@@ -304,7 +304,14 @@ class MainActivity : FragmentActivity() {
                 Text(payment.payerNotice, color = Ink, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
                 if (payment.payerConflict) TextButton(onClick = payment::applyChosenPayer, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Usar el titular seleccionado") }
             }
-            if (payment.busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            if (payment.busy && !payment.slowStep) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            if(payment.slowStep && payment.message.isBlank()) {
+                Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=8.dp)) {
+                    Text("Este paso está demorando más de lo habitual. Podés revisar la misma solicitud en la página original. No se volvió a enviar.",color=Muted,style=MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick={payment.stopExpress();showOriginal=true}) {Text("Revisar esta solicitud")}
+                    TextButton(onClick=onClose) {Text("Volver al saldo")}
+                }
+            }
             if (payment.message.isNotBlank()) {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp)) {
                     AppErrorScreen(payment.message,payment=true,onExit=onClose)
@@ -346,7 +353,7 @@ class MainActivity : FragmentActivity() {
                         ProgressSteps(if(payment.nativeStage=="payer")1 else 0,listOf("Recarga","Titular","Tarjeta"))
                         Text(if(expressVerification)"Una verificación\ny seguimos" else if (payment.nativeStage == "payer") "Datos del titular" else "Revisá tu recarga",style=MaterialTheme.typography.headlineMedium,color=Ink)
                         if (payment.nativeStage == "loading") {
-                            LoadingState("Un momento…","Estamos recuperando tu solicitud.")
+                            if(!payment.slowStep)LoadingState("Un momento…","Estamos recuperando tu solicitud.")
                         } else if (payment.nativeStage == "summary") {
                             Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(28.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {

@@ -2,6 +2,8 @@ package uy.boletera.prueba
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -9,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalAutofillManager
@@ -24,6 +25,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.time.YearMonth
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 internal object CardInput {
     fun panValid(value: String): Boolean = value.length in 13..16 && value.all { it in '0'..'9' } &&
@@ -59,6 +62,24 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     val keyboard=LocalSoftwareKeyboardController.current
     val lifecycle=LocalLifecycleOwner.current.lifecycle
     val numberFocus=remember { FocusRequester() }
+    val expiryFocus=remember { FocusRequester() }
+    val codeFocus=remember { FocusRequester() }
+    val numberView=remember { BringIntoViewRequester() }
+    val expiryView=remember { BringIntoViewRequester() }
+    val codeView=remember { BringIntoViewRequester() }
+    val scope=rememberCoroutineScope()
+    fun focusMissing(): Boolean {
+        val target=when {
+            !CardInput.panValid(pan)->numberFocus to numberView
+            !CardInput.expiryValid(expiry)->expiryFocus to expiryView
+            !CardInput.cvvValid(cvv)->codeFocus to codeView
+            else->return false
+        }
+        attempted=true
+        target.first.requestFocus();keyboard?.show()
+        scope.launch { target.second.bringIntoView();delay(300);target.second.bringIntoView() }
+        return true
+    }
     LaunchedEffect(focusCard,expandedChallenge) { if(focusCard&&!expandedChallenge) { numberFocus.requestFocus();keyboard?.show() } }
     LaunchedEffect(expandedChallenge) { if(expandedChallenge) {focus.clearFocus();keyboard?.hide()} }
     DisposableEffect(lifecycle,autofill) {
@@ -82,28 +103,29 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                 Text("Ingresá los datos para continuar con Sistarbanc.",color=Muted)
                 OutlinedTextField(value=pan,onValueChange={pan=it.filter { c -> c in '0'..'9' }.take(16)},
                     label={Text("Número de tarjeta")},singleLine=true,enabled=!busy,
-                    modifier=Modifier.fillMaxWidth().focusRequester(numberFocus).semantics { contentType=ContentType.CreditCardNumber },
+                    modifier=Modifier.fillMaxWidth().bringIntoViewRequester(numberView).focusRequester(numberFocus).semantics { contentType=ContentType.CreditCardNumber },
                     visualTransformation=remember { CardGrouping(4,' ') },
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
-                    keyboardActions=KeyboardActions(onNext={focus.moveFocus(FocusDirection.Next)}),
+                    keyboardActions=KeyboardActions(onNext={if(!focusMissing())keyboard?.hide()}),
                     isError=attempted&&!CardInput.panValid(pan),
                     supportingText=if(attempted&&!CardInput.panValid(pan)) {{Text("Revisá el número de tarjeta.")}} else null)
                 FlowRow(maxItemsInEachRow=if(LocalDensity.current.fontScale>1.2f)1 else 2,horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(value=expiry,onValueChange={ val digits=it.filter { c->c in '0'..'9' };expiry=if(digits.length==6)digits.take(2)+digits.takeLast(2) else digits.take(4) },
                         label={Text("Vencimiento")},placeholder={Text("MM/AA")},singleLine=true,enabled=!busy,
-                        modifier=Modifier.weight(1f).semantics { contentType=ContentType.CreditCardExpirationDate },
+                        modifier=Modifier.weight(1f).bringIntoViewRequester(expiryView).focusRequester(expiryFocus).semantics { contentType=ContentType.CreditCardExpirationDate },
                         visualTransformation=remember { CardGrouping(2,'/') },
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
-                        keyboardActions=KeyboardActions(onNext={focus.moveFocus(FocusDirection.Next)}),
+                        keyboardActions=KeyboardActions(onNext={if(!focusMissing())keyboard?.hide()}),
                         isError=attempted&&!CardInput.expiryValid(expiry),
                         supportingText=if(attempted&&!CardInput.expiryValid(expiry)) {{Text("Usá mes y año vigentes.")}} else null)
                     OutlinedTextField(value=cvv,onValueChange={cvv=it.filter { c->c in '0'..'9' }.take(4)},
-                        label={Text("CVV")},singleLine=true,enabled=!busy,modifier=Modifier.weight(1f),
+                        label={Text("CVV")},singleLine=true,enabled=!busy,
+                        modifier=Modifier.weight(1f).bringIntoViewRequester(codeView).focusRequester(codeFocus).semantics { contentType=ContentType.CreditCardSecurityCode },
                         visualTransformation=PasswordVisualTransformation(),
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword,imeAction=ImeAction.Done),
-                        keyboardActions=KeyboardActions(onDone={keyboard?.hide()}),
+                        keyboardActions=KeyboardActions(onDone={if(!focusMissing())keyboard?.hide()}),
                         isError=attempted&&!CardInput.cvvValid(cvv),
-                        supportingText=if(attempted&&!CardInput.cvvValid(cvv)) {{Text("3 o 4 dígitos.")}} else null)
+                        supportingText=if(attempted&&!CardInput.cvvValid(cvv)) {{Text(if(cvv.isBlank())"Falta el código de seguridad de tu tarjeta." else "Ingresá 3 o 4 dígitos.")}} else null)
                 }
                 Text("Boletera no guarda estos datos. El CVV se borra del formulario al continuar.",style=MaterialTheme.typography.bodySmall,color=Muted)
             }
@@ -113,8 +135,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
         Surface(color=Paper,shadowElevation=6.dp) {
             Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=12.dp)) {
                 Primary(if(busy)"Procesando…" else "Continuar",canContinue&&!busy&&!expandedChallenge) {
-                    attempted=true
-                    if(CardInput.panValid(pan)&&CardInput.expiryValid(expiry)&&CardInput.cvvValid(cvv)) {
+                    if(!focusMissing()) {
                         autofill?.cancel();keyboard?.hide();focus.clearFocus()
                         onSubmit(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
                         cvv="";attempted=false

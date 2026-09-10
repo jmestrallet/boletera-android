@@ -1,6 +1,20 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.21
+## Versión vigente: 0.2.22
+
+El dueño reportó tres recargas reales y describió cuatro molestias: Express sin avance visible, aviso de error seguido por avance normal, CVV vacío tras la huella sin foco visible y otra pantalla antes del saldo. Su relato acredita esas observaciones; no permite atribuir con certeza el aviso original a un único componente. Se corrigieron causas reproducibles y se agregó una salida para esperas prolongadas.
+
+58 pruebas JavaScript, ocho JVM, release/debug/pruebas Android y lint aprobados; compilación final en 33 s. El adaptador no declara rechazo solo porque vuelve a habilitarse un botón: exige un aviso persistente. Las advertencias transitorias conservan el bloqueo de duplicados. Los errores de una navegación anterior se descartan; un fallo persistente sigue visible. La espera de 30 segundos ofrece revisar la misma solicitud o volver al saldo, sin reenviar ni desbloquear una confirmación financiera.
+
+Ocho pruebas Android iniciales aprobadas en 30,086 s (`outputs/polish-android-initial-0.2.22.txt`): validación/limpieza, teclado y campo faltante, envío único, espera de Express con recuperación tardía, página sin contenido reconocido, error transitorio/persistente y comprobante hasta saldo sin otro toque. La tanda de trece pruebas aprobó en 86,939 s (`outputs/polish-android-final-0.2.22.txt`), incluyendo acceso/boleteras/Express y recuperación de sesión. Después del último ajuste que conserva el indicador de regreso durante las navegaciones STM, se repitieron las cuatro de progreso y cierre: aprobadas en 16,237 s (`outputs/polish-payment-published-0.2.22.txt`).
+
+Foco, explicación y CVV visibles con el teclado abierto comprobados en pantalla habitual y en 360 × 640 dp: letra 1×, 4,393 s (`outputs/cvv-small-keyboard-0.2.22.txt`), y letra 1,5×, 4,264 s (`outputs/cvv-small-large-text-0.2.22.txt`). Se revisaron capturas oscuras de los tres tamaños. La prueba completa rellena número/vencimiento ficticios, usa Siguiente, comprueba foco en CVV y ausencia de envío, luego completa CVV y exige un solo Continuar.
+
+Se agrega la indicación de CVV para autocompletado Android; el suministro efectivo por Google no está probado en el teléfono ni se garantiza a partir del soporte de Chrome. El CVV no se guarda en Boletera. El nuevo retorno automático respeta la confirmación original de STM y vuelve a consultar saldo/mínimo; no calcula una acreditación local.
+
+APK código 40, SHA-256 `8f627d96f2a6aa04674e29ed2bd1a8b88c1e5fe94c8a84e3985af89c63a614f9`, 8.612.907 bytes, misma firma. No se modificó el teléfono físico ni se hicieron operaciones financieras en estas pruebas.
+
+## Versión anterior: 0.2.21
 
 La sesión vencida intenta recuperar el acceso con la sesión web todavía disponible; si necesita identificación, vuelve al acceso y solicita huella con credenciales guardadas o permite ingreso manual. Se descartan el importe pendiente y el avance de pago para impedir reenvíos. No volver a mostrar se guarda al marcarlo, incluso al cerrar la ayuda o cancelar la pulsación de Express. Solo las flechas cambian de boletera; el panel de saldo no responde con esa acción.
 

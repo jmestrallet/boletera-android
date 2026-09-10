@@ -76,11 +76,8 @@ class PaymentCompletionTest {
         compose.onNodeWithText("Ver comprobante y detalle").performScrollTo().performClick()
         compose.onNodeWithText("TEST-123").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Volver a mi boletera").performClick()
-        compose.waitUntil(15000){engine.prexPayment.nativeStage=="stmSuccess"}
-        compose.onNodeWithText("Recarga exitosa").assertIsDisplayed()
-        shot("payment-stm-success.png")
-        compose.onNodeWithText("Ver mi saldo").performClick()
         compose.waitUntil(20000){engine.state.stage=="balance"&&!engine.state.busy&&engine.state.minimum==26000L}
+        compose.onNodeWithText("Ver mi saldo").assertDoesNotExist()
         compose.runOnIdle {
             assertEquals(82400L,engine.state.balance)
             assertEquals("ABCD1234",engine.state.selectedCard)

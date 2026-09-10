@@ -26,6 +26,29 @@ import java.util.concurrent.atomic.AtomicReference
 @RunWith(AndroidJUnit4::class)
 class NativeCardFormTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
+    @Test fun partialAutofillNextAndContinueRevealTheMissingSecurityCodeAboveKeyboard() {
+        var submits=0
+        compose.activity.setContent { BoleteraTheme(appearance="dark") {
+            Surface {Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+                AppTopBar(title="Pago con Prex",onBack={})
+                NativeCardForm(false,true,false,false,{_,_,_->submits++},{})
+            }}
+        }}
+        compose.onNodeWithText("Número de tarjeta").performTextInput("4111111111111111")
+        compose.onNodeWithText("Vencimiento").performTextInput("1239")
+        compose.onNodeWithText("Número de tarjeta").performClick().performImeAction()
+        compose.onNodeWithText("CVV").assertIsFocused().assertIsDisplayed()
+        compose.onNodeWithText("Falta el código de seguridad de tu tarjeta.").assertIsDisplayed()
+        assertEquals(0,submits)
+        compose.onNodeWithText("Continuar").performClick()
+        compose.onNodeWithText("CVV").assertIsFocused().assertIsDisplayed()
+        compose.waitForIdle();android.os.SystemClock.sleep(500)
+        val screenshot=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(compose.activity.getExternalFilesDir(null),"missing-cvv-keyboard.png").outputStream().use{screenshot.compress(Bitmap.CompressFormat.PNG,100,it)};screenshot.recycle()
+        compose.onNodeWithText("CVV").performTextInput("123")
+        compose.onNodeWithText("Continuar").performClick()
+        assertEquals(1,submits)
+    }
     @Test fun validationClearingAndScreenshotsAllowed() {
         var submits=0
         var visible by mutableStateOf(true)

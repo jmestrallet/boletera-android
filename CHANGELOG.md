@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.22-prueba — esperas, CVV y regreso al saldo
+
+- Siguiente y Continuar enfocan el primer dato faltante de tarjeta y lo muestran por encima del teclado. El CVV tiene indicación de autocompletado para Android; si el proveedor no lo entrega, se pide ingresarlo. Boletera no lo guarda.
+- Las esperas de Prex sin avance ofrecen revisar la misma solicitud o volver al saldo. No se reenvían pasos ni se desbloquea una confirmación enviada por cumplir un plazo.
+- Un botón que se reactiva o un aviso transitorio no se interpreta inmediatamente como rechazo. Se descartan errores de navegación anterior y se conserva el error persistente.
+- Desde el comprobante se vuelve al saldo sin otro botón Ver mi saldo: la confirmación STM se continúa internamente una sola vez y se consulta el saldo real.
+
 ## 0.2.21-prueba — sesión vencida y gestos de la home
 
 - La expiración reconocida de STM recupera la navegación con la sesión web disponible o pide acceso de nuevo mediante huella/credenciales. El vencimiento tiene pantalla propia, sin tratarlo como error de la app. No reenvía importes ni pagos.

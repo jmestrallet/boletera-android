@@ -1,6 +1,6 @@
 # Boletera · prueba Android
 
-App independiente y no oficial, de código abierto bajo licencia MIT, con interfaz nativa para el acceso, la boletera y el importe. Maneja el sitio de STM por detrás. **Versión de prueba: puede iniciar una recarga real. Prex se abre dentro de Boletera con perfiles de titular; eBROU conserva Chrome. El dueño completó una recarga real con Prex y aportó sus confirmaciones; el cierre visual corregido en 0.2.19 sigue pendiente de comprobación real. No está lista para uso general.**
+App independiente y no oficial, de código abierto bajo licencia MIT, con interfaz nativa para el acceso, la boletera y el importe. Maneja el sitio de STM por detrás. **Versión de prueba: puede iniciar una recarga real. Prex se abre dentro de Boletera con perfiles de titular; eBROU conserva Chrome. El dueño reportó tres recargas reales con Prex; la última revisión corrige las esperas, el CVV y el regreso al saldo, y todavía necesita comprobación en su teléfono. No está lista para uso general.**
 
 El código y la documentación se publican para permitir revisión y colaboración. Con 0.1.5 se comprobaron en un emulador Android 16 el ingreso real, saldo/mínimo, preferencias, el inicio real de Prex/eBROU y el regreso al saldo. La integración nueva de 0.1.8 se probó con formularios ficticios; por separado se midió el detector público sin operación. El 10/9/2026 el dueño aportó evidencia de un pago Prex exitoso, confirmación STM y saldo aumentado; esto no valida eBROU ni todas las variantes de CAPTCHA y huella. Consultá [el estado de validación](docs/VALIDACION.md) y [las comprobaciones pendientes de pago](docs/COMPATIBILIDAD-PAGO.md).
 
@@ -14,11 +14,13 @@ En **0.2.20**, se elimina el icono repetido junto a Saldo disponible y el botón
 
 En **0.2.21**, una sesión vencida inicia la recuperación del acceso: intenta aprovechar la sesión web vigente y, si hace falta, pide huella o credenciales. No reenvía recargas. La ayuda de Express respeta No volver a mostrar incluso al soltar antes de tiempo; cambiar de boletera queda exclusivamente en las dos flechas. [Recuperación de sesión](docs/SESION.md).
 
+En **0.2.22**, Siguiente y Continuar llevan al dato de tarjeta faltante, visible sobre el teclado; el CVV se identifica para autocompletado de Android. Las esperas prolongadas permiten revisar la misma solicitud sin reenviarla. Después del comprobante, la confirmación STM se continúa internamente y vuelve la home con saldo consultado de nuevo.
+
 ## Probar en el celular
 
-**Estado actual:** un pago real Prex fue completado por el dueño; las capturas revelaron que faltaba integrar el cierre y el regreso. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. La 0.2.19 integra confirmación final, comprobante, resultado STM y regreso a la home. La corrección nueva se probó con datos ficticios; Google en el teléfono y otras variantes requieren comprobación. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
+**Estado actual:** el dueño reportó tres recargas reales con Prex y señaló esperas sin salida, un aviso transitorio, CVV vacío tras autocompletar y un toque adicional para regresar al saldo. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. La 0.2.19 integra confirmación final, comprobante, resultado STM y regreso a la home. La 0.2.22 aborda esos puntos con pruebas ficticias. El CVV efectivamente entregado por Google depende del proveedor y de los datos guardados; se conserva el ingreso manual visible. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
 
-**[Descargar la versión 0.2.21](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.21)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+**[Descargar la versión 0.2.22](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.22)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 

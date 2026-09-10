@@ -95,3 +95,7 @@ El icono de identidad queda en el encabezado. El control junto a Tu boletera usa
 ## Gestos y sesión · 0.2.21
 
 Cambiar boletera queda exclusivamente en el botón de intercambio, sin acción de selección sobre el saldo. Se conserva la actualización por deslizamiento y su acción accesible. La sesión vencida usa una pantalla de acceso con explicación, huella o formulario; no la pantalla de error. La ayuda de Express respeta la elección de ocultarla en todos los gestos.
+
+## Tarjeta y regreso — 0.2.22
+
+Un dato de tarjeta incompleto recibe foco, explicación y desplazamiento sobre el teclado. Siguiente salta al primer dato pendiente, incluido CVV si Google completó los otros dos. La confirmación STM deja de exigir otro toque: desde el comprobante se sigue el retorno original y se vuelve al saldo consultado. Una espera prolongada permite revisar esa misma solicitud, sin iniciar otra.

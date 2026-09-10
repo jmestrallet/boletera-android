@@ -13,8 +13,15 @@ import androidx.compose.ui.unit.dp
 
 @Composable internal fun PaymentCompletionScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, onOriginal: () -> Unit, browser: @Composable () -> Unit) {
     val stage=payment.nativeStage
+    if(stage in listOf("stmSuccess","returnBalance","sessionExpired") || payment.returningToWallet && stage=="loading") {
+        Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            browser()
+            if(!payment.slowStep)LoadingState("Volviendo a tu boletera","Estamos consultando el saldo actualizado en STM.")
+        }
+        return
+    }
     val confirming=stage=="finalConfirmation"
-    val success=stage in listOf("receipt","stmSuccess")
+    val success=stage=="receipt"
     val scroll=rememberScrollState()
     LaunchedEffect(stage) { scroll.scrollTo(0) }
     var details by remember(stage) { mutableStateOf(false) }
@@ -22,15 +29,13 @@ import androidx.compose.ui.unit.dp
     val title=when(stage) {
         "finalConfirmation" -> "Confirmá tu pago"
         "receipt" -> "Pago confirmado"
-        "stmSuccess" -> "Recarga exitosa"
         "paymentRejected" -> "El pago fue rechazado"
         "paymentPending" -> "Pago pendiente"
         else -> "Volviendo a tu boletera"
     }
     val explanation=when(stage) {
         "finalConfirmation" -> "Revisá el importe y la tarjeta. Al confirmar, autorizás el pago en Prex."
-        "receipt" -> "Prex confirmó el pago. Continuá para ver el resultado en STM."
-        "stmSuccess" -> "STM confirmó tu recarga. Ya podés volver a consultar el saldo."
+        "receipt" -> "Prex confirmó el pago. Volvé a tu boletera para ver el saldo actualizado."
         "paymentRejected" -> "El proveedor informó que esta transacción fue rechazada."
         "paymentPending" -> "El proveedor todavía no confirmó el pago. Revisá su estado antes de iniciar otra recarga."
         else -> "Estamos recuperando tu saldo desde STM."
@@ -52,7 +57,6 @@ import androidx.compose.ui.unit.dp
                     if(confirming) rows.filter {it.first.trimEnd(':').lowercase() in listOf("comercio","medio de pago")}.forEach { (label,value) ->
                         Column {Text(label,style=MaterialTheme.typography.labelSmall,color=Muted);Text(value,style=MaterialTheme.typography.bodyLarge,color=Ink)}
                     }
-                    if(stage=="stmSuccess")Text("Confirmado por STM",style=MaterialTheme.typography.labelLarge,color=Ink)
                 }
             }
             if(payment.completionNotice.isNotBlank())Text(payment.completionNotice,style=MaterialTheme.typography.bodyMedium,color=Muted)
@@ -68,7 +72,7 @@ import androidx.compose.ui.unit.dp
         }
         Surface(color=Paper,shadowElevation=6.dp) {
             Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=12.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                Primary(when(stage){"finalConfirmation"->"Confirmar pago";"stmSuccess"->"Ver mi saldo";"returnBalance"->"Actualizando saldo…";else->"Volver a mi boletera"},payment.canContinue,payment::advance)
+                Primary(if(confirming)"Confirmar pago" else "Volver a mi boletera",payment.canContinue,payment::advance)
                 TextButton(onClick=onOriginal) {Text("Ver página original")}
             }
         }

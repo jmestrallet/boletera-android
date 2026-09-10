@@ -39,7 +39,7 @@
     const expanded = !!challenge && /\/bframe/.test(challenge.src);
     const r = challenge?.getBoundingClientRect();
     const measurable = r && r.width > 0 && r.height > 0;
-    return {stage, rows, values, canContinue: card ? cardState.canContinue : ready(button(root)) && sentStep !== stage,
+    return {stage, rows, values, submitted: sentStep === stage, canContinue: card ? cardState.canContinue : ready(button(root)) && sentStep !== stage,
       cardBusy:!!card && cardState.busy, cardError:!!card && cardState.error,
       challenge: measurable ? {x:r.x,y:r.y,width:r.width,height:r.height} : null, viewportWidth:innerWidth, expanded:!!measurable && expanded};
   }

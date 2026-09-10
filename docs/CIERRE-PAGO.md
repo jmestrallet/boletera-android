@@ -1,4 +1,4 @@
-# Cierre de Prex · 0.2.19
+# Cierre de Prex · revisión 0.2.22
 
 ## Problema observado
 
@@ -12,7 +12,7 @@ El dueño completó por primera vez una recarga real el 10/9/2026. Sus cuatro ca
 
 3. **Volver a mi boletera** acciona el enlace original de Sistarbanc, incluido su retorno al comercio. No se construye una URL ni se salta el intercambio del proveedor.
 
-4. **Recarga exitosa** requiere que STM muestre tanto esa declaración como «Recarga Confirmada.». **Ver mi saldo** acciona su Continuar original.
+4. Al reconocer en STM tanto **Recarga exitosa** como «Recarga Confirmada.», la app acciona su Continuar original internamente una sola vez. No muestra otro botón Ver mi saldo. Durante esa navegación solo indica que está recuperando el saldo.
 
 5. Al aparecer la página principal de STM con saldo y control Recargar, se cierra el panel de pago y se consultan nuevamente las boleteras, saldo y mínimo. No se suma el importe de manera local ni se vuelve a enviar la recarga.
 
@@ -27,3 +27,5 @@ La confirmación enviada desde la pantalla propia queda bloqueada durante toda e
 ## Evidencia y alcance
 
 El pago real anterior fue realizado por el dueño; no valida automáticamente el adaptador nuevo. Las pruebas nuevas usan datos ficticios, interceptan todas las solicitudes y verifican envío único, resultado, retorno del proveedor, continuación STM y saldo consultado de nuevo. Se conservan aparte las comprobaciones históricas de eBROU, que no se modificó en esta entrega. Detalle de ejecuciones en [VALIDACION.md](VALIDACION.md).
+
+El dueño reportó tres recargas reales el 10/9/2026 y señaló que la pantalla STM exigía otro toque. La revisión 0.2.22 elimina ese toque y se comprueba con el recorrido interceptado completo. Este nuevo comportamiento no se declara validado físicamente por sus cargas anteriores.

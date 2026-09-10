@@ -460,20 +460,26 @@ class StmEngine(private val context: Context) {
         state = state.copy(busy = true, message = "")
         val generation = navigationGeneration
         val request = sessionRequest
+        val attemptedStage = pageStage
         // JSONObject.quote escapes user input as a literal; it can never become executable code.
         val script = "window.BoleteraAdapter && window.BoleteraAdapter.command(${JSONObject.quote(action)}, ${JSONObject.quote(value)})"
         web.evaluateJavascript(script) { result ->
             if (active && !destroyed && request == sessionRequest && generation == navigationGeneration && result != "true") {
-                web.evaluateJavascript(adapter + "\nwindow.BoleteraSession.snapshot()") { raw ->
+                handler.postDelayed({
+                if (!active || destroyed || request != sessionRequest || generation != navigationGeneration) return@postDelayed
+                web.evaluateJavascript(adapter + "\nJSON.stringify({session:window.BoleteraSession.snapshot(),stage:window.BoleteraAdapter.snapshot().stage})") { raw ->
                     if (!active || destroyed || request != sessionRequest || generation != navigationGeneration) return@evaluateJavascript
-                    val signal = try { JSONTokener(raw).nextValue() as? String } catch (_: Exception) { null }
+                    val observed = try { JSONObject(JSONTokener(raw).nextValue() as String) } catch (_: Exception) { null }
+                    val signal = observed?.optString("session")
                     if (signal in listOf("expired", "login") && accountVerified) recoverSession()
+                    else if(observed?.optString("stage") in setOf("cards","balance","amount","paymentBoundary") && observed?.optString("stage")!=attemptedStage) return@evaluateJavascript
                     else if (paymentInFlight) fail("El proveedor no aceptó el siguiente paso. Revisá el estado del pago antes de repetirlo.")
                     else {
-                        clearSecrets(); expressRequest = null
+                        clearSecrets(); expressRequest = null; expressPayment=false
                         state = state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
                     }
                 }
+                },1200)
             }
         }
     }

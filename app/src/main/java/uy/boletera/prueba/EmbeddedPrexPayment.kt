@@ -13,7 +13,7 @@ import androidx.compose.runtime.setValue
 
 /** Retains one original payment page. Opening the panel again never replays a POST. */
 @SuppressLint("SetJavaScriptEnabled")
-class EmbeddedPrexPayment(context: Context) {
+class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = android.os.SystemClock::elapsedRealtime) {
     var nativeStage by mutableStateOf("loading")
         private set
     var summaryRows by mutableStateOf<List<Pair<String, String>>>(emptyList())
@@ -21,6 +21,8 @@ class EmbeddedPrexPayment(context: Context) {
     var completionNotice by mutableStateOf("")
         private set
     var completionSubmitted by mutableStateOf(false)
+        private set
+    var returningToWallet by mutableStateOf(false)
         private set
     private var expectedAmount: Long? = null
     private var finalSubmitted = false
@@ -45,6 +47,14 @@ class EmbeddedPrexPayment(context: Context) {
         private set
     var message by mutableStateOf("")
         private set
+    var slowStep by mutableStateOf(false)
+        private set
+    private var progressStage = ""
+    private var progressSince = 0L
+    private var pendingFailure: String? = null
+    private var failureSince = 0L
+    private var failureStage = ""
+    private var transientFailureShown = false
     var currentHost by mutableStateOf("pasarelaspe.sistarbanc.com.uy")
         private set
     var payerLabel by mutableStateOf("")
@@ -63,6 +73,7 @@ class EmbeddedPrexPayment(context: Context) {
     private val profileStatus: Runnable = object : Runnable {
         override fun run() {
             if (destroyed || !visible || originalLink == null) return
+            checkProgress()
             val version = navigationVersion
             web.evaluateJavascript("(()=>{const phase=window.BoleteraExpress?.tick()||'off';return window.BoleteraNative?JSON.stringify({...window.BoleteraNative.snapshot(),expressPhase:phase}):null;})()") { raw ->
                 if (!destroyed && visible && version == navigationVersion) try {
@@ -85,6 +96,14 @@ class EmbeddedPrexPayment(context: Context) {
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
                         cssViewportWidth = state.optDouble("viewportWidth", 0.0).toFloat()
+                        if(nativeStage=="stmSuccess" && canContinue) advance()
+                        if(nativeStage!=progressStage) {
+                            progressStage=nativeStage;progressSince=clock();slowStep=false
+                            if(nativeStage!=failureStage && nativeStage in listOf("summary","payer","card","finalConfirmation","receipt","paymentRejected","paymentPending","stmSuccess","returnBalance","sessionExpired")) {
+                                pendingFailure=null
+                                if(transientFailureShown) {message="";transientFailureShown=false}
+                            }
+                        }
                     }
                 } catch (_: Exception) { nativeStage = "loading" }
             }
@@ -143,6 +162,7 @@ class EmbeddedPrexPayment(context: Context) {
             }
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                 navigationVersion++
+                progressStage="loading";progressSince=clock();slowStep=false;pendingFailure=null;transientFailureShown=false
                 view.alpha = 0f
                 if (url == "about:blank" || url == null) return
                 if (!allowedDestination(url)) {
@@ -184,10 +204,10 @@ class EmbeddedPrexPayment(context: Context) {
                 fail("No se pudo verificar la conexión segura. No continuamos con este paso.")
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                if (request.isForMainFrame) fail("Se interrumpió la conexión. Conservamos la solicitud para revisar su resultado.")
+                if (request.isForMainFrame && request.url.toString()==view.url) deferFailure("Se interrumpió la conexión. Conservamos la solicitud para revisar su resultado.")
             }
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, error: WebResourceResponse) {
-                if (request.isForMainFrame) fail("El proveedor no pudo mostrar este paso. La solicitud sigue por revisar.")
+                if (request.isForMainFrame && request.url.toString()==view.url) deferFailure("El proveedor no pudo mostrar este paso. La solicitud sigue por revisar.")
             }
         }
     }
@@ -211,6 +231,7 @@ class EmbeddedPrexPayment(context: Context) {
         currentHost = android.net.Uri.parse(url).host.orEmpty()
         busy = true
         message = ""
+        progressStage="loading";progressSince=clock();slowStep=false;pendingFailure=null;transientFailureShown=false
         visible = true
         web.loadUrl(url)
         handler.post(profileStatus)
@@ -226,12 +247,14 @@ class EmbeddedPrexPayment(context: Context) {
         if (destroyed || !visible || !canContinue || nativeStage !in listOf("summary", "payer", "finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess")) return
         stopExpress()
         val expected = nativeStage
+        if(expected in listOf("receipt","paymentRejected","paymentPending","stmSuccess"))returningToWallet=true
         if (expected == "finalConfirmation") {
             if (finalSubmitted) return
             finalSubmitted = true // Conservative lock survives navigation and reopening this journey.
         }
         canContinue = false
         completionSubmitted = true
+        progressSince=clock();slowStep=false
         web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.advance(${org.json.JSONObject.quote(expected)})", null)
     }
 
@@ -242,6 +265,7 @@ class EmbeddedPrexPayment(context: Context) {
     fun submitCard(pan: String, expiry: String, cvv: String) {
         if(destroyed || !visible || nativeStage!="card" || cardBusy || !canContinue)return
         cardBusy=true;cardError=false;canContinue=false
+        progressSince=clock();slowStep=false
         val version=navigationVersion
         // Literal escaping only; never log this command or retain its arguments in engine state.
         web.evaluateJavascript("window.BoleteraCard && window.BoleteraCard.submit(${org.json.JSONObject.quote(pan)},${org.json.JSONObject.quote(expiry)},${org.json.JSONObject.quote(cvv)})") { raw ->
@@ -271,6 +295,19 @@ class EmbeddedPrexPayment(context: Context) {
     fun hide() { visible = false; handler.removeCallbacks(profileStatus) }
 
     private fun fail(text: String) { busy = false; message = text }
+    private fun deferFailure(text: String) {
+        if(pendingFailure==null) {failureSince=clock();failureStage=nativeStage}
+        pendingFailure=text
+    }
+    private fun checkProgress() {
+        if(pendingFailure!=null && clock()-failureSince>=2000) {
+            val failure=pendingFailure!!;pendingFailure=null;transientFailureShown=true;fail(failure)
+        }
+        val waiting=busy || nativeStage=="loading" || expressPhase=="advancing" || cardBusy || completionSubmitted
+        if(waiting && challenge==null && clock()-progressSince>=30000 && !slowStep && message.isBlank()) {
+            slowStep=true;stopExpress()
+        }
+    }
 
     fun reset() {
         if (destroyed) return
@@ -286,6 +323,7 @@ class EmbeddedPrexPayment(context: Context) {
         finalSubmitted = false
         completionNotice = ""
         completionSubmitted = false
+        returningToWallet = false
         payerValues = emptyList()
         canContinue = false
         cardBusy = false
@@ -300,6 +338,7 @@ class EmbeddedPrexPayment(context: Context) {
         payerConflict = false
         busy = false
         message = ""
+        slowStep=false;pendingFailure=null;transientFailureShown=false;progressStage="";progressSince=0L
     }
 
     fun destroy() {

@@ -42,8 +42,23 @@ test('Angular validation blocks send and server rejection requires a new explici
  const b=d.querySelector('button');b.onclick=()=>{clicks++;b.disabled=true;};
  d.querySelector('form').classList.add('ng-invalid');api.submit('4111111111111111','12/39','123');await settle();assert.equal(clicks,0);assert.equal(api.snapshot().error,true);
  d.querySelector('form').classList.remove('ng-invalid');assert.equal(api.submit('4111111111111111','12/39','123'),true);await settle();assert.equal(clicks,1);assert.equal(api.snapshot().busy,true);
- b.disabled=false;assert.equal(api.snapshot().error,true);assert.equal(clicks,1);
+ b.disabled=false;assert.equal(api.snapshot().error,false);assert.equal(api.snapshot().busy,true);assert.equal(clicks,1);
+ d.body.insertAdjacentHTML('beforeend','<div role="alert">No se pudo procesar la tarjeta</div>');
+ let now=1000;dom.window.Date.now=()=>now;assert.equal(api.snapshot().error,false);
+ now+=2001;assert.equal(api.snapshot().error,true);
  assert.equal(api.submit('4111111111111111','12/39','123'),true);await settle();assert.equal(clicks,2);
+ }finally{dom.window.close();}
+});
+test('temporary provider warning and reenabled button do not declare rejection or allow duplicates',async()=>{
+ const dom=setup();try {const w=dom.window,d=w.document,api=w.BoleteraCard;let clicks=0,now=1000;w.Date.now=()=>now;
+ const b=d.querySelector('button');b.onclick=()=>{clicks++;b.disabled=true;};
+ assert.equal(api.submit('4111111111111111','12/39','123'),true);await settle();assert.equal(api.snapshot().busy,true);
+ b.disabled=false;d.body.insertAdjacentHTML('beforeend','<div role="alert">Hubo un error con el sistema</div>');
+ assert.equal(api.snapshot().error,false);now+=1200;assert.equal(api.snapshot().error,false);
+ d.querySelector('[role="alert"]').remove();now+=5000;assert.equal(api.snapshot().busy,true);assert.equal(api.snapshot().error,false);
+ assert.equal(api.submit('4111111111111111','12/39','123'),false);assert.equal(clicks,1);
+ d.querySelector('alta-tarjeta').remove();d.querySelector('stepper-pago').innerHTML='<finalizar-pago>Confirmar pago</finalizar-pago>';
+ assert.equal(w.BoleteraNative.snapshot().stage,'original');
  }finally{dom.window.close();}
 });
 test('additional authorization preserves the in-flight guard; no timeout or hidden retry',async()=>{

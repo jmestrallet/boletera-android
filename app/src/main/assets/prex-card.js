@@ -7,7 +7,7 @@
     for (let p=e;p;p=p.parentElement) {const s=getComputedStyle(p);if(s.display==='none'||s.visibility==='hidden'||s.opacity==='0')return false;}
     return true;
   };
-  let owner = null, state = 'idle', observedBusy = false;
+  let owner = null, state = 'idle', errorSince = null;
   const fields = root => names.map(name => root.querySelector(`input[formcontrolname="${name}"]`));
   function root() {
     if (!trusted() || [...document.querySelectorAll('[role="dialog"],[role="alertdialog"],.swal2-popup,mat-dialog-container')].some(visible)) return null;
@@ -26,10 +26,12 @@
   function snapshot() {
     const r=root();
     if(!r)return {available:false};
-    if(r!==owner){owner=r;state='idle';observedBusy=false;}
+    if(r!==owner){owner=r;state='idle';errorSince=null;}
     if(state==='submitted') {
-      if(!ready(r))observedBusy=true;
-      if(ready(r) && (observedBusy || providerError()))state='rejected';
+      if(ready(r) && providerError()) {
+        if(errorSince===null)errorSince=Date.now();
+        if(Date.now()-errorSince>=2000)state='rejected';
+      } else errorSince=null;
     }
     return {available:true,busy:state==='preparing'||state==='submitted',error:state==='rejected',canContinue:ready(r)&&state!=='preparing'&&state!=='submitted'};
   }
@@ -47,7 +49,7 @@
       if(!r||!current.canContinue||!valid(pan,expiry,cvv))return false;
       const inputs=fields(r),action=button(r);
       if(inputs.some(e=>e.disabled||e.readOnly))return false;
-      state='preparing';observedBusy=false;
+      state='preparing';errorSince=null;
       const values=[pan.match(/.{1,4}/g).join(' '),expiry,cvv];
       const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
       inputs.forEach((input,i)=>{
