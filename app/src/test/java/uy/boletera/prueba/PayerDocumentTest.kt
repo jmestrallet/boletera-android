@@ -10,9 +10,9 @@ class PayerDocumentTest {
         assertEquals("CI", payer.documentType)
         assertTrue(payer.valid())
         assertFalse(payer.copy(document = "AB12345").valid())
-        assertTrue(payer.copy(documentType = "EXT", document = "AB12345").valid())
+        assertTrue(payer.copy(documentType = "PAS", document = "AB12345").valid())
         assertFalse(payer.copy(documentType = "UNKNOWN").valid())
-        assertFalse(payer.copy(documentType = "EXT", document = " ").valid())
-        assertFalse(payer.copy(documentType = "EXT", document = "AB\n123").valid())
+        assertFalse(payer.copy(documentType = "PAS", document = " ").valid())
+        assertFalse(payer.copy(documentType = "PAS", document = "AB\n123").valid())
     }
 }

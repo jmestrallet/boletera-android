@@ -2,7 +2,7 @@
 
 ## Tipo de documento desde 0.1.10
 
-El perfil permite elegir cédula uruguaya (predeterminada) o documento extranjero. Los perfiles guardados antes de esta versión conservan cédula por defecto. La selección se aplica al control original del proveedor cuando está vacío; no cambia una selección distinta preexistente sin la acción explícita para aplicar el perfil y respeta las correcciones manuales posteriores. Los documentos extranjeros admiten letras.
+El perfil permite elegir cédula uruguaya (predeterminada) o pasaporte. Los perfiles guardados antes de esta versión conservan cédula por defecto. La selección se aplica al control original del proveedor cuando está vacío; no cambia una selección distinta preexistente sin la acción explícita para aplicar el perfil y respeta las correcciones manuales posteriores. Los pasaportes admiten letras.
 
 ## Estado implementado en 0.1.8 — 10 de septiembre de 2026
 

@@ -10,25 +10,29 @@
   function typeCode(text) {
     const label = normalize(text);
     if (['ci', 'cedula de identidad', 'cedula uruguaya'].includes(label)) return 'CI';
-    if (['ext', 'documento extranjero'].includes(label)) return 'EXT';
+    if (['pas', 'pasaporte'].includes(label)) return 'PAS';
     return null;
   }
   function selectedType(type) {
-    if (type.tagName === 'SELECT') return type.value || null;
+    if (type.tagName === 'SELECT') return typeCode(type.selectedOptions[0]?.textContent || '') || type.value || null;
     return typeCode(type.querySelector('.mat-select-value-text, .mat-mdc-select-value-text')?.textContent || '');
   }
   function chooseDocumentType(type, desired, force) {
     if (!type) return true; // Some provider steps have no document-type control.
+    // The stepper creates later forms while they are still hidden. Opening a
+    // hidden Material select does not work; wait until its step is displayed.
+    if (!type.getClientRects().length || getComputedStyle(type).visibility === 'hidden' ||
+        type.closest('[aria-hidden="true"], .mat-horizontal-stepper-content[aria-expanded="false"]')) return false;
     if (typeAttempts.has(type) && !force && pendingType !== type) return true;
     const selected = selectedType(type);
     if (selected && selected !== desired && !force) { state = 'conflict'; return false; }
     if (selected === desired) { typeAttempts.add(type); pendingType = null; return true; }
     if (type.disabled || type.getAttribute('aria-disabled') === 'true') return false;
     if (type.tagName === 'SELECT') {
-      const options = [...type.options].filter(option => option.value === desired && !option.disabled);
+      const options = [...type.options].filter(option => (option.value === desired || typeCode(option.textContent) === desired) && !option.disabled);
       if (options.length !== 1) return false;
       typeAttempts.add(type);
-      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(type, desired);
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(type, options[0].value);
       type.dispatchEvent(new Event('input', {bubbles:true}));
       type.dispatchEvent(new Event('change', {bubbles:true}));
       return true;
@@ -40,7 +44,14 @@
       pendingType = type;
       typeAttempts.add(type);
       // Use the original select and its options so Angular receives the selection.
-      trigger.click();
+      // A form can appear before Angular attaches its click handlers. Wait until
+      // the current render completes, then open the original dropdown once.
+      setTimeout(() => {
+        if (pendingType !== type || !type.isConnected) return;
+        if (type.getAttribute('aria-expanded') !== 'true') trigger.click();
+        fill();
+      }, 0);
+      return false;
     }
     const ownedIds = (type.getAttribute('aria-controls') || type.getAttribute('aria-owns') || '').split(/\s+/).filter(Boolean);
     const panels = ownedIds.map(id => document.getElementById(id)).filter(panel => panel?.getAttribute('role') === 'listbox');
@@ -65,7 +76,7 @@
     const form = forms[0];
     const type = form.querySelector('[formcontrolname="tipoDocumentoControl"]');
     const desiredType = profile.documentType || 'CI';
-    if (!['CI', 'EXT'].includes(desiredType)) { state = 'waiting'; return; }
+    if (!['CI', 'PAS'].includes(desiredType)) { state = 'waiting'; return; }
     if (type && !typeAttempts.has(type) && selectedType(type) && selectedType(type) !== desiredType && !force) { state = 'conflict'; return; }
     const values = controls(form, split) ? {
       nombreControl: profile.givenName, apellidoControl: profile.familyName,

@@ -2,11 +2,11 @@
 
 ## 0.1.10-prueba
 
-- Los perfiles usan cédula uruguaya por defecto y permiten elegir documento extranjero. Los perfiles anteriores se interpretan como cédula sin volver a pedir datos.
+- Los perfiles usan cédula uruguaya por defecto y permiten elegir pasaporte. Los perfiles anteriores se interpretan como cédula sin volver a pedir datos.
 - Selecciona el tipo de documento en el control original de Prex, además de completar el número. Respeta los cambios manuales posteriores.
-- Los documentos extranjeros conservan letras; una cédula sigue requiriendo entre 7 y 8 dígitos.
+- Los pasaportes conservan letras; una cédula sigue requiriendo entre 7 y 8 dígitos.
 
-Pruebas automáticas cubren el valor por defecto, la elección extranjera, las opciones del selector original y la conservación de cambios manuales. No se autoriza ni confirma un pago automáticamente.
+Pruebas automáticas cubren el valor por defecto, la elección de pasaporte, las opciones del selector original y la conservación de cambios manuales. No se autoriza ni confirma un pago automáticamente.
 
 ## 0.1.9-prueba
 

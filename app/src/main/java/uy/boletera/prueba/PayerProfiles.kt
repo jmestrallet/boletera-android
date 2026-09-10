@@ -21,7 +21,7 @@ data class PayerProfile(
     fun valid() = Regex("[A-Za-z0-9-]{1,80}").matches(id) &&
         listOf(label, givenName, familyName).all { it.isNotBlank() && it.length <= 80 } &&
         (if (documentType == "CI") Regex("[0-9]{7,8}").matches(document)
-        else documentType == "EXT" && document.isNotBlank() && document.length <= 40 && document.none { it.isISOControl() }) && email.length <= 120 &&
+        else documentType == "PAS" && document.isNotBlank() && document.length <= 40 && document.none { it.isISOControl() }) && email.length <= 120 &&
         Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+").matches(email) && Regex("[0-9]{9,15}").matches(phone)
     fun json() = JSONObject().put("id", id).put("label", label).put("givenName", givenName)
         .put("familyName", familyName).put("document", document).put("email", email).put("phone", phone).put("documentType", documentType)

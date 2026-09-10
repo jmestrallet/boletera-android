@@ -1,6 +1,12 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Estado vigente: 0.1.9
+## Estado vigente: 0.1.10
+
+Agrega cédula por defecto y pasaporte en el perfil, y selección del tipo en el control original de Prex. Las pruebas cubren el selector nativo HTML, el selector Material con panel asociado que aparece después y los cambios manuales. Se conservan las limitaciones generales del recorrido de pago.
+
+En el OnePlus 6T con Android 11 se reabrió la misma solicitud de Prex y se avanzó del resumen al formulario del cliente. La app seleccionó «Cédula de Identidad» sin tocar manualmente ese control y completó los cinco campos ordinarios con el perfil guardado antes de incorporar el tipo de documento. Se verificó la pantalla y su jerarquía; las capturas privadas no se publican. El primer intento sobre el formulario oculto no funcionaba: el adaptador ahora espera a que ese paso sea visible. Pasaporte y conservación de cambios manuales se comprobaron con fixtures, no con una operación real de pasaporte. Pasaron 33 pruebas JavaScript, 7 JVM, lint y compilación. No se completó CAPTCHA ni se autorizó un pago.
+
+## Corrección TLS de 0.1.9
 
 Se corrigió la cadena de confianza de Sistarbanc para Android 11. En el OnePlus 6T físico se reprodujeron los rechazos de ambos dominios y se verificó HTTPS y WebView con la configuración corregida, mediante una app de diagnóstico separada sin operación ni cuenta. [Evidencia TLS](TLS-ANDROID11.md). El recorrido de pago completo sigue pendiente.
 

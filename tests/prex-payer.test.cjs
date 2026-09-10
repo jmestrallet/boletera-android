@@ -10,6 +10,8 @@ const combined = ['nombreControl','documentoControl','correoControl','nroTarjeta
 const form = names => `<form>${names.map(n => `<input formcontrolname="${n}">`).join('')}<input name="g-recaptcha-response"><button>Continuar</button></form>`;
 function setup(html, url = 'https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago') {
   const dom = new JSDOM(html, {url, runScripts:'outside-only'});
+  // jsdom has no layout engine. Model only visibility for the selector tests.
+  dom.window.HTMLElement.prototype.getClientRects = function () { return this.hidden ? [] : [{width:100,height:30}]; };
   dom.window.eval(code);
   return dom;
 }
@@ -50,11 +52,11 @@ test('conserva ediciones humanas, impide sustituir el perfil en la misma página
     assert.equal(doc.querySelector('[formcontrolname="documentoControl"]').value, '');
   } finally { dom.window.close(); }
 });
-test('no rellena un origen ajeno, formulario ambiguo ni documento extranjero', () => {
+test('no rellena un origen ajeno, formulario ambiguo ni pasaporte', () => {
   for (const [html, url] of [
     [form(split), 'https://otro.example/v2/confirmarPago'],
     [form(split) + form(split), undefined],
-    [form(split).replace('<form>', '<form><select formcontrolname="tipoDocumentoControl"><option value="EXT">Documento Extranjero</option></select>'), undefined]
+    [form(split).replace('<form>', '<form><select formcontrolname="tipoDocumentoControl"><option value="PAS">Pasaporte</option></select>'), undefined]
   ]) {
     const dom = setup(html, url);
     try {
@@ -87,17 +89,17 @@ test('los datos previos de otro titular requieren una acción explícita, sin to
   } finally { dom.window.close(); }
 });
 
-test('elige CI por defecto o EXT explícito y conserva el cambio manual posterior', () => {
-  for (const desired of ['CI', 'EXT']) {
-    const dom = setup(form(split).replace('<form>', '<form><select formcontrolname="tipoDocumentoControl"><option value="">Tipo Documento</option><option value="CI">Cédula de Identidad</option><option value="EXT">Documento Extranjero</option></select>'));
+test('elige CI por defecto o PAS explícito y conserva el cambio manual posterior', () => {
+  for (const desired of ['CI', 'PAS']) {
+    const dom = setup(form(split).replace('<form>', '<form><select formcontrolname="tipoDocumentoControl"><option value="">Tipo Documento</option><option value="CI">Cédula de Identidad</option><option value="PAS">Pasaporte</option></select>'));
     try {
       const select = dom.window.document.querySelector('select');
       let changes = 0;
       select.addEventListener('change', () => changes++);
-      dom.window.BoleteraPayer.use({...profile, ...(desired === 'EXT' ? {documentType:'EXT', document:'AB12345'} : {})});
+      dom.window.BoleteraPayer.use({...profile, ...(desired === 'PAS' ? {documentType:'PAS', document:'AB12345'} : {})});
       assert.equal(select.value, desired);
       assert.equal(changes, 1);
-      select.value = desired === 'CI' ? 'EXT' : 'CI';
+      select.value = desired === 'CI' ? 'PAS' : 'CI';
       dom.window.BoleteraPayer.status();
       assert.notEqual(select.value, desired);
       assert.equal(changes, 1);
@@ -106,20 +108,24 @@ test('elige CI por defecto o EXT explícito y conserva el cambio manual posterio
 });
 
 test('selecciona la opción del mat-select original y solo en su panel asociado', async () => {
-  for (const desired of ['CI', 'EXT']) {
+  for (const desired of ['CI', 'PAS']) {
     const dom = setup(form(split).replace('<form>', '<form><mat-select role="combobox" formcontrolname="tipoDocumentoControl"><div class="mat-select-trigger"><span class="mat-select-placeholder">Tipo Documento</span></div></mat-select>') + '<div role="listbox" id="ajeno"><mat-option role="option">Cédula de Identidad</mat-option></div>');
     try {
       const doc = dom.window.document, select = doc.querySelector('mat-select');
+      const step = doc.createElement('section');
+      step.className = 'mat-horizontal-stepper-content';
+      step.setAttribute('aria-expanded', 'false');
+      doc.body.append(step); step.append(doc.querySelector('form'));
       let picked = '', unrelated = 0, opens = 0, submits = 0;
       doc.getElementById('ajeno').onclick = () => unrelated++;
       doc.querySelector('form').onsubmit = e => {e.preventDefault(); submits++;};
-      select.querySelector('.mat-select-trigger').onclick = () => {
+      const openPanel = () => {
         opens++;
         // Angular attaches its overlay asynchronously, outside the form.
         setTimeout(() => {
           select.setAttribute('aria-controls', 'doc-panel');
           const panel = doc.createElement('div'); panel.id = 'doc-panel'; panel.setAttribute('role','listbox');
-          for (const [value, label] of [['CI','Cédula de Identidad'],['EXT','Documento Extranjero']]) {
+          for (const [value, label] of [['CI','Cédula de Identidad'],['PAS','Pasaporte']]) {
             const option = doc.createElement('mat-option'); option.setAttribute('role','option'); option.textContent=label;
             option.onclick = () => {picked=value; select.innerHTML='<span class="mat-select-value-text">'+label+'</span>'; panel.remove();};
             panel.append(option);
@@ -128,6 +134,12 @@ test('selecciona la opción del mat-select original y solo en su panel asociado'
         }, 0);
       };
       dom.window.BoleteraPayer.use({...profile, documentType:desired});
+      await new Promise(resolve => setTimeout(resolve, 5));
+      assert.equal(opens, 0, 'No intenta abrir el selector de un paso oculto');
+      step.setAttribute('aria-expanded', 'true');
+      dom.window.BoleteraPayer.status();
+      // Angular may insert the node before registering the trigger's handler.
+      select.querySelector('.mat-select-trigger').onclick = openPanel;
       await new Promise(resolve => setTimeout(resolve, 20));
       assert.equal(picked, desired);
       assert.equal(dom.window.BoleteraPayer.status(), 'filled');
