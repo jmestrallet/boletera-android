@@ -56,7 +56,7 @@ class DesignReviewTest {
                 val state=UiState(stage="balance",selectedCard="DEMO1234",balance=124000,minimum=26000,consultedAt=1_783_683_600_000)
                 BoleteraTheme("light") { Surface(color=Paper) { Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                     AppTopBar(onSettings={})
-                    Column(Modifier.weight(1f).widthIn(max=600.dp).fillMaxWidth().align(androidx.compose.ui.Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(24.dp)) { WalletHome(state,{}, {sheet=true},{},{},{}) }
+                    Column(Modifier.weight(1f).widthIn(max=600.dp).fillMaxWidth().align(androidx.compose.ui.Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(24.dp)) { WalletHome(state,{}, {sheet=true},{}) }
                     if(sheet)AmountSheet(state,{sheet=false}){choice=it;sheet=false}
                 } } }
             }
@@ -72,7 +72,7 @@ class DesignReviewTest {
         compose.runOnIdle {
             compose.activity.setContent { BoleteraTheme("dark") { Surface(color=Paper) { Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                 AppTopBar(onSettings={})
-                Column(Modifier.weight(1f).widthIn(max=600.dp).fillMaxWidth().align(androidx.compose.ui.Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(24.dp)) { WalletHome(UiState(stage="balance",selectedCard="DEMO1234",balance=124000,minimum=26000),{},{},{},{},{}) }
+                Column(Modifier.weight(1f).widthIn(max=600.dp).fillMaxWidth().align(androidx.compose.ui.Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(24.dp)) { WalletHome(UiState(stage="balance",selectedCard="DEMO1234",balance=124000,minimum=26000),{},{},{}) }
             } } } }
         }
         capture("wallet-dark")

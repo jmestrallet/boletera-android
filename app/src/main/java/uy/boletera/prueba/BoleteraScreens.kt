@@ -53,7 +53,7 @@ import java.util.Locale
     }
 }
 
-@Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit, onReopen: () -> Unit, onReview: () -> Unit) {
+@Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit) {
     val colors=MaterialTheme.colorScheme
     Column(verticalArrangement=Arrangement.spacedBy(24.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -82,18 +82,6 @@ import java.util.Locale
                 }
             }
         }
-        if(state.pendingPayment!=null) {
-            val pending=state.pendingPayment
-            WhiteCard {
-                Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
-                    AppGlyph(Glyph.Info,tint=colors.primary)
-                    Text("Una recarga por revisar",style=MaterialTheme.typography.titleMedium)
-                }
-                Text("${Amounts.format(pending.amount)} con ${if(pending.provider=="1033")"Prex" else "eBROU"}. Revisá cómo terminó antes de cargar otra vez.",color=Muted)
-                if(state.canReopenPrex) Primary("Volver al pago de Prex",action=onReopen)
-                TextButton(onClick=onReview) { Text("Ya revisé el pago anterior") }
-            }
-        } else {
             Primary("Recargar boletera",enabled=!state.busy && state.minimum!=null,action=onCharge)
             Surface(color=Panel,shape=RoundedCornerShape(24.dp)) {
                 Row(Modifier.fillMaxWidth().padding(20.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
@@ -104,7 +92,6 @@ import java.util.Locale
                     }
                 }
             }
-        }
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             AppGlyph(Glyph.Info,Modifier.size(18.dp),tint=Muted)
             Text("Los viajes de las últimas 72 horas pueden estar pendientes de descuento.",style=MaterialTheme.typography.bodySmall,color=Muted,modifier=Modifier.weight(1f))

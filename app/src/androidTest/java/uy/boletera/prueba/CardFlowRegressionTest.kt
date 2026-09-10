@@ -42,7 +42,7 @@ class CardFlowRegressionTest {
             }
         }
         instrumentation.addMonitor(monitor)
-        val preferences = JourneyPreferences(compose.activity).apply { useAccount("00000000"); acknowledgePayment() }
+        val preferences = JourneyPreferences(compose.activity).apply { useAccount("00000000") }
         compose.runOnIdle {
             engine = MainActivity::class.java.getDeclaredField("engine").apply { isAccessible = true }.get(compose.activity) as StmEngine
             engine.forgetChoices()
@@ -140,36 +140,10 @@ class CardFlowRegressionTest {
                 engine.chooseCard("DEAD5678")
                 assertEquals("cards", engine.state.stage)
             }
-            val originalLink = "https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago?id=SYNTHETIC-FLOW-RESUME"
-            assertTrue(preferences.beginPayment(PendingPayment("ABCD1234", "1033", 56400, 123456)))
-            assertTrue(preferences.rememberPrexLink(originalLink))
-            compose.runOnIdle {
-                engine.connect("00000000", "synthetic-offline-only")
-                assertFalse(engine.state.canReopenPrex)
-                engine.reopenPrexPayment()
-                assertTrue(chromeLinks.isEmpty()) // A document alone, before successful login, cannot reopen a saved payment.
-                engine.acknowledgePayment()
-                assertNotNull("An unverified login must not clear this account's pending payment", preferences.pending)
-                assertNull("Pending payment details stay hidden until login is complete", engine.state.pendingPayment)
-            }
+            compose.runOnIdle { engine.connect("00000000", "synthetic-offline-only") }
             compose.waitUntil(20000) { engine.state.stage == "balance" && engine.state.minimum == 56400L && !engine.state.busy }
-            compose.runOnIdle { assertTrue(engine.state.canReopenPrex); assertNotNull(engine.state.pendingPayment) }
-            val requestsBefore = networkRequests.get()
-            compose.onNodeWithText("Volver al pago de Prex").performScrollTo().performClick()
-            compose.onNodeWithText("Volver a la solicitud anterior").assertIsDisplayed()
-            compose.onNodeWithText("Abrir Prex").performClick()
-            compose.waitUntil(5000) { engine.state.stage == "embeddedPrex" }
-            compose.runOnIdle {
-                assertTrue(chromeLinks.isEmpty())
-                assertEquals(requestsBefore, networkRequests.get()) // No STM request or provider re-submission on reopen.
-                assertEquals(123456L, engine.state.pendingPayment?.createdAt)
-            }
-            compose.onNodeWithText("Pago con Prex").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Volver").performClick()
-            compose.waitUntil(5000) { engine.state.stage == "paymentReview" }
-            // Start a new, entirely synthetic journey after explicitly clearing the old guard.
-            compose.runOnIdle { engine.acknowledgePayment() }
-            compose.waitUntil(15000) { engine.state.stage == "balance" && !engine.state.busy }
+            compose.runOnIdle { assertNull(engine.state.activePayment) }
+            compose.onNodeWithText("Recargar boletera").assertExists()
             compose.runOnIdle { engine.prepare(56400) }
             compose.waitUntil(15000) { engine.state.stage == "paymentBoundary" }
             val firstPayer = PayerProfile("flow-person-one", "Prex de prueba", "Persona", "Ficticia", "00000000", "persona@example.invalid", "000000000")
@@ -192,10 +166,9 @@ class CardFlowRegressionTest {
             assertEquals("\"00000000\"", paymentJs("document.querySelector('[formcontrolname=documentoControl]').value"))
             val newLink = "https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago?id=SYNTHETIC-NEW-FLOW"
             compose.runOnIdle {
-                assertEquals(firstPayer.id, engine.state.pendingPayment?.payerProfileId)
+                assertEquals(firstPayer.id, engine.state.activePayment?.payerProfileId)
                 assertFalse(engine.savePayer(firstPayer.copy(givenName = "No cambiar")))
                 assertFalse(engine.deletePayer(firstPayer.id))
-                assertEquals(newLink, preferences.pendingPrexLink)
                 engine.beginPayment()
             }
             compose.onNodeWithText("Pago con Prex").assertIsDisplayed()
@@ -216,13 +189,18 @@ class CardFlowRegressionTest {
             }
             screenshot.recycle()
             compose.onNodeWithContentDescription("Volver").performClick()
-            compose.runOnIdle { engine.reopenPrexPayment() }
-            compose.waitUntil(5000) { engine.state.stage == "embeddedPrex" }
-            assertEquals(1, paymentLoads[newLink]?.get())
+            compose.waitUntil(15000) { engine.state.stage == "balance" && !engine.state.busy }
+            compose.runOnIdle { assertNull(engine.state.activePayment) }
+            compose.onNodeWithText("Antes de otra recarga").assertDoesNotExist()
+            compose.onNodeWithText("Recargar boletera").performScrollTo().performClick()
+            compose.onNodeWithText("Continuar").performScrollTo().performClick()
+            compose.waitUntil(15000) { engine.state.stage == "paymentBoundary" }
+            compose.runOnIdle { engine.beginPayment(); engine.beginPayment() }
+            compose.waitUntil(15000) { engine.state.stage == "embeddedPrex" && !engine.prexPayment.busy }
+            assertEquals("One load per deliberate payment, never per repeated tap", 2, paymentLoads[newLink]?.get())
             assertTrue(chromeLinks.isEmpty())
         } finally {
             instrumentation.removeMonitor(monitor)
-            preferences.acknowledgePayment()
             compose.runOnIdle {
                 engine.cancel()
                 engine.forgetChoices()

@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.1-prueba — recarga sin revisión manual
+
+- Se retiran el cartel, la confirmación manual, la recuperación de enlaces y el bloqueo persistente de solicitudes anteriores. Al salir de Prex se consulta el saldo; regresar de eBROU también lo actualiza.
+- Se limpian los marcadores antiguos conservando accesos, perfiles y favoritos. El contexto de la operación abierta queda solo en memoria.
+- Se mantiene el bloqueo de toques duplicados durante la apertura de una operación.
+- Los avisos aparecen flotando, con cierre automático y manual, sin desplazar la pantalla.
+
 ## 0.2.0-prueba — nueva etapa visual
 
 El rediseño pasa a la serie 0.2. Código de versión Android 18 para permitir actualizar desde 0.1.16. Misma experiencia y funcionamiento que la entrega anterior.

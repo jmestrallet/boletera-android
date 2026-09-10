@@ -63,8 +63,15 @@ class MainActivity : FragmentActivity() {
         val updates: AppUpdates = viewModel()
         var showSettings by rememberSaveable { mutableStateOf(false) }
         if (state.stage == "embeddedPrex") {
-            EmbeddedPrexScreen(engine.prexPayment, state.pendingPayment, engine::leavePrexPayment)
+            EmbeddedPrexScreen(engine.prexPayment, state.activePayment, engine::leavePrexPayment)
             return
+        }
+        val snackbar = remember { SnackbarHostState() }
+        LaunchedEffect(state.message) {
+            if (state.message.isNotBlank()) {
+                snackbar.showSnackbar(state.message, withDismissAction = true, duration = SnackbarDuration.Short)
+                engine.dismissNotice(state.message)
+            }
         }
         var manual by remember { mutableStateOf(false) }
         var document by remember { mutableStateOf("") }
@@ -75,8 +82,6 @@ class MainActivity : FragmentActivity() {
         var showForget by remember { mutableStateOf(false) }
         var showAmount by remember { mutableStateOf(false) }
         var changeProvider by remember(state.stage) { mutableStateOf(false) }
-        var reviewPayment by remember { mutableStateOf(false) }
-        var reopenPrex by remember { mutableStateOf(false) }
         var showPayerPicker by remember { mutableStateOf(false) }
         var showPayerEditor by remember { mutableStateOf(false) }
         var editingPayer by remember { mutableStateOf<PayerProfile?>(null) }
@@ -86,20 +91,19 @@ class MainActivity : FragmentActivity() {
         LaunchedEffect(stage) { scroll.scrollTo(0) }
         fun back() {
             document=""; password=""
-            if(state.stage=="paymentBoundary") engine.refresh() else engine.cancel()
+            if(state.stage in listOf("paymentBoundary", "externalPayment")) engine.refresh() else engine.cancel()
         }
         BackHandler(enabled = state.stage != "welcome") { back() }
         Surface(color=Paper,modifier=Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding(),horizontalAlignment=Alignment.CenterHorizontally) {
-                AppTopBar(onSettings={showSettings=true},onBack=if(stage in listOf("paymentBoundary","cards","captcha","blocked","paymentReview"))::back else null,
-                    title=when(stage){ "paymentBoundary"->"Tu recarga"; "cards"->"Boleteras"; "captcha"->"Verificación"; "paymentReview"->"Revisar recarga"; else->null })
+                AppTopBar(onSettings={showSettings=true},onBack=if(stage in listOf("paymentBoundary","cards","captcha","blocked","externalPayment"))::back else null,
+                    title=when(stage){ "paymentBoundary"->"Tu recarga"; "cards"->"Boleteras"; "captcha"->"Verificación"; "externalPayment"->"Pago en eBROU"; else->null })
                 Box(Modifier.weight(1f).widthIn(max=600.dp).fillMaxWidth().pullToRefresh(
                     isRefreshing=stage=="balance"&&state.busy,state=pullState,enabled=stage=="balance"&&!state.busy,
                     onRefresh={if(engine.state.stage=="balance"&&!engine.state.busy)engine.refresh()}
                 )) {
                     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal=24.dp).padding(top=12.dp,bottom=32.dp)
                         .pageEntrance(stage, state.captcha==null),verticalArrangement=Arrangement.spacedBy(24.dp)) {
-                        if(state.message.isNotBlank())Notice(state.message)
                         when(stage) {
                             "welcome" -> {
                                 WelcomeHero()
@@ -143,7 +147,7 @@ class MainActivity : FragmentActivity() {
                                     Text("App independiente de STM · Versión de prueba",style=MaterialTheme.typography.bodySmall,color=Muted)
                                 }
                             }
-                            "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,{reopenPrex=true},{reviewPayment=true})
+                            "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh)
                             "connecting" -> {
                                 LoadingState(if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", "Estamos consultando el sitio. Tu información va a aparecer acá.")
                                 TextButton(onClick=::back) { Text("Cancelar") }
@@ -202,26 +206,19 @@ class MainActivity : FragmentActivity() {
                                     }
                                 }
                                 Text(if(state.selectedProvider=="1033")"La confirmación sigue con Prex dentro de Boletera." else "La confirmación de eBROU se abre en Chrome.",style=MaterialTheme.typography.bodyMedium,color=Muted)
-                                Primary("Pagar ${Amounts.format(state.amount)}",enabled=!state.busy&&state.selectedProvider in PaymentPolicy.supported&&state.pendingPayment==null&&
+                                Primary("Pagar ${Amounts.format(state.amount)}",enabled=!state.busy&&state.selectedProvider in PaymentPolicy.supported&&state.activePayment==null&&
                                     (state.selectedProvider!="1033"||engine.payerProfiles.any{it.id==state.payerProfileId})){engine.beginPayment()}
                                 TextButton(onClick=engine::refresh,modifier=Modifier.align(Alignment.CenterHorizontally)){Text("Volver al saldo")}
                             }
-                            "paymentReview" -> {
-                                Title("Revisemos tu recarga")
-                                WhiteCard {
-                                    Text(Amounts.format(state.pendingPayment?.amount),style=MaterialTheme.typography.displayMedium)
-                                    Text("Con ${if(state.pendingPayment?.provider=="1033")"Prex" else "eBROU"}",color=Muted)
-                                    Text("Salir de la pantalla de pago no confirma ni cancela la recarga. Revisá su resultado antes de repetirla.",color=Muted)
-                                }
-                                if(state.canReopenPrex)Primary("Volver al pago de Prex"){reopenPrex=true}
-                                OutlinedButton(onClick=engine::refresh,modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("Consultar saldo")}
-                                TextButton(onClick={reviewPayment=true}){Text("Ya revisé el resultado")}
+                            "externalPayment" -> {
+                                Title("Pago abierto en eBROU")
+                                Text("Al volver del banco se actualizará el saldo.",color=Muted)
+                                Primary("Volver al saldo",action=engine::refresh)
                             }
                             "blocked" -> {
                                 Title("No pudimos seguir")
-                                Text(if(state.pendingPayment==null)"Podés volver a intentar el acceso." else "Tu solicitud queda guardada para revisar el resultado.",color=Muted)
-                                if(state.pendingPayment!=null)OutlinedButton(onClick={reviewPayment=true}){Text("Ya revisé el resultado")}
-                                if(state.canReopenPrex)Primary("Volver al pago de Prex"){reopenPrex=true}
+                                Text("Podés volver a intentar.",color=Muted)
+                                if(state.activePayment!=null)Primary("Volver al saldo",action=engine::refresh)
                                 TextButton(onClick=engine::cancel){Text("Volver al inicio")}
                             }
                         }
@@ -234,6 +231,7 @@ class MainActivity : FragmentActivity() {
                         }
                         if(cap!=null)Primary("Ya completé la verificación"){engine.continueCaptcha()}
                     }
+                    SnackbarHost(hostState=snackbar,modifier=Modifier.align(Alignment.BottomCenter).padding(16.dp))
                     if(stage=="balance")PullToRefreshDefaults.Indicator(state=pullState,isRefreshing=state.busy,modifier=Modifier.align(Alignment.TopCenter),containerColor=Lime,color=MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
@@ -254,21 +252,8 @@ class MainActivity : FragmentActivity() {
             }, confirmButton = { TextButton(onClick = { editingPayer = null; showPayerPicker = false; showPayerEditor = true }) { Text("Agregar otra Prex") } },
             dismissButton = { TextButton(onClick = { showPayerPicker = false }) { Text("Volver") } })
         if (showPayerEditor) PayerProfileEditor(editingPayer, onSave = engine::savePayer, onDelete = engine::deletePayer, onClose = { showPayerEditor = false })
-        if (reopenPrex) AlertDialog(onDismissRequest = { reopenPrex = false }, title = { Text("Volver a la solicitud anterior") },
-            text = { Text("Se abrirá el mismo enlace de Prex. Si ya autorizaste el pago, revisá su resultado y no vuelvas a autorizarlo. Si el enlace venció, comprobá el estado del pago antes de iniciar otra carga.") },
-            confirmButton = { TextButton(onClick = { reopenPrex = false; engine.reopenPrexPayment() }) { Text("Abrir Prex") } },
-            dismissButton = { TextButton(onClick = { reopenPrex = false }) { Text("Volver") } })
-        if (reviewPayment) AlertDialog(onDismissRequest = { reviewPayment = false }, title = { Text("Antes de otra recarga") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Si autorizaste el pago, verificá su resultado en Prex o eBROU. Si sigue pendiente o no sabés cómo terminó, no lo repitas.")
-                    OutlinedButton(onClick = { reviewPayment = false; engine.acknowledgePayment() }, modifier = Modifier.fillMaxWidth()) { Text("Salí sin autorizar el pago") }
-                }
-            },
-            confirmButton = { TextButton(onClick = { reviewPayment = false; engine.acknowledgePayment() }) { Text("Ya verifiqué que terminó") } },
-            dismissButton = { TextButton(onClick = { reviewPayment = false }) { Text("Volver") } })
         if (showForget) AlertDialog(onDismissRequest = { showForget = false }, title = { Text("¿Olvidar este acceso?") },
-            text = { Text("Se eliminan las credenciales cifradas, las preferencias y la sesión local. Esto no cancela un pago en curso; su aviso se conserva para cuando vuelvas a ingresar.") },
+            text = { Text("Se eliminan las credenciales cifradas, las preferencias y la sesión local.") },
             confirmButton = { TextButton(onClick = {
                 if (engine.forgetChoices()) { vault.forget(); engine.savedAccess(false); engine.logout(); engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.") }
                 showForget = false
@@ -277,7 +262,7 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-@Composable internal fun EmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: PendingPayment?, onClose: () -> Unit) {
+@Composable internal fun EmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, onClose: () -> Unit) {
     var showOriginal by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     LaunchedEffect(payment.nativeStage) { showOriginal = false }

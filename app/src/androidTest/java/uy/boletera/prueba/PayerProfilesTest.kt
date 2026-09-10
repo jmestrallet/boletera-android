@@ -35,23 +35,4 @@ class PayerProfilesTest {
         }
     }
 
-    @Test fun pendingPayerSurvivesFavoriteChangesAndIsBoundToTheResumeLink() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val choices = JourneyPreferences(context).apply { useAccount("22222222"); acknowledgePayment() }
-        val link = "https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago?id=SYNTHETIC-PAYER-BINDING"
-        try {
-            choices.payerProfileId = "test-one"
-            assertTrue(choices.beginPayment(PendingPayment("PROFILE-TEST-CARD", "1033", 50000, 8765, "test-one")))
-            assertTrue(choices.rememberPrexLink(link))
-            choices.payerProfileId = "test-two"
-            assertEquals("test-one", choices.pending?.payerProfileId)
-            assertTrue(choices.payerInPending("test-one"))
-            assertEquals(link, choices.pendingPrexLink)
-            val store = context.getSharedPreferences("journey_choices", Context.MODE_PRIVATE)
-            val entry = store.all.entries.single { it.key.endsWith(".pending") && (it.value as? String)?.contains("PROFILE-TEST-CARD") == true }
-            assertTrue(store.edit().putString(entry.key, JSONObject(entry.value as String).put("payerProfileId", "test-two").toString()).commit())
-            assertNull("Cambiar la identidad vinculada debe invalidar el enlace cifrado", choices.pendingPrexLink)
-            assertNotNull(choices.pending)
-        } finally { choices.acknowledgePayment(); choices.payerProfileId = null }
-    }
 }

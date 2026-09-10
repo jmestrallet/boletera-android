@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.0
+## Versión vigente: 0.2.1
+
+Se retiraron el bloqueo persistente, la revisión manual y la recuperación de enlaces de solicitudes anteriores. El contexto de pago existe solo durante la pantalla activa; al salir de Prex se limpia y se consulta el saldo. Regresar de eBROU dispara esa misma consulta. Los marcadores antiguos se eliminan al abrir la app, conservando accesos, perfiles y favoritos. Esto no cancela ni confirma pagos en el proveedor.
+
+Los avisos ahora usan una superposición inferior con cierre automático y manual. La prueba de desbloqueo ficticio comprobó igualdad exacta de la posición del título antes y después, desaparición automática y repetición del aviso. Captura: `outputs/notice-overlay-0.2.1.png`.
+
+Pasaron cinco pruebas Android: aviso flotante, recorrido STM/Prex interceptado, migración de marcadores, perfiles cifrados y transferencia eBROU local interceptada. El recorrido volvió del pago al saldo, abrió una segunda recarga y comprobó una sola carga por acción deliberada pese a repetir el toque. La prueba de transferencia eBROU no representa un regreso desde una sesión bancaria real. Registro: `outputs/flow-notice-0.2.1-test.txt`. También pasaron compilación release, lint y 7 pruebas JVM durante este cambio.
+
+APK 0.2.1-prueba, código 19, SHA-256 `3C42FDB5D308CDD701B00DC3F9A54B3E6759FC41CB2E3EA02E68BCEDAC8268CC`. Se entrega en GitHub para actualizar desde la app. No se instaló en el teléfono ni se hizo un pago real en esta entrega.
+
+## Versión anterior: 0.2.0
 
 La serie 0.2 identifica el rediseño entregado en 0.1.16. Este cambio modifica únicamente la numeración, la documentación y el nombre del APK: versión 0.2.0-prueba, código Android 18. Pasaron nuevamente las 40 pruebas JavaScript, 7 JVM, lint y compilación release. SHA-256: 60A4A17863C9AA45CA579D43C58EBEEE6464607BDFF824E017C6B711FD979007. La revisión visual de 0.1.16 sigue siendo la evidencia de este mismo diseño. La versión instalada en el teléfono sigue siendo 0.1.16; 0.2.0 se entrega para actualizar desde GitHub.
 

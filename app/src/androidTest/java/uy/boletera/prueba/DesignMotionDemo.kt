@@ -32,7 +32,7 @@ class DesignMotionDemo {
                 BoleteraTheme(appearance) { Surface(color=Paper) { Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                     AppTopBar(onSettings={settings=true})
                     Column(Modifier.weight(1f).widthIn(max=600.dp).fillMaxWidth().align(Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(24.dp)) {
-                        WalletHome(state,{}, {amount=true},{},{},{})
+                        WalletHome(state,{}, {amount=true},{})
                     }
                     if(amount)AmountSheet(state,{amount=false}){amount=false}
                     if(settings)SettingsSheet(updates,appearance,{appearance=it},false,false,"",{},{},{},{settings=false})
