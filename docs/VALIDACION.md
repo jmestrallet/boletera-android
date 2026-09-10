@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Estado vigente: 0.1.10
+## Candidato local: 0.1.11
+
+El resumen y los datos del titular se presentan con controles nativos Android. La sesión sigue en el WebView original; el adaptador lee únicamente los pares de texto del resumen y los cinco campos ordinarios del cliente. Las acciones nativas solo avanzan desde los componentes reconocidos de resumen o cliente; no autorizan el pago.
+
+En el OnePlus 6T con Android 11 se reabrió la misma solicitud pendiente y se comprobó el paso de resumen nativo a titular nativo, la lectura de los seis datos del resumen y la apertura/cancelación del editor nativo con cédula y pasaporte. No se creó otra solicitud ni se avanzó a la tarjeta. Se corrigieron dos defectos encontrados físicamente: el resumen usa bloques `b`/`p`, no una tabla; el panel del WebView requiere recorte explícito también en Compose.
+
+La APK final del candidato, SHA-256 `CF6FB2720FBFA247A7F486DC9408E4193BD8293778A243E6C887BD9F43466CDB`, quedó instalada. La inspección visual final confirmó el resumen nativo y la pantalla nativa del titular con el checkbox original completo, centrado y sin franjas de la página alrededor. Se dejó la misma solicitud en ese punto para la verificación humana. Las capturas contienen datos privados y se conservan fuera del repositorio.
+
+Pasaron 37 pruebas JavaScript, 7 JVM, lint y compilación. Las pruebas nuevas cubren pasos ocultos, doble pulsación, controles ambiguos, origen ajeno, ausencia de lectura de tarjeta, geometría del CAPTCHA y edición explícita de datos. El desafío expandido y el envío real de los datos editados no están comprobados físicamente. CAPTCHA resuelto, tarjeta/Google, autorización y acreditación continúan pendientes. Esta versión todavía es un candidato local, no una publicación nueva.
+
+## Versión publicada anterior: 0.1.10
 
 Agrega cédula por defecto y pasaporte en el perfil, y selección del tipo en el control original de Prex. Las pruebas cubren el selector nativo HTML, el selector Material con panel asociado que aparece después y los cambios manuales. Se conservan las limitaciones generales del recorrido de pago.
 

@@ -336,6 +336,11 @@ class MainActivity : FragmentActivity() {
 }
 
 @Composable private fun EmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: PendingPayment?, onClose: () -> Unit) {
+    var showOriginal by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+    LaunchedEffect(payment.nativeStage) { showOriginal = false }
+    val native = payment.nativeStage in listOf("summary", "payer", "loading") && !showOriginal
+    LaunchedEffect(payment.nativeStage, payment.expandedChallenge, payment.challenge != null) { payment.positionVerification() }
     BackHandler(onBack = onClose)
     Surface(color = Paper, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -347,8 +352,7 @@ class MainActivity : FragmentActivity() {
                 }
                 Text("boletera", color = Lime, fontWeight = FontWeight.Bold)
             }
-            Text(payment.currentHost, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
-            if (payment.payerLabel.isNotBlank()) Text("Datos del titular · ${payment.payerLabel}", color = Ink, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+            Text("Pago seguro · Sistarbanc", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             if (payment.payerNotice.isNotBlank()) {
                 Text(payment.payerNotice, color = Ink, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
                 if (payment.payerConflict) TextButton(onClick = payment::applyChosenPayer, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Usar los datos del perfil elegido") }
@@ -361,16 +365,97 @@ class MainActivity : FragmentActivity() {
                     Primary("Volver a Boletera", action = onClose)
                 }
             } else {
-                AndroidView(factory = {
-                    (payment.web.parent as? android.view.ViewGroup)?.removeView(payment.web)
-                    payment.web
-                }, modifier = Modifier.fillMaxWidth().weight(1f))
+                Box(Modifier.fillMaxWidth().weight(1f)) {
+                    if (!native) PaymentBrowserView(payment, false, null, Modifier.fillMaxSize())
+                    if (native) Column(Modifier.fillMaxSize().background(Paper).verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                        if (payment.nativeStage != "payer") PaymentBrowserView(payment, true, null, Modifier.fillMaxWidth().height(1.dp))
+                        Text(if (payment.nativeStage == "payer") "02 / TUS DATOS" else "01 / TU RECARGA", color = Muted, fontSize = 12.sp)
+                        Text(if (payment.nativeStage == "payer") "Datos del titular" else "Revisá tu recarga", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Ink)
+                        if (payment.nativeStage == "loading") {
+                            CircularProgressIndicator(color = Ink)
+                            Text("Estamos recuperando tu solicitud…", color = Muted)
+                        } else if (payment.nativeStage == "summary") {
+                            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+                                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    Text(payment.summaryRows.singleOrNull { it.first.trim().equals("Total:", ignoreCase = true) }?.second ?: Amounts.format(pending?.amount), fontSize = 36.sp, fontWeight = FontWeight.Bold, color = Ink)
+                                    payment.summaryRows.filterNot { it.first.trim().equals("Total:", ignoreCase = true) }.forEach { (label, value) ->
+                                        Column { Text(label, color = Muted, fontSize = 12.sp); Text(value, color = Ink, fontSize = 16.sp) }
+                                    }
+                                }
+                            }
+                            Primary("Continuar", payment.canContinue, payment::advance)
+                        } else {
+                            if (!payment.expandedChallenge) Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+                                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    val values = payment.payerValues
+                                    val rows = if (values.size == 5) listOf("Titular" to "${values[0]} ${values[1]}", "Documento" to values[2], "Correo" to values[3], "Celular" to values[4]) else emptyList()
+                                    rows.forEach { (label, value) ->
+                                        Column { Text(label, color = Muted, fontSize = 12.sp); Text(value.ifBlank { "Sin completar" }, color = Ink, fontSize = 16.sp) }
+                                    }
+                                }
+                            }
+                            Text("Sistarbanc necesita verificar que sos vos antes de pasar a la tarjeta.", color = Muted)
+                            val screenHeight = LocalConfiguration.current.screenHeightDp
+                            BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                val cap = payment.challenge
+                                val scale = if (cap == null) 1f else minOf(1f, maxWidth.value / cap.width, (screenHeight - 260).coerceAtLeast(180).toFloat() / cap.height)
+                                PaymentBrowserView(payment, cap == null, cap, if (cap == null) Modifier.size(1.dp) else Modifier.width((cap.width * scale).dp).height((cap.height * scale).dp))
+                            }
+                            Primary("Continuar a la tarjeta", payment.canContinue, payment::advance)
+                            TextButton(onClick = { editing = true }, enabled = payment.chosenPayer != null) { Text("Editar datos para este pago") }
+                        }
+                        if (payment.nativeStage != "loading") TextButton(onClick = { showOriginal = true }) { Text("Ver pantalla de Sistarbanc") }
+                    }
+                    if (!native && payment.nativeStage in listOf("summary", "payer")) TextButton(onClick = { showOriginal = false }, modifier = Modifier.align(Alignment.TopEnd).background(Paper)) { Text("Volver a mis datos") }
+                }
             }
         }
     }
+    if (editing) payment.chosenPayer?.let { profile ->
+        val values = payment.payerValues
+        val current = if (values.size == 5) profile.copy(givenName = values[0], familyName = values[1], document = values[2], email = values[3], phone = values[4]) else profile
+        PayerProfileEditor(current, onSave = payment::editPayer, onDelete = { false }, onClose = { editing = false }, paymentOnly = true)
+    }
 }
 
-@Composable private fun PayerProfileEditor(existing: PayerProfile?, onSave: (PayerProfile) -> Boolean, onDelete: (String) -> Boolean, onClose: () -> Unit) {
+/** Keep the real page laid out while native content owns display and accessibility. */
+@Composable private fun PaymentBrowserView(payment: EmbeddedPrexPayment, hidden: Boolean, crop: CaptchaRect?, modifier: Modifier) {
+    AndroidView(factory = {
+        (payment.web.parent as? android.view.ViewGroup)?.removeView(payment.web)
+        PaymentPageHost(it, payment.web)
+    }, update = { it.nativeHidden = hidden; it.crop = crop }, modifier = modifier.clip(RoundedCornerShape(4.dp)))
+}
+
+private class PaymentPageHost(context: android.content.Context, private val browser: android.webkit.WebView) : android.view.ViewGroup(context) {
+    var crop: CaptchaRect? = null
+        set(value) { if (field != value) { field = value; requestLayout() } }
+    var nativeHidden: Boolean = false
+        set(value) {
+            field = value
+            browser.alpha = if (value) 0f else 1f
+            browser.importantForAccessibility = if (value) View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS else View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+            browser.isEnabled = !value
+            requestLayout()
+        }
+    init { clipChildren = true; clipToPadding = true; addView(browser) }
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val metrics = resources.displayMetrics
+        browser.measure(MeasureSpec.makeMeasureSpec(metrics.widthPixels, MeasureSpec.EXACTLY),
+            if (crop != null || nativeHidden) MeasureSpec.makeMeasureSpec(metrics.heightPixels, MeasureSpec.EXACTLY) else heightMeasureSpec)
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
+    }
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        val rect = crop
+        val density = resources.displayMetrics.density
+        val scale = if (rect == null) 1f else minOf(1f, width / (rect.width * density), height / (rect.height * density))
+        browser.pivotX = 0f; browser.pivotY = 0f; browser.scaleX = scale; browser.scaleY = scale
+        val x = ((rect?.x ?: 0f) * density * scale).toInt()
+        val y = ((rect?.y ?: 0f) * density * scale).toInt()
+        browser.layout(-x, -y, browser.measuredWidth-x, browser.measuredHeight-y)
+    }
+}
+
+@Composable private fun PayerProfileEditor(existing: PayerProfile?, onSave: (PayerProfile) -> Boolean, onDelete: (String) -> Boolean, onClose: () -> Unit, paymentOnly: Boolean = false) {
     val id = remember(existing?.id) { existing?.id ?: java.util.UUID.randomUUID().toString() }
     var label by remember(id) { mutableStateOf(existing?.label.orEmpty()) }
     var given by remember(id) { mutableStateOf(existing?.givenName.orEmpty()) }
@@ -398,13 +483,13 @@ class MainActivity : FragmentActivity() {
             OutlinedTextField(email, { email = it.take(120) }, label = { Text("Correo electrónico") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
             OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(15) }, label = { Text("Celular, con código de país si corresponde") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
             if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
-            if (existing != null) TextButton(onClick = {
+            if (existing != null && !paymentOnly) TextButton(onClick = {
                 if (onDelete(existing.id)) onClose() else error = "No se pudo borrar. Revisá si este perfil tiene un pago pendiente."
             }) { Text("Eliminar este perfil") }
         }
     }, confirmButton = { TextButton(enabled = profile.valid(), onClick = {
         if (onSave(profile)) onClose() else error = "No se pudieron guardar los datos. Revisá si hay un pago pendiente."
-    }) { Text("Guardar y usar") } }, dismissButton = { TextButton(onClick = onClose) { Text("Cancelar") } })
+    }) { Text(if (paymentOnly) "Usar en este pago" else "Guardar y usar") } }, dismissButton = { TextButton(onClick = onClose) { Text("Cancelar") } })
 }
 
 @Composable private fun AutofillProbe(onClose: () -> Unit) {

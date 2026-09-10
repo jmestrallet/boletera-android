@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.1.11-prueba — candidato nativo
+
+- Resumen y confirmación del titular con controles Android propios, alimentados por la solicitud vigente de Sistarbanc. La página conserva la sesión por detrás.
+- Edición nativa de datos ordinarios para el pago en curso, con cédula y pasaporte. No modifica el perfil persistido vinculado a la solicitud.
+- Panel con el CAPTCHA original recortado; no lo copia, lee ni resuelve. Las pantallas de tarjeta, confirmación bancaria y diálogos del proveedor conservan su interfaz original.
+- Continuación limitada a los dos pasos reconocidos y a una acción por paso; no hay botón automático de autorización del pago.
+
+El candidato requiere completar la verificación humana y comprobar el resto del recorrido en el teléfono. No acredita una recarga exitosa.
+
 ## 0.1.10-prueba
 
 - Los perfiles usan cédula uruguaya por defecto y permiten elegir pasaporte. Los perfiles anteriores se interpretan como cédula sin volver a pedir datos.

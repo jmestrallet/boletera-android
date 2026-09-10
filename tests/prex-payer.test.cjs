@@ -15,6 +15,21 @@ function setup(html, url = 'https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPa
   dom.window.eval(code);
   return dom;
 }
+
+test('edición explícita del titular actual cambia sus datos y luego conserva correcciones manuales', () => {
+  const dom = setup(form(split).replace('<form>', '<form><select formcontrolname="tipoDocumentoControl"><option value="CI">Cédula de Identidad</option><option value="PAS">Pasaporte</option></select>'));
+  try {
+    const api=dom.window.BoleteraPayer, doc=dom.window.document;
+    let submits=0;doc.addEventListener('submit',e=>{submits++;e.preventDefault();});
+    api.use(profile);
+    assert.equal(api.updateForThisPayment({...profile,id:'other'}),false);
+    assert.equal(api.updateForThisPayment({...profile,givenName:'Editada',documentType:'PAS',document:'AB123456'}),true);
+    assert.equal(doc.querySelector('[formcontrolname="tipoDocumentoControl"]').value,'PAS');
+    assert.equal(doc.querySelector('[formcontrolname="documentoControl"]').value,'AB123456');
+    const name=doc.querySelector('[formcontrolname="nombreControl"]');assert.equal(name.value,'Editada');name.value='Manual';api.status();assert.equal(name.value,'Manual');
+    assert.equal(submits,0);
+  } finally {dom.window.close();}
+});
 test('ambos formatos de titular reciben sus campos y los eventos, sin enviar ni leer la tarjeta', () => {
   for (const names of [split, combined]) {
     const dom = setup(form(names));
@@ -127,7 +142,7 @@ test('selecciona la opción del mat-select original y solo en su panel asociado'
           const panel = doc.createElement('div'); panel.id = 'doc-panel'; panel.setAttribute('role','listbox');
           for (const [value, label] of [['CI','Cédula de Identidad'],['PAS','Pasaporte']]) {
             const option = doc.createElement('mat-option'); option.setAttribute('role','option'); option.textContent=label;
-            option.onclick = () => {picked=value; select.innerHTML='<span class="mat-select-value-text">'+label+'</span>'; panel.remove();};
+            option.onclick = () => {picked=value; select.innerHTML='<div class="mat-select-trigger"><span class="mat-select-value-text">'+label+'</span></div>'; select.querySelector('.mat-select-trigger').onclick=openPanel; panel.remove();};
             panel.append(option);
           }
           doc.body.append(panel);
@@ -145,6 +160,13 @@ test('selecciona la opción del mat-select original y solo en su panel asociado'
       assert.equal(dom.window.BoleteraPayer.status(), 'filled');
       assert.equal(opens, 1);
       assert.equal(unrelated, 0); assert.equal(submits, 0);
+      const next = desired === 'CI' ? 'PAS' : 'CI';
+      assert.equal(dom.window.BoleteraPayer.updateForThisPayment({...profile, documentType:next, givenName:'Editada', document:next === 'CI' ? '11111111' : 'AB123456'}), true);
+      await new Promise(resolve => setTimeout(resolve, 20));
+      assert.equal(picked, next);
+      assert.equal(doc.querySelector('[formcontrolname="nombreControl"]').value,'Editada');
+      assert.equal(doc.querySelector('[formcontrolname="documentoControl"]').value,next === 'CI' ? '11111111' : 'AB123456');
+      assert.equal(opens,2);assert.equal(submits,0);
     } finally { dom.window.close(); }
   }
 });

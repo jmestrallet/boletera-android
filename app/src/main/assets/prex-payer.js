@@ -3,6 +3,7 @@
   if (window.BoleteraPayer) return;
   let profile = null;
   let state = 'waiting';
+  let forcePending = false;
   const attempted = new WeakSet();
   const typeAttempts = new WeakSet();
   let pendingType = null;
@@ -70,6 +71,7 @@
     return names.every(name => form.querySelectorAll(`input[formcontrolname="${name}"]`).length === 1);
   }
   function fill(force = false) {
+    force = force || forcePending;
     if (!profile || !window.document?.body) return;
     const forms = [...document.querySelectorAll('form')].filter(form => controls(form, split) || controls(form, combined));
     if (forms.length !== 1) { state = 'waiting'; return; }
@@ -100,6 +102,7 @@
       input.dispatchEvent(new Event('change', {bubbles:true}));
     }
     state = 'filled';
+    forcePending = false;
   }
   window.BoleteraPayer = {
     use(value) {
@@ -108,8 +111,15 @@
       fill();
       return true;
     },
+    updateForThisPayment(value) {
+      if (!profile || !value || value.id !== profile.id) return false;
+      profile = value;
+      forcePending = true;
+      fill(true);
+      return true;
+    },
     status() { fill(); return state; },
-    applyChosenProfile() { fill(true); return state === 'filled'; }
+    applyChosenProfile() { forcePending = true; fill(true); return state === 'filled'; }
   };
   new MutationObserver(() => fill()).observe(document.body, {childList:true, subtree:true});
 })();

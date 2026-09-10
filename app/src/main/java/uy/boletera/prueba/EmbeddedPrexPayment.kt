@@ -14,6 +14,19 @@ import androidx.compose.runtime.setValue
 /** Retains one original payment page. Opening the panel again never replays a POST. */
 @SuppressLint("SetJavaScriptEnabled")
 class EmbeddedPrexPayment(context: Context) {
+    var nativeStage by mutableStateOf("loading")
+        private set
+    var summaryRows by mutableStateOf<List<Pair<String, String>>>(emptyList())
+        private set
+    var payerValues by mutableStateOf<List<String>>(emptyList())
+        private set
+    var canContinue by mutableStateOf(false)
+        private set
+    var challenge by mutableStateOf<CaptchaRect?>(null)
+        private set
+    var expandedChallenge by mutableStateOf(false)
+        private set
+    val chosenPayer get() = payer
     var busy by mutableStateOf(false)
         private set
     var message by mutableStateOf("")
@@ -34,6 +47,24 @@ class EmbeddedPrexPayment(context: Context) {
     private val profileStatus = object : Runnable {
         override fun run() {
             if (destroyed || !visible || originalLink == null) return
+            web.evaluateJavascript("window.BoleteraNative ? JSON.stringify(window.BoleteraNative.snapshot()) : null") { raw ->
+                if (!destroyed && visible) try {
+                    val decoded = org.json.JSONTokener(raw).nextValue() as? String
+                    if (decoded != null) {
+                        val state = org.json.JSONObject(decoded)
+                        nativeStage = state.optString("stage", "original")
+                        val rows = state.optJSONArray("rows")
+                        summaryRows = if (rows == null) emptyList() else (0 until rows.length()).map {
+                            rows.getJSONArray(it).let { row -> row.getString(0) to row.getString(1) }
+                        }
+                        val values = state.optJSONArray("values")
+                        payerValues = if (values == null) emptyList() else (0 until values.length()).map(values::getString)
+                        canContinue = state.optBoolean("canContinue")
+                        challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
+                        expandedChallenge = state.optBoolean("expanded")
+                    }
+                } catch (_: Exception) { nativeStage = "original" }
+            }
             web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer ? window.BoleteraPayer.status() : 'waiting'; } else { 'waiting'; }") { raw ->
                 if (!destroyed && visible) {
                     val status = try { org.json.JSONTokener(raw).nextValue() as? String } catch (_: Exception) { null }
@@ -48,7 +79,7 @@ class EmbeddedPrexPayment(context: Context) {
             handler.postDelayed(this, 1000)
         }
     }
-    private val theme = context.assets.open("prex-appearance.js").bufferedReader().use { it.readText() }
+    private val nativeScript = context.assets.open("prex-native.js").bufferedReader().use { it.readText() }
     private val payerScript = context.assets.open("prex-payer.js").bufferedReader().use { it.readText() }
     val web = WebView(context).apply {
         settings.javaScriptEnabled = true
@@ -86,6 +117,8 @@ class EmbeddedPrexPayment(context: Context) {
                     return
                 }
                 currentHost = android.net.Uri.parse(url).host.orEmpty()
+                nativeStage = "loading"
+                canContinue = false
                 busy = true
                 message = ""
             }
@@ -93,11 +126,11 @@ class EmbeddedPrexPayment(context: Context) {
                 if (url == null || !allowedDestination(url)) return
                 busy = false
                 if (PaymentPolicy.gateway(url)) {
-                    view.evaluateJavascript(theme + "\n" + payerScript, null)
+                    view.evaluateJavascript(nativeScript + "\n" + payerScript, null)
                     payer?.let { profile ->
                         view.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.use(${profile.json()}); }", null)
                     }
-                }
+                } else nativeStage = "original"
             }
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel()
@@ -139,6 +172,24 @@ class EmbeddedPrexPayment(context: Context) {
         web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.applyChosenProfile(); }", null)
     }
 
+    fun advance() {
+        if (destroyed || !visible || !canContinue || nativeStage !in listOf("summary", "payer")) return
+        val expected = nativeStage
+        canContinue = false
+        web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.advance(${org.json.JSONObject.quote(expected)})", null)
+    }
+
+    fun positionVerification() {
+        if (!destroyed && visible && nativeStage == "payer") web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.showVerification()", null)
+    }
+
+    fun editPayer(profile: PayerProfile): Boolean {
+        if (destroyed || !visible || nativeStage != "payer" || profile.id != payer?.id || !profile.valid()) return false
+        payer = profile
+        web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/')) { window.BoleteraPayer && window.BoleteraPayer.updateForThisPayment(${profile.json()}); }", null)
+        return true
+    }
+
     fun hide() { visible = false; handler.removeCallbacks(profileStatus) }
 
     private fun fail(text: String) { busy = false; message = text }
@@ -150,6 +201,12 @@ class EmbeddedPrexPayment(context: Context) {
         web.loadUrl("about:blank")
         web.clearHistory()
         originalLink = null
+        nativeStage = "loading"
+        summaryRows = emptyList()
+        payerValues = emptyList()
+        canContinue = false
+        challenge = null
+        expandedChallenge = false
         payer = null
         payerLabel = ""
         payerNotice = ""
