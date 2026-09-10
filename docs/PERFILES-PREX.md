@@ -2,6 +2,8 @@
 
 Fecha: 9 de septiembre de 2026. Investigación realizada sobre 0.1.5. El usuario eligió **conservar Google**; el servicio propio no se incorpora a 0.1.6.
 
+**Aclaración posterior:** conservar Google no equivale a aceptar que el usuario complete la página. El objetivo vigente es realizar la recarga desde la interfaz propia. Hay un hallazgo nuevo sobre asociación y tarjetas guardadas en el proveedor, todavía sin habilitación comprobada para STM/Prex: [investigación nativa](INTEGRACION-NATIVA-PAGO.md).
+
 ## Necesidad
 
 Recordar los datos del titular para una próxima recarga, distinguiendo cada perfil de Prex de la cuenta STM y de la boletera. Elegir otra Prex debe pedir datos nuevos y no reutilizar silenciosamente los de otra persona. Un perfil de datos no verifica la titularidad de una tarjeta bancaria.

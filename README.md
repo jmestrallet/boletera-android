@@ -6,6 +6,8 @@ El código y la documentación se publican para permitir revisión y colaboraci�
 
 ## Probar en el celular
 
+**Objetivo pendiente:** el usuario quiere confirmar la recarga desde la interfaz de Boletera sin navegar el formulario del proveedor. La apertura en Chrome de esta versión es un resultado intermedio; conservar Google no implica aceptar ese recorrido como solución final. Ver [investigación de integración nativa](docs/INTEGRACION-NATIVA-PAGO.md).
+
 **[Descargar la versión 0.1.7](https://github.com/jmestrallet/boletera-android/releases/tag/v0.1.7)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
 
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Están conservados los ocho APK, de 0.1.0 a 0.1.7, con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
