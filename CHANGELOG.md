@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.10-prueba — Express como atajo y regreso al saldo
+
+- Recargar boletera sigue como acción principal. Express es un botón secundario por pulsación sostenida; no tiene configuración ni encendido/apagado.
+- Se oculta si falta la boletera habitual operativa, el mínimo vigente, Prex como medio guardado o el titular predeterminado válido.
+- Una pulsación completa inicia una sola recarga mínima y avanza por el resumen/titular conocidos hasta el CAPTCHA o los campos de tarjeta. Soltar antes cancela.
+- En la llegada directa a la tarjeta se enfoca el número, conservando el autocompletado de Android y su autorización con huella.
+- Atrás desde Cambiar boletera regresa al saldo de la habitual conservando la sesión, tanto con la flecha como con Atrás de Android.
+
 ## 0.2.9-prueba — tarjeta dentro de la interfaz
 
 - Número, vencimiento y CVV nativos, con teclado numérico, formato, validación y Continuar fijo abajo.

@@ -1,22 +1,29 @@
-# Modo Express
+# Express — atajo puntual desde 0.2.10
 
-Express es un atajo configurable para la recarga mínima vigente. La activación no inicia una operación: guarda una boletera, un medio y, para Prex, un perfil de titular. El botón posterior muestra el importe que se va a usar.
+La recarga común conserva el botón principal **Recargar boletera**, con elección de importe y medio. Debajo aparece un control secundario **Modo Express** solo cuando la cuenta ya tiene lo necesario. No hay encendido/apagado, activación persistente, pantalla de configuración ni confirmación posterior del modo.
 
-## Activación
+## Cuándo aparece
 
-Desde el saldo, Activar abre la configuración. La persona revisa boletera y mínimo vigente, elige Prex/eBROU y el titular cuando corresponde. Mantener la superficie de activación durante 1,2 segundos llena el anillo de energía; dos pulsos breves anticipan el pulso nativo de reconocimiento. Soltar antes cancela. Una acción de accesibilidad permite activar sin sostener el gesto. El estado final dice Express activado y confirma que todavía no empezó una recarga.
+- Cuenta verificada, boletera habitual seleccionada y operativa.
+- Mínimo vigente leído de STM.
+- Prex guardado como medio habitual y perfil de titular predeterminado válido; un único titular válido puede usarse si no hay otra selección.
+- Almacenamiento de perfiles disponible.
 
-En el saldo, Recarga express muestra el mínimo actual. Ajustar permite cambiar la configuración o desactivarla. Elegir otro importe conserva el recorrido manual. La interfaz usa el sistema gráfico de la app; no incorpora marcas o recursos de Tesla.
+Si falta cualquiera de esos datos, Express se oculta. Los datos se guardan mediante el recorrido común que ya existía. La presencia de tarjetas en Google/Android no es consultable por Boletera y no se utiliza como condición: Boletera conserva los campos para el autocompletado del sistema.
 
-## Recorrido
+## Una recarga Express
 
-- La configuración se separa por cuenta mediante el identificador local existente y queda ligada a una boletera concreta. Las elecciones de una recarga manual no reescriben Express.
-- Cada recarga comienza por una acción explícita. Usa el mínimo obtenido de STM, que el adaptador vuelve a comprobar antes del envío.
-- Al llegar a los medios, se comprueba que el elegido esté disponible y que el titular continúe existiendo. Se consume la intención de Express antes de abrir el proveedor.
-- Un toque duplicado durante la preparación no inicia otra solicitud. Cancelar, refrescar, volver a ingresar, fallar o pasar a segundo plano descarta la intención automática pendiente antes de empezar la apertura del proveedor.
-- Si algo dejó de estar disponible, el flujo queda en la preparación manual con explicación. No sustituye de forma silenciosa un medio o titular.
-- Se conserva el paso de autorización del proveedor, sus campos de tarjeta y verificaciones. No guarda PAN, vencimiento ni CVV; no da por acreditado un pago.
+1. Mantené apretado **Modo Express** durante 1,2 segundos. El control muestra Prex y el importe mínimo antes del gesto, llena su anillo y emite pulsos. Soltar antes cancela; un toque corto no inicia nada.
+2. Al completar el gesto, comienza esa única solicitud con el mínimo vigente, la boletera habitual y el titular predeterminado. La app vuelve a comprobar el mínimo y las opciones devueltas por STM.
+3. En Prex se avanza por el resumen únicamente si moneda e importe coinciden. Se avanza por el titular si coincide con el perfil elegido, el formulario original es válido y no aparece una verificación o dato adicional.
+4. El recorrido se detiene en el CAPTCHA original, si lo pide, o en el número de tarjeta. Con CAPTCHA se conserva el botón para continuar después de resolverlo: no se lee su respuesta ni se afirma poder detectar su resolución desde otro origen. En el formulario de tarjeta se enfoca el número para facilitar la sugerencia del sistema. La tarjeta guardada y su autorización con huella pertenecen a Android/Google; Boletera no almacena esos datos ni los envía automáticamente.
 
-## Alcance de la comprobación
+No se leen tokens ni se usan APIs financieras alternativas. Los pasos conocidos se ejecutan una sola vez; un error, cambio de importe/titular, formulario desconocido, consentimiento adicional o navegación estancada devuelve el control al usuario sin reintentar. Salir, pasar al fondo o elegir la página original detiene el avance automático. Volver a abrir la app no reanuda una recarga Express por sí solo.
 
-Las pruebas usan perfiles ficticios y respuestas de red interceptadas. Cubren la activación sin pago, cancelación del gesto, persistencia aislada por cuenta, cambio de boletera, interrupción en segundo plano, proveedor ausente y un recorrido completo hasta Prex con mínimo de $ 564 y un único envío ante doble toque. No equivalen a completar ni acreditar una recarga real. La vibración física depende del teléfono y de los ajustes del usuario.
+## Cambio desde 0.2.7–0.2.9
+
+Se eliminó la configuración separada de Express y su sustitución del botón principal. La preferencia antigua deja de leerse o escribirse; no modifica las elecciones ordinarias de boletera, medio y titular. El gesto ahora inicia una recarga puntual, en vez de activar un modo para más adelante.
+
+## Validación
+
+Se comprueban visibilidad condicionada, permanencia del botón común, toque corto/cancelación/pulsación completa, interrupción, aislamiento de las preferencias por cuenta y exclusión de duplicados. El recorrido Android interceptado comprueba que una sola pulsación llega al formulario de tarjeta pasando una vez por resumen/titular y sin pulsar Continuar en la tarjeta. CAPTCHA, autocompletado físico y acreditación no quedan demostrados por ese laboratorio.

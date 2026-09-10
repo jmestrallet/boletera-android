@@ -114,8 +114,6 @@ class MainActivity : FragmentActivity() {
         var save by remember { mutableStateOf(false) }
         var showForget by remember { mutableStateOf(false) }
         var showAmount by remember { mutableStateOf(false) }
-        var showExpress by remember { mutableStateOf(false) }
-        var returnToExpress by remember { mutableStateOf(false) }
         var showPayerPicker by remember { mutableStateOf(false) }
         var showPayerEditor by remember { mutableStateOf(false) }
         var editingPayer by remember { mutableStateOf<PayerProfile?>(null) }
@@ -125,6 +123,7 @@ class MainActivity : FragmentActivity() {
         LaunchedEffect(stage) { scroll.scrollTo(0) }
         fun back() {
             document=""; password=""
+            if(engine.returnFromCardPicker())return
             if(state.stage in listOf("paymentBoundary", "externalPayment")) engine.refresh() else engine.cancel()
         }
         BackHandler(enabled = state.stage != "welcome") { back() }
@@ -177,7 +176,7 @@ class MainActivity : FragmentActivity() {
                                 }
                             }
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
-                                onExpressSettings={showExpress=true},onExpressCharge=engine::startExpress)
+                                onExpressCharge=if(engine.expressAvailable)engine::startExpress else null)
                             "connecting" -> {
                                 LoadingState(if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", "Estamos consultando el sitio. Tu información va a aparecer acá.")
                                 TextButton(onClick=::back) { Text("Cancelar") }
@@ -241,11 +240,8 @@ class MainActivity : FragmentActivity() {
             onChoose={engine.choosePayer(it);showPayerPicker=false},
             onAdd={editingPayer=null;showPayerPicker=false;showPayerEditor=true},
             onClose={showPayerPicker=false})
-        if(showExpress && state.stage=="balance")ExpressSheet(state,engine.payerProfiles,engine::configureExpress,engine::disableExpress,
-            onAddPayer={showExpress=false;returnToExpress=true;editingPayer=null;showPayerEditor=true},onClose={showExpress=false})
         if (showPayerEditor) PayerProfileEditor(editingPayer, onSave = engine::savePayer, onDelete = engine::deletePayer, onClose = {
             showPayerEditor = false
-            if(returnToExpress){returnToExpress=false;showExpress=true}
         })
         if (showForget) AlertDialog(onDismissRequest = { showForget = false }, title = { Text("¿Olvidar este acceso?") },
             text = { Text("Se eliminan las credenciales cifradas, las preferencias y la sesión local.") },
@@ -261,6 +257,8 @@ class MainActivity : FragmentActivity() {
     SecurePaymentWindow()
     var showOriginal by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    val expressAdvancing=payment.expressPhase=="advancing"
+    val expressVerification=payment.expressPhase=="verification"
     LaunchedEffect(payment.nativeStage) { showOriginal = false }
     val native = payment.nativeStage in listOf("summary", "payer", "card", "loading") && !showOriginal
     LaunchedEffect(native, payment.nativeStage, payment.expandedChallenge, payment.challenge != null) {
@@ -292,7 +290,7 @@ class MainActivity : FragmentActivity() {
                     val pixelsPerDp = LocalDensity.current.density
                     val cssPixelsToDp = if (payment.cssViewportWidth > 0f) browserWidth / payment.cssViewportWidth / pixelsPerDp else 1f
                     if (!native) PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.fillMaxSize())
-                    if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{showOriginal=true}) {
+                    if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{payment.stopExpress();showOriginal=true},focusCard=payment.expressPhase=="done") {
                         BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
                             val cap=payment.challenge
                             val maxPanelHeight=(browserHeight/pixelsPerDp-160f).coerceAtLeast(140f)
@@ -302,9 +300,10 @@ class MainActivity : FragmentActivity() {
                     }
                     if (native && payment.nativeStage!="card") Column(Modifier.fillMaxSize().background(Paper)) {
                       Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        if (payment.nativeStage != "payer") PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.fillMaxWidth().height(1.dp))
+                        if (payment.nativeStage != "payer" || expressAdvancing) PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.fillMaxWidth().height(1.dp))
+                        if(expressAdvancing) LoadingState("Preparando Prex", "Usando el mínimo y tus datos guardados.") else {
                         ProgressSteps(if(payment.nativeStage=="payer")1 else 0,listOf("Recarga","Titular","Tarjeta"))
-                        Text(if (payment.nativeStage == "payer") "Datos del titular" else "Revisá tu recarga",style=MaterialTheme.typography.headlineMedium,color=Ink)
+                        Text(if(expressVerification)"Una verificación\ny seguimos" else if (payment.nativeStage == "payer") "Datos del titular" else "Revisá tu recarga",style=MaterialTheme.typography.headlineMedium,color=Ink)
                         if (payment.nativeStage == "loading") {
                             LoadingState("Un momento…","Estamos recuperando tu solicitud.")
                         } else if (payment.nativeStage == "summary") {
@@ -317,7 +316,7 @@ class MainActivity : FragmentActivity() {
                                 }
                             }
                         } else {
-                            if (!payment.expandedChallenge) Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(28.dp)) {
+                            if (!payment.expandedChallenge && !expressVerification) Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(28.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                     val values = payment.payerValues
                                     val rows = if (values.size == 5) listOf("Titular" to "${values[0]} ${values[1]}", "Documento" to values[2], "Correo" to values[3], "Celular" to values[4]) else emptyList()
@@ -334,13 +333,14 @@ class MainActivity : FragmentActivity() {
                                 PaymentBrowserView(payment, cap == null, cap, browserWidth, browserHeight, if (cap == null) Modifier.size(1.dp) else Modifier.width((cap.width * scale).dp).height((cap.height * scale).dp))
                             }
                         }
+                        }
                       }
-                      if(payment.nativeStage in listOf("summary","payer")) Surface(color=Paper,shadowElevation=6.dp) {
+                      if(payment.nativeStage in listOf("summary","payer") && !expressAdvancing) Surface(color=Paper,shadowElevation=6.dp) {
                         Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                             Primary(if(payment.nativeStage=="payer")"Continuar a la tarjeta" else "Continuar a los datos",payment.canContinue,payment::advance)
                             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                                if(payment.nativeStage=="payer")TextButton(onClick={editing=true},enabled=payment.chosenPayer!=null){Text("Editar datos")}
-                                TextButton(onClick={showOriginal=true}){Text("Ver página original")}
+                                if(payment.nativeStage=="payer" && !expressVerification)TextButton(onClick={payment.stopExpress();editing=true},enabled=payment.chosenPayer!=null){Text("Editar datos")}
+                                TextButton(onClick={payment.stopExpress();showOriginal=true}){Text("Ver página original")}
                             }
                         }
                       }

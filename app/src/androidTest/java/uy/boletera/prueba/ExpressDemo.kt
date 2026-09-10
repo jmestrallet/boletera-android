@@ -1,46 +1,51 @@
 package uy.boletera.prueba
 
-import androidx.compose.runtime.MutableState
+import android.graphics.Bitmap
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
 
-/** Records the actual app and preference activation using fictitious account data. No recarga. */
+/** Visual demonstration of production controls with fictitious data and no financial engine. */
 class ExpressDemo {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
-    @Test fun activateFromWallet() {
-        lateinit var engine:StmEngine
-        compose.runOnIdle { compose.activity.getSharedPreferences("appearance",0).edit().putString("theme","dark").commit() }
-        compose.activityRule.scenario.recreate()
-        compose.runOnIdle {
-            engine=MainActivity::class.java.getDeclaredField("engine").apply { isAccessible=true }.get(compose.activity) as StmEngine
-            engine.forgetChoices()
-            StmEngine::class.java.getDeclaredField("accountVerified").apply { isAccessible=true }.setBoolean(engine,true)
-            (StmEngine::class.java.getDeclaredField("choices").apply { isAccessible=true }.get(engine) as JourneyPreferences).useAccount("00000000")
-            assertTrue(engine.savePayer(PayerProfile("express-demo","Mi Prex","Persona","Ficticia","00000000","persona@example.invalid","099123456")))
-            @Suppress("UNCHECKED_CAST")
-            val state=StmEngine::class.java.getDeclaredField("state\$delegate").apply { isAccessible=true }.get(engine) as MutableState<UiState>
-            state.value=UiState(stage="balance",selectedCard="DEMO1234",minimum=26000,balance=124000)
-        }
-        try {
-            android.os.SystemClock.sleep(900)
-            compose.onNodeWithText("Activar").performScrollTo().performClick()
-            android.os.SystemClock.sleep(1300)
-            compose.onNodeWithText("Mantené para activar").performScrollTo()
-            android.os.SystemClock.sleep(700)
-            compose.mainClock.autoAdvance=false
-            compose.onNodeWithText("Mantené para activar").performTouchInput { down(center) }
-            repeat(95) { compose.mainClock.advanceTimeBy(16);android.os.SystemClock.sleep(16) }
-            compose.onNodeWithText("Express activado").performTouchInput { up() }
-            compose.mainClock.autoAdvance=true
-            compose.onNodeWithText("Express activado").performScrollTo().assertIsDisplayed()
-            android.os.SystemClock.sleep(1800)
-            compose.onNodeWithText("Listo, vamos").performScrollTo().performClick()
-            compose.onNodeWithText("Recarga express · $ 260").performScrollTo().assertIsDisplayed()
-            compose.runOnIdle { assertNotNull(engine.state.express);assertNull(engine.state.activePayment) }
-            android.os.SystemClock.sleep(2000)
-        } finally { compose.mainClock.autoAdvance=true;compose.runOnIdle {engine.cancel();engine.forgetChoices()} }
+    @Test fun shortcutBelowOrdinaryRecharge() {
+        var started by mutableStateOf(false)
+        compose.activity.setContent { BoleteraTheme("dark") { Surface {
+            Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+                AppTopBar()
+                if(started)NativeCardForm(false,true,false,false,{_,_,_->},{})
+                else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=24.dp)) {
+                    WalletHome(UiState(stage="balance",selectedCard="DEMO1234",balance=124000,minimum=26000),{},{},{},onExpressCharge={started=true})
+                }
+            }
+        } } }
+        compose.onNodeWithText("Modo Express").performScrollTo()
+        compose.onNodeWithText("Recargar boletera").assertIsDisplayed()
+        compose.waitForIdle()
+        android.os.SystemClock.sleep(700)
+        val shot=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(compose.activity.getExternalFilesDir(null),"express-shortcut.png").outputStream().use {shot.compress(Bitmap.CompressFormat.PNG,100,it)};shot.recycle()
+        compose.mainClock.autoAdvance=false
+        compose.onNodeWithText("Modo Express").performTouchInput { down(center) }
+        repeat(50){compose.mainClock.advanceTimeBy(16);android.os.SystemClock.sleep(16)}
+        val held=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(compose.activity.getExternalFilesDir(null),"express-shortcut-held.png").outputStream().use {held.compress(Bitmap.CompressFormat.PNG,100,it)};held.recycle()
+        repeat(45){compose.mainClock.advanceTimeBy(16);android.os.SystemClock.sleep(16)}
+        compose.onRoot().performTouchInput { up() }
+        compose.mainClock.autoAdvance=true
+        compose.onNodeWithText("Número de tarjeta").assertExists()
+        assertTrue(started)
     }
 }

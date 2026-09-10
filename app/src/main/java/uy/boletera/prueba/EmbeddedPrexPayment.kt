@@ -26,6 +26,8 @@ class EmbeddedPrexPayment(context: Context) {
         private set
     var cardError by mutableStateOf(false)
         private set
+    var expressPhase by mutableStateOf("off")
+        private set
     var challenge by mutableStateOf<CaptchaRect?>(null)
         private set
     var expandedChallenge by mutableStateOf(false)
@@ -50,12 +52,13 @@ class EmbeddedPrexPayment(context: Context) {
     private var payer: PayerProfile? = null
     private var visible = false
     private var navigationVersion = 0
+    private var expressAmount: Long? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val profileStatus = object : Runnable {
         override fun run() {
             if (destroyed || !visible || originalLink == null) return
             val version = navigationVersion
-            web.evaluateJavascript("window.BoleteraNative ? JSON.stringify(window.BoleteraNative.snapshot()) : null") { raw ->
+            web.evaluateJavascript("(()=>{const phase=window.BoleteraExpress?.tick()||'off';return window.BoleteraNative?JSON.stringify({...window.BoleteraNative.snapshot(),expressPhase:phase}):null;})()") { raw ->
                 if (!destroyed && visible && version == navigationVersion) try {
                     val decoded = org.json.JSONTokener(raw).nextValue() as? String
                     if (decoded != null) {
@@ -70,6 +73,7 @@ class EmbeddedPrexPayment(context: Context) {
                         canContinue = state.optBoolean("canContinue")
                         cardBusy = state.optBoolean("cardBusy")
                         cardError = state.optBoolean("cardError")
+                        expressPhase = state.optString("expressPhase","off")
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
                         cssViewportWidth = state.optDouble("viewportWidth", 0.0).toFloat()
@@ -92,6 +96,7 @@ class EmbeddedPrexPayment(context: Context) {
     }
     private val nativeScript = context.assets.open("prex-native.js").bufferedReader().use { it.readText() }
     private val cardScript = context.assets.open("prex-card.js").bufferedReader().use { it.readText() }
+    private val expressScript = context.assets.open("prex-express.js").bufferedReader().use { it.readText() }
     private val verificationScript = context.assets.open("prex-verification.js").bufferedReader().use { it.readText() }
     private val payerScript = context.assets.open("prex-payer.js").bufferedReader().use { it.readText() }
     val web = WebView(context).apply {
@@ -145,9 +150,13 @@ class EmbeddedPrexPayment(context: Context) {
                 if (url == null || url != view.url || !allowedDestination(url)) return
                 busy = false
                 if (PaymentPolicy.gateway(url)) {
-                    view.evaluateJavascript(verificationScript + "\n" + cardScript + "\n" + nativeScript + "\n" + payerScript, null)
+                    view.evaluateJavascript(verificationScript + "\n" + cardScript + "\n" + nativeScript + "\n" + payerScript + "\n" + expressScript, null)
                     payer?.let { profile ->
                         view.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.use(${profile.json()}); }", null)
+                        expressAmount?.let { amount ->
+                            expressAmount=null // One document only; navigation never restarts the shortcut.
+                            view.evaluateJavascript("window.BoleteraExpress && window.BoleteraExpress.start($amount,${profile.json()})",null)
+                        }
                     }
                 } else nativeStage = "original"
             }
@@ -164,7 +173,7 @@ class EmbeddedPrexPayment(context: Context) {
         }
     }
 
-    fun open(url: String, profile: PayerProfile? = null): Boolean {
+    fun open(url: String, profile: PayerProfile? = null, expressAmount: Long? = null): Boolean {
         if (destroyed || !PaymentPolicy.prexLink(url) || profile?.valid() == false) return false
         if (originalLink == url) {
             if (payer?.id != profile?.id) return false
@@ -175,6 +184,8 @@ class EmbeddedPrexPayment(context: Context) {
         }
         if (originalLink != null) return false // Caller must explicitly finish/reset the previous journey.
         originalLink = url
+        this.expressAmount = expressAmount
+        expressPhase = if(expressAmount!=null)"advancing" else "off"
         payer = profile
         payerLabel = profile?.label.orEmpty()
         currentHost = android.net.Uri.parse(url).host.orEmpty()
@@ -193,6 +204,7 @@ class EmbeddedPrexPayment(context: Context) {
 
     fun advance() {
         if (destroyed || !visible || !canContinue || nativeStage !in listOf("summary", "payer")) return
+        stopExpress()
         val expected = nativeStage
         canContinue = false
         web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.advance(${org.json.JSONObject.quote(expected)})", null)
@@ -216,9 +228,17 @@ class EmbeddedPrexPayment(context: Context) {
         if (!destroyed) web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.restoreVerification()", null)
     }
 
+    fun stopExpress() {
+        expressAmount=null
+        if(destroyed)return
+        expressPhase="manual"
+        web.evaluateJavascript("window.BoleteraExpress && window.BoleteraExpress.stop()",null)
+    }
+
     fun editPayer(profile: PayerProfile): Boolean {
         if (destroyed || !visible || nativeStage != "payer" || profile.id != payer?.id || !profile.valid()) return false
         payer = profile
+        stopExpress()
         web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/')) { window.BoleteraPayer && window.BoleteraPayer.updateForThisPayment(${profile.json()}); }", null)
         return true
     }
@@ -241,6 +261,8 @@ class EmbeddedPrexPayment(context: Context) {
         canContinue = false
         cardBusy = false
         cardError = false
+        expressAmount = null
+        expressPhase = "off"
         challenge = null
         expandedChallenge = false
         payer = null

@@ -57,3 +57,7 @@ El usuario no percibía las mejoras de 0.2.5 y rechazó la inclinación de la bo
 Los botones se comprimen al 94%, pasan de radio 32 a 16 dp y desplazan su flecha 10 dp. Los importes alternan radio 12/32 dp. La entrada de contenido dura 380 ms con 40 dp de recorrido y escala 97–100%; sigue existiendo una única composición del navegador. Los colores del tema interpolan durante 360 ms. Las preferencias de duración de Android siguen vigentes.
 
 Configuración incorpora Probar vibración con el pulso largo nativo. Se informa si Android no acepta la petición; una respuesta positiva no se confunde con una comprobación física de que el usuario la sintió. No se fuerza ni modifica la configuración del sistema.
+
+## Express como atajo · 0.2.10
+
+Recargar boletera conserva la jerarquía principal. El control secundario Modo Express se ubica debajo y aparece solo con los datos habituales completos. Una pulsación de 1,2 s llena un anillo, comprime el control y emite pulsos; soltar antes cancela. Al terminar inicia esa recarga directamente, sin pantalla de configuración, activación persistente ni confirmación del modo. [Recorrido y condiciones](MODO-EXPRESS.md). Las capturas de `ExpressDemo` usan componentes de producción con datos ficticios; no representan una operación bancaria.

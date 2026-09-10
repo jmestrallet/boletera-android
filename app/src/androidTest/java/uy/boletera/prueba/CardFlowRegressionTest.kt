@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.test.platform.app.InstrumentationRegistry
@@ -31,6 +32,7 @@ class CardFlowRegressionTest {
         lateinit var engine: StmEngine
         var authenticated = false
         val networkRequests = java.util.concurrent.atomic.AtomicInteger()
+        val loginRequests = java.util.concurrent.atomic.AtomicInteger()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val chromeLinks = mutableListOf<String?>()
         val paymentLoads = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
@@ -50,6 +52,14 @@ class CardFlowRegressionTest {
             engine.prexPayment.web.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
                     if (request.isForMainFrame) paymentLoads.computeIfAbsent(request.url.toString()) { java.util.concurrent.atomic.AtomicInteger() }.incrementAndGet()
+                    if(paymentLoads[request.url.toString()]?.get()==3) {
+                        val shortcut="""<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>confirmar-pago,alta-cliente,alta-tarjeta{display:block}input{display:block}</style>
+                            <stepper-pago><confirmar-pago><form><div><b>Moneda:</b><p>UYU</p></div><div><b>Total:</b><p>564,00</p></div><button type="button">Continuar</button></form></confirmar-pago></stepper-pago>
+                            <script>window.summaryClicks=0;window.payerClicks=0;window.cardClicks=0;window.chosenPayer=false;
+                            document.querySelector('button').onclick=()=>{window.summaryClicks++;document.querySelector('stepper-pago').innerHTML='<alta-cliente><form class="ng-valid">'+['nombreControl','apellidoControl','documentoControl','emailControl','celularControl'].map(n=>'<input formcontrolname="'+n+'">').join('')+'<button type="button">Continuar</button></form></alta-cliente>';
+                            document.querySelector('button').onclick=()=>{window.payerClicks++;window.chosenPayer=document.querySelector('[formcontrolname=nombreControl]').value==='Persona';document.querySelector('stepper-pago').innerHTML='<alta-tarjeta><input formcontrolname="nroTarjetaControl"><input formcontrolname="expiracionControl"><input formcontrolname="cvvControl"><button type="button">Continuar</button></alta-tarjeta>';document.querySelector('button').onclick=()=>window.cardClicks++;};};</script>"""
+                        return WebResourceResponse("text/html","UTF-8",shortcut.byteInputStream())
+                    }
                     val html = """<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pago ficticio</title>
                       <style>body{margin:0} main{padding:18px} label{display:block;margin:12px 0;font-family:system-ui}input{display:block;box-sizing:border-box;width:100%;padding:10px;border:1px solid #acb5ae;border-radius:8px}form{padding:18px;background:white;border-radius:20px}h2{font-family:system-ui;margin:5px 0}p{font-family:system-ui}</style>
                       <main><h2>Datos del titular</h2><p>PRUEBA LOCAL · SIN PAGO</p><form>
@@ -67,6 +77,7 @@ class CardFlowRegressionTest {
             engine.web.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
                     networkRequests.incrementAndGet()
+                    if(request.url.path=="/login")loginRequests.incrementAndGet()
                     val root = "https://stm.gub.uy/app/mistm/cuenta/pages/"
                     val html = when (request.url.path) {
                         "/app/mistm/cuenta/" -> if (authenticated) "<button onclick=\"location.href='https://mi.iduruguay.gub.uy/login'\">INGRESAR CON USUARIO GUB.UY</button>" else "<script>location.href='${root}tarjetas.xhtml'</script>"
@@ -140,6 +151,15 @@ class CardFlowRegressionTest {
                 engine.chooseCard("DEAD5678")
                 assertEquals("cards", engine.state.stage)
             }
+            val loginsBeforeBack=loginRequests.get()
+            compose.onNodeWithContentDescription("Volver").performClick()
+            compose.waitUntil(20000){engine.state.stage=="balance" && !engine.state.busy && engine.state.minimum==56400L}
+            compose.runOnIdle {assertEquals(loginsBeforeBack,loginRequests.get());assertEquals("ABCD1234",engine.state.selectedCard)}
+            compose.onNodeWithContentDescription("Cambiar boletera").performClick()
+            compose.waitUntil(20000){engine.state.stage=="cards" && !engine.state.busy}
+            compose.runOnIdle {compose.activity.onBackPressedDispatcher.onBackPressed()}
+            compose.waitUntil(20000){engine.state.stage=="balance" && !engine.state.busy}
+            compose.runOnIdle {assertEquals(loginsBeforeBack,loginRequests.get());assertEquals("ABCD1234",engine.state.selectedCard)}
             compose.runOnIdle { engine.connect("00000000", "synthetic-offline-only") }
             compose.waitUntil(20000) { engine.state.stage == "balance" && engine.state.minimum == 56400L && !engine.state.busy }
             compose.runOnIdle { assertNull(engine.state.activePayment) }
@@ -202,13 +222,16 @@ class CardFlowRegressionTest {
             compose.onNodeWithContentDescription("Volver").performClick()
             compose.waitUntil(15000) { engine.state.stage=="balance" && !engine.state.busy }
             compose.runOnIdle {
-                assertTrue(engine.configureExpress("1033",firstPayer.id))
-                assertEquals(ExpressChoice("ABCD1234","1033",firstPayer.id),preferences.express)
-                assertEquals(2,paymentLoads[newLink]?.get()) // Activating never starts a payment.
+                assertTrue(engine.expressAvailable)
+                assertEquals(2,paymentLoads[newLink]?.get())
             }
-            compose.onNodeWithText("Recarga express · $ 564").performScrollTo().performClick()
+            compose.onNodeWithText("Recargar boletera").assertExists()
+            compose.onNodeWithText("Modo Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
             compose.runOnIdle { engine.startExpress() } // Duplicate cannot initiate another submission.
-            compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && !engine.prexPayment.busy }
+            compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" }
+            compose.onNodeWithText("Número de tarjeta").assertExists()
+            assertEquals("1",paymentJs("window.summaryClicks"));assertEquals("1",paymentJs("window.payerClicks"))
+            assertEquals("0",paymentJs("window.cardClicks"));assertEquals("true",paymentJs("window.chosenPayer"))
             compose.runOnIdle {
                 assertEquals(56400L,engine.state.activePayment?.amount)
                 assertEquals(firstPayer.id,engine.state.activePayment?.payerProfileId)

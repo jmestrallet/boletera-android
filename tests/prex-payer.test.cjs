@@ -155,14 +155,14 @@ test('selecciona la opción del mat-select original y solo en su panel asociado'
       dom.window.BoleteraPayer.status();
       // Angular may insert the node before registering the trigger's handler.
       select.querySelector('.mat-select-trigger').onclick = openPanel;
-      await new Promise(resolve => setTimeout(resolve, 20));
+      for(let i=0;i<100 && picked!==desired;i++)await new Promise(resolve=>setTimeout(resolve,10));
       assert.equal(picked, desired);
       assert.equal(dom.window.BoleteraPayer.status(), 'filled');
       assert.equal(opens, 1);
       assert.equal(unrelated, 0); assert.equal(submits, 0);
       const next = desired === 'CI' ? 'PAS' : 'CI';
       assert.equal(dom.window.BoleteraPayer.updateForThisPayment({...profile, documentType:next, givenName:'Editada', document:next === 'CI' ? '11111111' : 'AB123456'}), true);
-      await new Promise(resolve => setTimeout(resolve, 20));
+      for(let i=0;i<100 && picked!==next;i++)await new Promise(resolve=>setTimeout(resolve,10));
       assert.equal(picked, next);
       assert.equal(doc.querySelector('[formcontrolname="nombreControl"]').value,'Editada');
       assert.equal(doc.querySelector('[formcontrolname="documentoControl"]').value,next === 'CI' ? '11111111' : 'AB123456');

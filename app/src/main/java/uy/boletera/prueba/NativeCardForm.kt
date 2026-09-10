@@ -12,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalAutofillManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -62,6 +64,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun NativeCardForm(busy: Boolean, canContinue: Boolean, providerError: Boolean,
     expandedChallenge: Boolean, onSubmit: (String,String,String)->Unit, onOriginal: ()->Unit,
+    focusCard: Boolean = false,
     verification: @Composable ()->Unit = {}) {
     var pan by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
@@ -71,6 +74,8 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     val focus=LocalFocusManager.current
     val keyboard=LocalSoftwareKeyboardController.current
     val lifecycle=LocalLifecycleOwner.current.lifecycle
+    val numberFocus=remember { FocusRequester() }
+    LaunchedEffect(focusCard,expandedChallenge) { if(focusCard&&!expandedChallenge) { numberFocus.requestFocus();keyboard?.show() } }
     DisposableEffect(lifecycle,autofill) {
         fun clear() { autofill?.cancel();pan="";expiry="";cvv="";attempted=false;focus.clearFocus() }
         val observer=LifecycleEventObserver { _, event -> if(event==Lifecycle.Event.ON_STOP) clear() }
@@ -85,7 +90,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                 Text("Ingresá los datos para continuar con Sistarbanc.",color=Muted)
                 OutlinedTextField(value=pan,onValueChange={pan=it.filter { c -> c in '0'..'9' }.take(16)},
                     label={Text("Número de tarjeta")},singleLine=true,enabled=!busy,
-                    modifier=Modifier.fillMaxWidth().semantics { contentType=ContentType.CreditCardNumber },
+                    modifier=Modifier.fillMaxWidth().focusRequester(numberFocus).semantics { contentType=ContentType.CreditCardNumber },
                     visualTransformation=remember { CardGrouping(4,' ') },
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
                     keyboardActions=KeyboardActions(onNext={focus.moveFocus(FocusDirection.Next)}),

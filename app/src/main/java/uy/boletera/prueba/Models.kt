@@ -19,8 +19,7 @@ data class UiState(
     val providers: List<ProviderInfo> = emptyList(), val selectedProvider: String? = null,
     val activePayment: ActivePayment? = null,
     val payerProfileId: String? = null,
-    val diagnostic: String = "",
-    val express: ExpressChoice? = null
+    val diagnostic: String = ""
 )
 
 object Amounts {

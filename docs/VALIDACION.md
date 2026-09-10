@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.9
+## Versión vigente: 0.2.10
+
+Express se rehízo como atajo puntual secundario: se oculta si faltan datos habituales, no tiene configuración ni estado encendido/apagado y no reemplaza Recargar boletera. Usa Prex, mínimo vigente y titular predeterminado. Además, Atrás desde la selección de boleteras regresa al saldo sin cancelar el acceso. [Flujo y condiciones](MODO-EXPRESS.md).
+
+Pasaron 48 pruebas JavaScript, ocho JVM y compilación/lint. En Android pasaron seis pruebas (57,461 s): dos de Express, el recorrido completo con login/selección/recarga común/atajo y tres del formulario nativo. El recorrido verifica ambos botones Atrás sin nuevos accesos, una única solicitud por pulsación sostenida, avance de resumen y titular una vez, llegada al número de tarjeta y cero envíos de tarjeta. Registro: `outputs/express-shortcut-0.2.10.txt`. Cinco pruebas de Express/formulario también pasaron en 360 × 640 dp con texto 2× y animación desactivada (13,488 s): `outputs/express-shortcut-small-0.2.10.txt`.
+
+El usuario informa que al tocar el número de tarjeta el sistema ofrece la tarjeta guardada con huella. Se conserva esa integración y se agrega foco inicial al llegar directamente desde Express. Este comportamiento en el nuevo atajo no se verificó en su teléfono; la prueba interceptada no acredita un pago real ni el funcionamiento de un CAPTCHA real.
+
+Compilación final release/androidTest y lint aprobados (23 s). Se revisó la captura del atajo debajo del botón común y su anillo durante la pulsación; demo con datos ficticios y sin motor financiero, aprobada en 6,348 s. APK código 28, SHA-256 `86097273ffca9ff207a955f5f3f7ce2d4ef04be074c1da52803d348719a7cbb3`; firma idéntica a la versión anterior.
+
+## Versión anterior: 0.2.9
 
 Formulario nativo de tarjeta Prex con datos temporales y continuación mediante el formulario original de Sistarbanc. [Alcance, protección y límites](TARJETA-NATIVA.md).
 
