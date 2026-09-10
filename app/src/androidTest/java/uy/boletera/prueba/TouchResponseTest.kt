@@ -20,7 +20,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TouchResponseTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
-    @Test fun longPressOpensOnceAndScrollDoesNotSelect() {
+    @Test fun onlyTheSwapIconChangesCardAndBalanceGesturesDoNothing() {
         var changes=0
         val feedback=mutableListOf<HapticFeedbackType>()
         var busy by mutableStateOf(false)
@@ -30,13 +30,13 @@ class TouchResponseTest {
             }) { BoleteraTheme { Surface { WalletHome(UiState(stage="balance",selectedCard="DEMO1234",balance=124000,minimum=26000,busy=busy),{changes++},{},{}) } } }
         } }
         compose.onNodeWithText("Saldo disponible").performTouchInput { longClick() }
-        compose.runOnIdle { assertEquals(1,changes); assertEquals(1,feedback.count { it==HapticFeedbackType.LongPress }) }
         compose.onNodeWithText("Saldo disponible").performTouchInput { swipeDown() }
-        compose.runOnIdle { assertEquals(1,changes) }
         compose.onNodeWithText("Saldo disponible").performTouchInput { click() }
-        compose.runOnIdle { assertEquals(2,changes);assertEquals(1,feedback.count { it==HapticFeedbackType.ContextClick });busy=true }
-        compose.onNodeWithText("Saldo disponible").performTouchInput { longClick() }
-        compose.runOnIdle { assertEquals(2,changes) }
+        compose.runOnIdle { assertEquals(0,changes);assertTrue(feedback.isEmpty()) }
+        compose.onNodeWithContentDescription("Cambiar boletera").performClick()
+        compose.runOnIdle { assertEquals(1,changes);assertEquals(1,feedback.count {it==HapticFeedbackType.ContextClick});busy=true }
+        compose.onNodeWithContentDescription("Cambiar boletera").performTouchInput { click() }
+        compose.runOnIdle { assertEquals(1,changes) }
     }
     @Test fun primaryReleaseInvokesOnceCancelAndDisabledDoNothing() {
         var calls=0

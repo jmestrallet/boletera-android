@@ -234,11 +234,10 @@ class CardFlowRegressionTest {
             compose.onNodeWithText("Ahora no").performClick()
             compose.runOnIdle {
                 assertEquals("balance",engine.state.stage)
-                assertFalse(compose.activity.getSharedPreferences("feature_help",0).getBoolean("express_skip_intro_v1",false))
+                assertTrue(compose.activity.getSharedPreferences("feature_help",0).getBoolean("express_skip_intro_v1",false))
             }
             compose.onNodeWithText("Carga Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
-            compose.onNodeWithText("No volver a mostrar").performScrollTo().performClick()
-            compose.onNodeWithText("Aceptar y continuar").performClick()
+            compose.onNodeWithText("Así funciona Carga Express").assertDoesNotExist()
             compose.runOnIdle { engine.startExpress() } // Duplicate cannot initiate another submission.
             compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" }
             compose.onNodeWithText("Número de tarjeta").assertExists()

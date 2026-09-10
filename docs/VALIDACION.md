@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.20
+## Versión vigente: 0.2.21
+
+La sesión vencida intenta recuperar el acceso con la sesión web todavía disponible; si necesita identificación, vuelve al acceso y solicita huella con credenciales guardadas o permite ingreso manual. Se descartan el importe pendiente y el avance de pago para impedir reenvíos. No volver a mostrar se guarda al marcarlo, incluso al cerrar la ayuda o cancelar la pulsación de Express. Solo las flechas cambian de boletera; el panel de saldo no responde con esa acción.
+
+57 pruebas JavaScript, ocho JVM, release/debug/pruebas Android y lint aprobados; compilación completa en 41 s. Diez pruebas Android finales aprobadas en 71,637 s. Las comprobaciones Android usan solicitudes interceptadas y datos ficticios: recuperación web, ingreso manual, vencimiento tras envío al proveedor sin reenvío, HTTP con expiración frente a una falla real, persistencia de la ayuda tras recrear la actividad, pulsación cancelada, área de saldo inerte, flechas habilitadas y recorrido completo de pago/retorno. Para HTTP se entrega explícitamente el callback de red junto al cuerpo interceptado porque WebView no lo emite de forma fiable en esa simulación. Evidencia final: `outputs/session-gestures-final-0.2.21.txt`.
+
+Pantalla de sesión vencida revisada en tema oscuro, 1080 × 2280, 420 dpi y letra 1× (`outputs/session-expired-manual-0.2.21.png`). La solicitud automática de huella tras vencer la sesión queda pendiente de comprobación en el teléfono con acceso guardado; no se infiere del ingreso manual simulado.
+
+APK código 39, SHA-256 `54835246c82d49fc590837ea45855fff262da4acb3ac4287fda25e9880902d37`, 8.612.879 bytes, misma firma. No se modificó el teléfono físico ni se hicieron operaciones financieras. [Alcance de la recuperación](SESION.md).
+
+## Versión anterior: 0.2.20
 
 Cambio visual acotado: se retira el icono junto a Saldo disponible y se reemplaza el de Cambiar boletera por dos flechas horizontales opuestas. El botón conserva la misma acción, estado habilitado y nombre accesible. No cambia la lógica del pago ni el resto de la home.
 

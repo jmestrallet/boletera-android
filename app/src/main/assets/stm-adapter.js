@@ -74,6 +74,7 @@
   function snapshot() {
     if (!trusted()) return { stage: 'blocked' };
     if (document.readyState !== 'complete') return { stage: 'loading' };
+    if (window.BoleteraSession?.snapshot() === 'expired') return { stage: 'sessionExpired' };
     const path = location.pathname;
     const cap = captcha();
     const error = [...document.querySelectorAll('[role="alert"], .ui-messages-error, .ui-message-error')]

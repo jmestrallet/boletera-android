@@ -1,6 +1,9 @@
 /* Runs after the original provider return. Does not submit amounts or infer credit. */
 (() => {
-  if(location.origin!=='https://stm.gub.uy'||!location.pathname.startsWith('/app/mistm/cuenta/pages/')||window.top!==window.self||window.BoleteraNative)return;
+  if(window.top!==window.self||window.BoleteraNative)return;
+  const stmPage=location.origin==='https://stm.gub.uy'&&location.pathname.startsWith('/app/mistm/cuenta/');
+  const loginPage=['https://mi.iduruguay.gub.uy','https://auth.iduruguay.gub.uy'].includes(location.origin)&&location.pathname==='/login';
+  if(!stmPage&&!loginPage)return;
   const text=e=>(e?.textContent||'').replace(/\s+/g,' ').trim();
   const visible=e=>{
     if(!e||!e.getClientRects().length||e.closest('[hidden],[aria-hidden="true"]'))return false;
@@ -12,6 +15,8 @@
   const next=()=>{const found=actions().filter(e=>/^CONTINUAR$/i.test(text(e)));return found.length===1?found[0]:null;};
   let sent=false;
   function snapshot(){
+    if(['expired','login'].includes(window.BoleteraSession?.snapshot()))return {stage:'sessionExpired'};
+    if(!stmPage)return {stage:'original'};
     if([...document.querySelectorAll('[role="alert"],[role="dialog"],.ui-messages-error')].some(visible))return {stage:'original'};
     if(/\/(?:recarga1|recarga2)\.xhtml$/.test(location.pathname))return {stage:'original'};
     if(location.pathname.endsWith('/principal.xhtml') && /Saldo disponible\*?\s*:\s*\$\s*-?\s*\d[\d.,]*/i.test([...document.querySelectorAll('p,label,span,div')].filter(visible).map(text).join(' ')) &&

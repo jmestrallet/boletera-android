@@ -6,10 +6,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -59,14 +55,10 @@ import java.util.Locale
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit,
     onExpressCharge: (() -> Unit)? = null, onExpressHelp: (() -> Unit)? = null, onTicketGuide: (() -> Unit)? = null, expressPreparing: Boolean = false, expressProvider: String = "Medio guardado") {
     val colors=MaterialTheme.colorScheme
-    val touch = remember { MutableInteractionSource() }
-    val held by touch.collectIsPressedAsState()
     val haptic=LocalHapticFeedback.current
-    val compression by animateFloatAsState(if(held)0.985f else 1f,spring(dampingRatio=0.8f,stiffness=650f),label="wallet press")
     fun chooseCard() { haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onChangeCard() }
     Column(verticalArrangement=Arrangement.spacedBy(24.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -76,10 +68,7 @@ import java.util.Locale
             }
             IconButton(onClick=::chooseCard,enabled=!state.busy) { AppGlyph(Glyph.Swap,label="Cambiar boletera",tint=colors.primary) }
         }
-        Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.graphicsLayer { scaleX=compression; scaleY=compression; shape=RoundedCornerShape(32.dp);clip=true }.combinedClickable(
-            interactionSource=touch, indication=androidx.compose.material3.ripple(), enabled=!state.busy,
-            onClickLabel="Cambiar boletera", onLongClickLabel="Elegir boletera", onClick=::chooseCard, onLongClick=onChangeCard
-        ).semantics {
+        Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.semantics {
             customActions=listOf(CustomAccessibilityAction("Actualizar saldo") { if (!state.busy) { onRefresh(); true } else false })
         }) {
             Column(Modifier.fillMaxWidth().padding(28.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {

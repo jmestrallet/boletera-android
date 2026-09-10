@@ -12,11 +12,13 @@ Desde **0.2.19**, Prex tiene confirmación final y comprobante con el diseño de
 
 En **0.2.20**, se elimina el icono repetido junto a Saldo disponible y el botón Cambiar boletera usa dos flechas de intercambio.
 
+En **0.2.21**, una sesión vencida inicia la recuperación del acceso: intenta aprovechar la sesión web vigente y, si hace falta, pide huella o credenciales. No reenvía recargas. La ayuda de Express respeta No volver a mostrar incluso al soltar antes de tiempo; cambiar de boletera queda exclusivamente en las dos flechas. [Recuperación de sesión](docs/SESION.md).
+
 ## Probar en el celular
 
 **Estado actual:** un pago real Prex fue completado por el dueño; las capturas revelaron que faltaba integrar el cierre y el regreso. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. La 0.2.19 integra confirmación final, comprobante, resultado STM y regreso a la home. La corrección nueva se probó con datos ficticios; Google en el teléfono y otras variantes requieren comprobación. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
 
-**[Descargar la versión 0.2.20](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.20)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+**[Descargar la versión 0.2.21](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.21)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
@@ -26,7 +28,7 @@ Desde 0.1.15, las próximas versiones publicadas en este repositorio se pueden d
 
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Las versiones anteriores se conservan con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
 
-1. Pasá `outputs/boletera-prueba-0.2.20.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
+1. Pasá `outputs/boletera-prueba-0.2.21.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.

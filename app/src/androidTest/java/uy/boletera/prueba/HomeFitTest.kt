@@ -59,4 +59,23 @@ class HomeFitTest {
         compose.onNodeWithContentDescription("Boletos y tarifas").performClick()
         compose.onNodeWithText("1 hora").assertExists()
     }
+    @Test fun hiddenExpressHelpStaysHiddenAfterCancelledHoldAndActivityRecreation() {
+        val prefs=compose.activity.getSharedPreferences("feature_help",0)
+        compose.runOnIdle {prefs.edit().remove("express_skip_intro_v1").commit()}
+        try {
+            prepare()
+            compose.onNodeWithText("Carga Express").performScrollTo().performClick()
+            compose.onNodeWithText("No volver a mostrar").performScrollTo().performClick()
+            compose.onNodeWithText("Ahora no").performClick()
+            compose.runOnIdle {assertTrue(prefs.getBoolean("express_skip_intro_v1",false))}
+            compose.onNodeWithTag("expressShortcut").performScrollTo().performTouchInput {down(center);advanceEventTime(700);up()}
+            compose.onNodeWithText("Así funciona Carga Express").assertDoesNotExist()
+            prepare() // Recreates the real activity; the choice must survive.
+            compose.onNodeWithTag("expressShortcut").performScrollTo().performTouchInput {down(center);advanceEventTime(700);up()}
+            compose.onNodeWithText("Así funciona Carga Express").assertDoesNotExist()
+            compose.onNodeWithTag("expressShortcut").performTouchInput {click()}
+            compose.onNodeWithText("Así funciona Carga Express").assertDoesNotExist()
+            compose.runOnIdle {assertEquals("balance",state.value.stage);assertFalse(state.value.busy)}
+        } finally {compose.runOnIdle {prefs.edit().remove("express_skip_intro_v1").commit()}}
+    }
 }

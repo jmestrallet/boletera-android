@@ -74,24 +74,26 @@ class MainActivity : FragmentActivity() {
         LaunchedEffect(updates.installRequested, updates.busy) {
             if (updates.installRequested && !updates.busy) lifecycle.withResumed { updates.install(this@MainActivity) }
         }
-        var automaticUnlockHandled by rememberSaveable { mutableStateOf(false) }
+        var automaticUnlockHandled by rememberSaveable { mutableIntStateOf(-1) }
         var authenticating by remember { mutableStateOf(false) }
         fun unlockSavedAccess() {
-            if (authenticating || state.busy || state.stage != "welcome") return
+            if (authenticating || engine.state.busy || engine.state.stage != "welcome") return
+            val accessId=engine.state.accessRequestId
             authenticating = true
             vault.unlock { doc, pass ->
                 authenticating = false
-                if (!isDestroyed && !isFinishing) {
+                if (!isDestroyed && !isFinishing && engine.state.stage=="welcome" && engine.state.accessRequestId==accessId) {
                     if (doc != null && pass != null) engine.connect(doc, pass)
                     else engine.notice("No se desbloqueó el acceso. Podés volver a intentar o ingresar manualmente.")
                 }
             }
         }
-        LaunchedEffect(Unit) {
+        LaunchedEffect(state.accessRequestId) {
             lifecycle.withResumed {
-                if (!automaticUnlockHandled) {
-                    automaticUnlockHandled = true
-                    if (vault.exists && state.stage == "welcome") unlockSavedAccess()
+                val current=engine.state
+                if (automaticUnlockHandled != current.accessRequestId) {
+                    automaticUnlockHandled = current.accessRequestId
+                    if (vault.exists && current.stage == "welcome") unlockSavedAccess()
                 }
             }
         }
@@ -125,6 +127,12 @@ class MainActivity : FragmentActivity() {
         var showPayerPicker by remember { mutableStateOf(false) }
         var showPayerEditor by remember { mutableStateOf(false) }
         var editingPayer by remember { mutableStateOf<PayerProfile?>(null) }
+        LaunchedEffect(state.sessionExpired, state.recoveringSession) {
+            if(state.sessionExpired || state.recoveringSession) {
+                showAmount=false; showPayerPicker=false; showPayerEditor=false; showExpressHelp=false
+                showSettings=false; document=""; password=""; revealPassword=false; manual=false
+            }
+        }
         val stage = if(state.stage=="connecting" && state.selectedCard!=null && state.balance!=null && state.amount==null) "balance" else state.stage
         val scroll = rememberScrollState()
         val pullState = rememberPullToRefreshState()
@@ -147,9 +155,13 @@ class MainActivity : FragmentActivity() {
                         .pageEntrance(stage, state.captcha==null),verticalArrangement=Arrangement.spacedBy(if(stage in listOf("balance","blocked"))0.dp else 24.dp)) {
                         when(stage) {
                             "welcome" -> {
-                                WelcomeHero()
+                                if(state.sessionExpired) {
+                                    Title("Tu sesión venció")
+                                    Text(if(state.hasSavedAccess)"STM cerró el acceso después de un tiempo. Confirmá tu huella para volver a entrar." else "STM cerró el acceso después de un tiempo. Ingresá de nuevo para continuar.",color=Muted)
+                                    if(state.paymentNeedsReview)Text("Si ya autorizaste un pago, revisaremos el saldo al entrar. La app no repetirá la recarga.",color=Muted,style=MaterialTheme.typography.bodyMedium)
+                                } else WelcomeHero()
                                 WhiteCard {
-                                    Text(if(state.hasSavedAccess&&!manual)"Qué bueno verte de nuevo" else "Entrá a tu STM",style=MaterialTheme.typography.titleLarge)
+                                    Text(if(state.sessionExpired)"Recuperá el acceso" else if(state.hasSavedAccess&&!manual)"Qué bueno verte de nuevo" else "Entrá a tu STM",style=MaterialTheme.typography.titleLarge)
                                     if(state.hasSavedAccess&&!manual) {
                                         Text("Tu acceso está protegido en este teléfono.",style=MaterialTheme.typography.bodyMedium,color=Muted)
                                         Box(Modifier.fillMaxWidth().padding(vertical=8.dp),contentAlignment=Alignment.Center) { AppGlyph(Glyph.Fingerprint,Modifier.size(56.dp),tint=MaterialTheme.colorScheme.primary) }
@@ -185,9 +197,9 @@ class MainActivity : FragmentActivity() {
                             }
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
                                 onExpressCharge=if(engine.expressAvailable)::requestExpress else null,
-                                onExpressHelp={showExpressHelp=true},onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressProviderName)
+                                onExpressHelp={if(!helpPreferences.getBoolean("express_skip_intro_v1",false))showExpressHelp=true},onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressProviderName)
                             "connecting" -> {
-                                LoadingState(if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(engine.expressPreparing)"Ya podés soltar. Estamos preparando tu medio de pago." else "Estamos consultando el sitio. Tu información va a aparecer acá.",express=engine.expressPreparing)
+                                LoadingState(if(state.recoveringSession)"Recuperando tu sesión" else if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(state.recoveringSession)"Estamos comprobando si podés volver a entrar sin identificarte otra vez." else if(engine.expressPreparing)"Ya podés soltar. Estamos preparando tu medio de pago." else "Estamos consultando el sitio. Tu información va a aparecer acá.",express=engine.expressPreparing)
                                 TextButton(onClick=::back) { Text("Cancelar") }
                             }
                             "openingPayment" -> LoadingState("Un momento…","Abriendo ${if(state.selectedProvider=="1033")"Prex" else "eBROU"} para tu recarga de ${Amounts.format(state.amount)}.",express=engine.expressPreparing)
@@ -241,6 +253,7 @@ class MainActivity : FragmentActivity() {
         if(showAmount)AmountSheet(state,{showAmount=false}){amount->showAmount=false;engine.prepare(amount)}
         if(showTicketGuide)TicketGuideSheet {showTicketGuide=false}
         if(showExpressHelp && stage=="balance")ExpressIntroDialog(state.minimum,
+            onSkipChanged={skip->helpPreferences.edit().putBoolean("express_skip_intro_v1",skip).apply()},
             onClose={showExpressHelp=false},onAccept={skip->
                 helpPreferences.edit().putBoolean("express_skip_intro_v1",skip).apply()
                 showExpressHelp=false
@@ -273,8 +286,8 @@ class MainActivity : FragmentActivity() {
     val expressAdvancing=payment.expressPhase=="advancing"
     val expressVerification=payment.expressPhase=="verification"
     LaunchedEffect(payment.nativeStage) { showOriginal = false }
-    val completion = payment.nativeStage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "returnBalance")
-    LaunchedEffect(payment.nativeStage) { if(payment.nativeStage=="returnBalance") onClose() }
+    val completion = payment.nativeStage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "returnBalance", "sessionExpired")
+    LaunchedEffect(payment.nativeStage) { if(payment.nativeStage in listOf("returnBalance", "sessionExpired")) onClose() }
     val native = (completion || payment.nativeStage in listOf("summary", "payer", "card", "loading")) && !showOriginal
     LaunchedEffect(native, payment.nativeStage, payment.expandedChallenge, payment.challenge != null) {
         if (native && payment.nativeStage in listOf("payer","card")) payment.positionVerification() else payment.restoreVerification()

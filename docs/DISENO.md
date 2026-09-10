@@ -91,3 +91,7 @@ Confirmación final, comprobante Prex y éxito STM usan la tipografía, superfic
 ## Iconos de la home · 0.2.20
 
 El icono de identidad queda en el encabezado. El control junto a Tu boletera usa dos flechas opuestas de intercambio y conserva la acción Cambiar boletera. Se retira el icono decorativo del panel de saldo. No cambia la distribución ni el resto del diseño.
+
+## Gestos y sesión · 0.2.21
+
+Cambiar boletera queda exclusivamente en el botón de intercambio, sin acción de selección sobre el saldo. Se conserva la actualización por deslizamiento y su acción accesible. La sesión vencida usa una pantalla de acceso con explicación, huella o formulario; no la pantalla de error. La ayuda de Express respeta la elección de ocultarla en todos los gestos.

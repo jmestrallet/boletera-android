@@ -21,7 +21,7 @@ class StmEngine(private val context: Context) {
     var state by mutableStateOf(UiState())
         private set
     private val handler = Handler(Looper.getMainLooper())
-    private val adapter = context.assets.open("stm-adapter.js").bufferedReader().use { it.readText() }
+    private val adapter = listOf("stm-session.js", "stm-adapter.js").joinToString("\n") { name -> context.assets.open(name).bufferedReader().use { it.readText() } }
     private var document: String? = null
     private var password: String? = null
     private var lastAction = ""
@@ -36,6 +36,11 @@ class StmEngine(private val context: Context) {
     private val stageTrail = ArrayDeque<String>()
     private var interruptedAccess = false
     private var accountVerified = false
+    private var accessRequestId = 0
+    private var recoveringSession = false
+    private val recoverySteps = mutableSetOf<String>()
+    private var paymentNeedsReview = false
+    private var pendingHttpError: String? = null
     private var debugDestination = ""
     private val choices = JourneyPreferences(context)
     private val payerStore = PayerProfiles(context)
@@ -100,6 +105,7 @@ class StmEngine(private val context: Context) {
                 return true
             }
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                pendingHttpError = null
                 awaitingNavigation = false
                 navigationGeneration++
                 polling = false
@@ -123,7 +129,10 @@ class StmEngine(private val context: Context) {
                 if (request.isForMainFrame && active) fail("No se pudo conectar. Revisá tu conexión y el estado del pago antes de repetirlo.")
             }
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
-                if (request.isForMainFrame && active) fail("El servicio no respondió correctamente. La consulta se detuvo.")
+                if (request.isForMainFrame && active) {
+                    // The completed body may explicitly say session expired, even on a protected URL.
+                    pendingHttpError = "El servicio no respondió correctamente. La consulta se detuvo."
+                }
             }
         }
     }
@@ -136,6 +145,7 @@ class StmEngine(private val context: Context) {
         if (state.busy) return
         if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
         clearSecrets()
+        recoveringSession = false; recoverySteps.clear(); pendingHttpError = null
         expressRequest = null
         prexPayment.reset()
         document = doc; password = pass
@@ -146,7 +156,7 @@ class StmEngine(private val context: Context) {
         interruptedAccess = false; stageTrail.clear()
         secretsExpireAt = System.currentTimeMillis() + 180000
         lastAction = ""; pageStage = ""; actionStarted = System.currentTimeMillis()
-        state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess)
+        state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId, paymentNeedsReview = paymentNeedsReview)
         active = false
         handler.removeCallbacks(poll)
         // A new explicit login must never silently reuse a DIFFERENT person's old web session.
@@ -314,6 +324,7 @@ class StmEngine(private val context: Context) {
 
     fun refresh() {
         if (state.busy) return
+        paymentNeedsReview = paymentNeedsReview || state.activePayment != null
         clearPaymentSession()
         clearSecrets(); lastAction = ""; pageStage = ""; active = true; paymentInFlight = false; handoffSent = false
         state = state.copy(stage = "connecting", busy = true, minimum = null, amount = null, captcha = null, message = "")
@@ -375,11 +386,12 @@ class StmEngine(private val context: Context) {
 
     fun cancel() {
         sessionRequest++
+        recoveringSession = false; recoverySteps.clear(); paymentNeedsReview = false; pendingHttpError = null
         clearPaymentSession()
         clearSecrets(); active = false; accountVerified = false; paymentInFlight = false; handler.removeCallbacks(poll)
         web.stopLoading(); web.loadUrl("about:blank"); host.crop = null
         prexPayment.reset()
-        state = UiState(hasSavedAccess = state.hasSavedAccess)
+        state = UiState(hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId)
     }
 
     fun logout() {
@@ -452,10 +464,16 @@ class StmEngine(private val context: Context) {
         val script = "window.BoleteraAdapter && window.BoleteraAdapter.command(${JSONObject.quote(action)}, ${JSONObject.quote(value)})"
         web.evaluateJavascript(script) { result ->
             if (active && !destroyed && request == sessionRequest && generation == navigationGeneration && result != "true") {
-                if (paymentInFlight) { fail("El proveedor no aceptó el siguiente paso. Revisá el estado del pago antes de repetirlo."); return@evaluateJavascript }
-                clearSecrets()
-                expressRequest = null
-                state = state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
+                web.evaluateJavascript(adapter + "\nwindow.BoleteraSession.snapshot()") { raw ->
+                    if (!active || destroyed || request != sessionRequest || generation != navigationGeneration) return@evaluateJavascript
+                    val signal = try { JSONTokener(raw).nextValue() as? String } catch (_: Exception) { null }
+                    if (signal in listOf("expired", "login") && accountVerified) recoverSession()
+                    else if (paymentInFlight) fail("El proveedor no aceptó el siguiente paso. Revisá el estado del pago antes de repetirlo.")
+                    else {
+                        clearSecrets(); expressRequest = null
+                        state = state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
+                    }
+                }
             }
         }
     }
@@ -472,7 +490,7 @@ class StmEngine(private val context: Context) {
             return
         }
         if (secretsExpireAt != 0L && System.currentTimeMillis() > secretsExpireAt) {
-            fail("El acceso quedó esperando demasiado tiempo. Por seguridad, ingresá nuevamente."); return
+            expired(); return
         }
         polling = true
         val generation = navigationGeneration
@@ -496,8 +514,19 @@ class StmEngine(private val context: Context) {
 
     private fun applySnapshot(data: JSONObject) {
         val stage = data.optString("stage", "unknown")
+        val loginStage = stage in setOf("start", "identity", "document", "password", "signedOut")
+        if (stage == "sessionExpired" || accountVerified && loginStage) {
+            if (recoveringSession) expired() else recoverSession()
+            return
+        }
+        if (recoveringSession && stage in setOf("document", "password", "signedOut")) { expired(); return }
+        if (pendingHttpError != null && stage != "loading") {
+            val message = pendingHttpError!!; pendingHttpError = null
+            if (loginStage && recoveringSession) expired() else fail(message)
+            return
+        }
         val changed = stage != pageStage
-        val knownStages = setOf("loading", "handoff", "start", "identity", "document", "password", "cards", "cardsLoading", "balance", "amount", "paymentBoundary", "signedOut", "unknown", "verification", "blocked")
+        val knownStages = setOf("loading", "handoff", "start", "identity", "document", "password", "cards", "cardsLoading", "balance", "amount", "paymentBoundary", "signedOut", "sessionExpired", "unknown", "verification", "blocked")
         if (changed) {
             if (stageTrail.size >= 6) stageTrail.removeFirst()
             stageTrail.addLast(if (stage in knownStages) stage else "unknown")
@@ -535,7 +564,8 @@ class StmEngine(private val context: Context) {
             return
         }
         if (state.busy && System.currentTimeMillis() - actionStarted > 35000 && rect == null) {
-            fail("El sitio demoró demasiado. La app no repetirá el paso automáticamente."); return
+            if (recoveringSession) expired() else fail("El sitio demoró demasiado. La app no repetirá el paso automáticamente.")
+            return
         }
         if (rect != null) {
             state = state.copy(stage = "captcha", busy = false)
@@ -544,8 +574,10 @@ class StmEngine(private val context: Context) {
         fun cents(key: String): Long? = if (data.has(key) && !data.isNull(key)) data.getLong(key) else null
         when (stage) {
             "loading", "handoff" -> state = state.copy(stage = if (paymentInFlight) "openingPayment" else "connecting", busy = true)
-            "start" -> if (password != null && lastAction != "start") act("start") else if (password == null) expired()
-            "identity" -> if (password != null && lastAction != "identity") act("identity") else if (password == null) expired()
+            "start", "identity" -> if (recoveringSession) {
+                if (lastAction != stage && recoverySteps.add(stage)) act(stage)
+                else if (!state.busy) expired()
+            } else if (password != null && lastAction != stage) act(stage) else if (password == null) expired()
             "document" -> if (document != null && lastAction != "document") act("document", document!!) else if (document == null) expired()
             "password" -> if (password != null && lastAction != "password") {
                 act("password", password!!)
@@ -560,7 +592,8 @@ class StmEngine(private val context: Context) {
                     catch (_: Exception) { payerProfiles = emptyList(); payerStoreAvailable = false }
                 }
                 accountVerified = true
-                state = state.copy(stage = "cards", cards = list, activePayment = null,
+                recoveringSession = false; recoverySteps.clear()
+                state = state.copy(stage = "cards", recoveringSession = false, sessionExpired = false, cards = list, activePayment = null,
                     payerProfileId = choices.payerProfileId?.takeIf { id -> payerProfiles.any { it.id == id } } ?: payerProfiles.singleOrNull()?.id,
                     message = if (payerStoreAvailable) "" else "No pudimos recuperar los perfiles de Prex guardados. Conservamos sus archivos sin sobrescribirlos.")
                 val preferred = choices.card
@@ -587,6 +620,10 @@ class StmEngine(private val context: Context) {
                 state = state.copy(stage = "balance", balance = cents("balance"), minimum = cents("minimum"), consultedAt = System.currentTimeMillis())
                 if (state.minimum == null || state.balance == null) {
                     fail("No pudimos leer el saldo o el mínimo con certeza. No se habilitó la recarga.")
+                } else {
+                    paymentNeedsReview = false
+                    if(state.paymentNeedsReview)state=state.copy(paymentNeedsReview=false,
+                        message="Acceso recuperado. Revisá el saldo y el estado del pago antes de iniciar otra recarga.")
                 }
             }
             "paymentBoundary" -> {
@@ -624,16 +661,37 @@ class StmEngine(private val context: Context) {
             }
             "signedOut" -> expired()
             "unknown", "verification" -> if (System.currentTimeMillis() - actionStarted > 25000) {
-                fail("Este acceso pide un paso que la prueba no reconoce. No vamos a mostrarte la página completa.")
+                if(recoveringSession)expired() else fail("Este acceso pide un paso que la prueba no reconoce. No vamos a mostrarte la página completa.")
             }
             "blocked" -> fail("Pantalla fuera del recorrido permitido.")
         }
     }
+    /** Retry only navigation to the account. Amounts, providers and financial confirmations are discarded. */
+    private fun recoverSession() {
+        paymentNeedsReview = paymentNeedsReview || state.activePayment != null || providerSubmitted
+        sessionRequest++
+        clearSecrets(); clearPaymentSession()
+        recoveringSession = true; recoverySteps.clear(); pendingHttpError = null
+        accountVerified = false; choosingCard = false; providerSubmitted = false
+        lastAction = ""; pageStage = ""; active = true; polling = false
+        actionStarted = System.currentTimeMillis(); awaitingNavigation = true; navigationGeneration++
+        host.crop = null
+        state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess,
+            accessRequestId = accessRequestId, recoveringSession = true, paymentNeedsReview = paymentNeedsReview)
+        web.stopLoading(); web.loadUrl(CARDS)
+        handler.removeCallbacks(poll); handler.post(poll)
+    }
+
     private fun expired() {
-        clearSecrets(); active = false; handler.removeCallbacks(poll)
-        state = state.copy(stage = "welcome", busy = false, message = if (interruptedAccess)
-            "El ingreso se interrumpió al pasar la app a segundo plano. Volvé a entrar con huella o manualmente."
-            else "La app volvió a la pantalla de acceso sin completar la consulta. Pasame una captura con la referencia de abajo.")
+        paymentNeedsReview = paymentNeedsReview || state.activePayment != null || providerSubmitted
+        sessionRequest++; accessRequestId++
+        clearSecrets(); clearPaymentSession()
+        active = false; accountVerified = false; recoveringSession = false; recoverySteps.clear()
+        pendingHttpError = null; providerSubmitted = false; polling = false; awaitingNavigation = false
+        lastAction = ""; pageStage = ""; navigationGeneration++
+        handler.removeCallbacks(poll); host.crop = null; web.stopLoading(); web.loadUrl("about:blank")
+        state = UiState(hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId,
+            sessionExpired = true, paymentNeedsReview = paymentNeedsReview)
     }
     companion object {
         const val START = "https://stm.gub.uy/app/mistm/cuenta/"

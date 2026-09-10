@@ -17,7 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 
-@Composable internal fun ExpressIntroDialog(amount: Long?, onClose: () -> Unit, onAccept: (Boolean) -> Unit) {
+@Composable internal fun ExpressIntroDialog(amount: Long?, onClose: () -> Unit, onAccept: (Boolean) -> Unit, onSkipChanged: (Boolean) -> Unit = {}) {
     var skip by rememberSaveable { mutableStateOf(false) }
     AlertDialog(onDismissRequest=onClose,containerColor=Paper,
         icon={AppGlyph(Glyph.Arrow,tint=MaterialTheme.colorScheme.primary)},
@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
             Text("Usa tu medio de pago guardado y completa los pasos que ya dejaste preparados.")
             Text("Vos completás las verificaciones que aparezcan y autorizás el pago en el medio elegido.")
             Text("La próxima vez, mantené Carga Express apretado hasta completar el círculo. Si soltás antes, se cancela el atajo.")
-            Row(Modifier.fillMaxWidth().toggleable(skip,role=Role.Checkbox,onValueChange={skip=it}),verticalAlignment=Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().toggleable(skip,role=Role.Checkbox,onValueChange={skip=it;onSkipChanged(it)}),verticalAlignment=Alignment.CenterVertically) {
                 Checkbox(skip,onCheckedChange=null)
                 Text("No volver a mostrar",modifier=Modifier.weight(1f))
             }

@@ -103,7 +103,7 @@ class EmbeddedPrexPayment(context: Context) {
         }
     }
     private val completionScript = context.assets.open("prex-completion.js").bufferedReader().use { it.readText() }
-    private val returnScript = context.assets.open("stm-payment-return.js").bufferedReader().use { it.readText() }
+    private val returnScript = listOf("stm-session.js", "stm-payment-return.js").joinToString("\n") { name -> context.assets.open(name).bufferedReader().use { it.readText() } }
     private val nativeScript = context.assets.open("prex-native.js").bufferedReader().use { it.readText() }
     private val cardScript = context.assets.open("prex-card.js").bufferedReader().use { it.readText() }
     private val expressScript = context.assets.open("prex-express.js").bufferedReader().use { it.readText() }

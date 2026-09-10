@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.21-prueba — sesión vencida y gestos de la home
+
+- La expiración reconocida de STM recupera la navegación con la sesión web disponible o pide acceso de nuevo mediante huella/credenciales. El vencimiento tiene pantalla propia, sin tratarlo como error de la app. No reenvía importes ni pagos.
+- No volver a mostrar se guarda al marcarlo y se respeta también con un toque corto o una pulsación cancelada.
+- Solo el icono de intercambio cambia de boletera. Tocar o mantener presionado el saldo no abre el selector.
+
 ## 0.2.20-prueba — iconos de la home
 
 - Se retira el icono decorativo junto a Saldo disponible.
