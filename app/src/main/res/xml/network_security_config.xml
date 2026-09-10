@@ -13,4 +13,16 @@
             <certificates src="@raw/certum_dv_tls_g2_r39" />
         </trust-anchors>
     </domain-config>
+    <!-- These gateways send R46 without its legacy cross-sign. Supplement only these
+         exact hosts with Sectigo's public R46 certificate signed by USERTrust RSA.
+         Its chain was verified against the physical Android 11 system trust store.
+         Hostname, validity and TLS checks remain enforced by Android. -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">spf.sistarbanc.com.uy</domain>
+        <domain includeSubdomains="false">pasarelaspe.sistarbanc.com.uy</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/sectigo_r46_usertrust" />
+        </trust-anchors>
+    </domain-config>
 </network-security-config>

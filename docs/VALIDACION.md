@@ -1,6 +1,10 @@
 # Estado de la prueba â€” 10 de septiembre de 2026
 
-## Estado vigente: 0.1.8
+## Estado vigente: 0.1.9
+
+Se corrigió la cadena de confianza de Sistarbanc para Android 11. En el OnePlus 6T físico se reprodujeron los rechazos de ambos dominios y se verificó HTTPS y WebView con la configuración corregida, mediante una app de diagnóstico separada sin operación ni cuenta. [Evidencia TLS](TLS-ANDROID11.md). El recorrido de pago completo sigue pendiente.
+
+## Base funcional: 0.1.8
 
 Prex estÃ¡ integrado en una pantalla propia de Boletera que conserva la pÃ¡gina original del proveedor. Incluye perfiles cifrados de titular, selecciÃ³n por cuenta, vÃ­nculo del perfil a la solicitud y reapertura sin recargar la pÃ¡gina retenida. No lee ni guarda datos de tarjeta ni autoriza pagos por cÃ³digo. eBROU conserva Chrome.
 

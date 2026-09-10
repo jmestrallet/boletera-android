@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.1.9-prueba
+
+- Corrige el rechazo TLS de los dominios de Sistarbanc en Android 11. Incluye el certificado público R46 firmado por USERTrust, validado contra el almacén del OnePlus 6T, solamente para los dos dominios exactos de la pasarela.
+- Conserva la validación de nombre, fecha y conexión segura de Android. No modifica los certificados del teléfono ni omite errores TLS.
+
+La prueba pública en el OnePlus reprodujo el rechazo de ambos dominios antes del cambio y verificó HTTPS y WebView después. No incluye autorización ni acreditación de un pago. Evidencia: [compatibilidad TLS](docs/TLS-ANDROID11.md).
+
 ## 0.1.8-prueba
 
 - Abre Prex dentro de Boletera con una identificación de navegador comprobada contra la pantalla pública de Sistarbanc. eBROU conserva el traspaso a Chrome.
