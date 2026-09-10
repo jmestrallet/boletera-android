@@ -21,19 +21,21 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 
-internal data class UpdateRelease(val version: String, val url: String, val size: Long, val sha256: String, val notes: List<String> = emptyList())
+internal data class UpdateNews(val version: String, val notes: List<String>)
+internal data class UpdateRelease(val version: String, val url: String, val size: Long, val sha256: String, val notes: List<String> = emptyList(), val history: List<UpdateNews> = emptyList())
 
 internal object UpdatePolicy {
     const val API = "https://api.github.com/repos/jmestrallet/boletera-android/releases?per_page=100"
     const val MAX_APK = 100L * 1024 * 1024
     fun notes(body: String): List<String> {
-        // Only the short, authored app section is displayed; technical release details stay on GitHub.
-        val section = body.take(32_000).substringAfter("## Novedades en la app", "").substringBefore("\n## ")
-        return section.lineSequence().map(String::trim).filter { it.startsWith("- ") }.take(3)
-            .map { it.removePrefix("- ").replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1")
-                .replace(Regex("[*`_]"), "").replace(Regex("\\s+"), " ").trim()
-                .let { text -> if (text.length > 180) text.take(177).trimEnd() + "…" else text } }
-            .filter(String::isNotBlank).toList()
+        // New releases have a concise app section. Older public releases used bullets or paragraphs.
+        val normalized=body.take(32_000).replace("\r\n","\n")
+        val curated=normalized.contains("## Novedades en la app")
+        val section=if(curated)normalized.substringAfter("## Novedades en la app").substringBefore("\n## ") else normalized
+        val lines=section.lines().map(String::trim).filter { it.isNotBlank() && !it.startsWith("SHA-256:",true) && !it.startsWith("#") }
+        val items=if(curated || lines.any {it.startsWith("- ")})lines.filter {it.startsWith("- ")} else lines
+        return items.map { it.removePrefix("- ").replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1")
+                .replace(Regex("[*`_]"), "").replace(Regex("\\s+"), " ").trim() }.filter(String::isNotBlank)
     }
     fun version(value: String): List<Int>? = Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-prueba)?$")
         .matchEntire(value)?.groupValues?.drop(1)?.map { it.toIntOrNull() ?: return null }
@@ -64,7 +66,10 @@ internal object UpdatePolicy {
                 !Regex("sha256:[a-fA-F0-9]{64}").matches(digest)) return@mapNotNull null
             UpdateRelease(v, url, size, digest.substringAfter(':').lowercase(), notes(release.optString("body")))
         }
-        return candidates.reduceOrNull { best, next -> if (newer(next.version, best.version)) next else best }
+        val selected=candidates.reduceOrNull { best, next -> if (newer(next.version, best.version)) next else best } ?: return null
+        val history=candidates.distinctBy { it.version }.sortedWith { a,b -> when {newer(a.version,b.version)->-1;newer(b.version,a.version)->1;else->0} }
+            .map { UpdateNews(it.version,it.notes) }
+        return selected.copy(history=history)
     }
     fun allowed(url: URL): Boolean = url.protocol == "https" && url.userInfo == null && url.port in listOf(-1, 443) &&
         url.host in setOf("api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com")
@@ -157,6 +162,8 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     var ready by mutableStateOf(false); private set
     var installRequested by mutableStateOf(false); private set
     var reviewRequested by mutableStateOf(false); private set
+    var automaticNotice by mutableStateOf(false); private set
+    private val preferences=application.getSharedPreferences("updates",Context.MODE_PRIVATE)
     private var awaitingInstallPermission = false
     private val worker = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
@@ -171,8 +178,18 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
             } finally { publish { busy = false } }
         }
     }
-    fun check() {
+    fun check() = checkRelease(false)
+    internal fun automaticCheckDue(now: Long = System.currentTimeMillis()): Boolean {
+        val previous=preferences.getLong("last_attempt",0)
+        return !busy && !ready && !awaitingInstallPermission && (previous==0L || now<previous || now-previous>=6*60*60*1000L)
+    }
+    fun checkAutomatic() {
+        if(automaticCheckDue())checkRelease(true)
+    }
+    fun dismissAutomaticNotice() { automaticNotice=false }
+    private fun checkRelease(automatic: Boolean) {
         if (busy) return
+        preferences.edit().putLong("last_attempt",System.currentTimeMillis()).apply()
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
         ready = false; release = null; message = "Buscando actualizaciones…"
         work {
@@ -184,6 +201,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
             val found = UpdatePolicy.select(json, BuildConfig.VERSION_NAME)
             publish {
                 release = found
+                automaticNotice = automatic && found!=null
                 message = if (found == null) "Ya tenés la versión más nueva disponible para esta app."
                     else "Está disponible la versión ${found.version}."
             }
@@ -221,6 +239,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         reviewRequested = false; installRequested = true
     }
     fun onForeground(context: Context) {
+        checkAutomatic()
         if (!awaitingInstallPermission) return
         awaitingInstallPermission = false
         if (context.packageManager.canRequestPackageInstalls() && ready) installRequested = true

@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.onAutofillText
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
@@ -47,7 +48,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     }
 }
 
-/** Deliberately not saveable or hoisted into engine/persistence. Only explicit Continue transfers values. */
+/** Temporary values only. A complete autofill selection can continue to the provider's next step. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun NativeCardForm(busy: Boolean, canContinue: Boolean, providerError: Boolean,
     expandedChallenge: Boolean, onSubmit: (String,String,String)->Unit, onOriginal: ()->Unit,
@@ -57,6 +58,8 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     var expiry by remember { mutableStateOf("") }
     var cvv by remember { mutableStateOf("") }
     var attempted by remember { mutableStateOf(false) }
+    var filledFields by remember { mutableIntStateOf(0) }
+    var autoConsumed by remember { mutableStateOf(false) }
     val autofill=LocalAutofillManager.current
     val focus=LocalFocusManager.current
     val keyboard=LocalSoftwareKeyboardController.current
@@ -68,6 +71,32 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     val expiryView=remember { BringIntoViewRequester() }
     val codeView=remember { BringIntoViewRequester() }
     val scope=rememberCoroutineScope()
+    fun submit() {
+        if(busy || !canContinue || providerError || expandedChallenge)return
+        autoConsumed=true;filledFields=0
+        autofill?.cancel();keyboard?.hide();focus.clearFocus()
+        onSubmit(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
+        cvv="";attempted=false
+    }
+    fun fill(field: Int, value: String): Boolean {
+        if(busy)return false
+        val digits=value.filter { it in '0'..'9' }
+        when(field) {
+            1->pan=digits.take(16)
+            2->expiry=if(digits.length==6)digits.take(2)+digits.takeLast(2) else digits.take(4)
+            4->cvv=digits.take(4)
+        }
+        filledFields=filledFields or field
+        return true
+    }
+    LaunchedEffect(filledFields,pan,expiry,cvv,busy,canContinue,providerError,expandedChallenge) {
+        if(providerError)filledFields=0
+        if(filledFields==7 && !autoConsumed && !busy && canContinue && !providerError && !expandedChallenge &&
+            CardInput.panValid(pan) && CardInput.expiryValid(expiry) && CardInput.cvvValid(cvv)) {
+            // Autofill delivers separate fields; wait for the complete batch, never infer it from typing.
+            submit()
+        }
+    }
     fun focusMissing(): Boolean {
         val target=when {
             !CardInput.panValid(pan)->numberFocus to numberView
@@ -83,7 +112,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     LaunchedEffect(focusCard,expandedChallenge) { if(focusCard&&!expandedChallenge) { numberFocus.requestFocus();keyboard?.show() } }
     LaunchedEffect(expandedChallenge) { if(expandedChallenge) {focus.clearFocus();keyboard?.hide()} }
     DisposableEffect(lifecycle,autofill) {
-        fun clear() { autofill?.cancel();pan="";expiry="";cvv="";attempted=false;focus.clearFocus() }
+        fun clear() { filledFields=0;autofill?.cancel();pan="";expiry="";cvv="";attempted=false;focus.clearFocus() }
         val observer=LifecycleEventObserver { _, event -> if(event==Lifecycle.Event.ON_STOP) clear() }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer);clear() }
@@ -100,27 +129,27 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
             ProgressSteps(2,listOf("Recarga","Titular","Tarjeta"))
             Text("Tu tarjeta",style=MaterialTheme.typography.headlineMedium,color=Ink)
             if(!expandedChallenge) {
-                Text("Ingresá los datos para continuar con Sistarbanc.",color=Muted)
-                OutlinedTextField(value=pan,onValueChange={pan=it.filter { c -> c in '0'..'9' }.take(16)},
+                Text("Si Google completa todos los datos, avanzás automáticamente. También podés ingresarlos a mano.",color=Muted)
+                OutlinedTextField(value=pan,onValueChange={filledFields=0;pan=it.filter { c -> c in '0'..'9' }.take(16)},
                     label={Text("Número de tarjeta")},singleLine=true,enabled=!busy,
-                    modifier=Modifier.fillMaxWidth().bringIntoViewRequester(numberView).focusRequester(numberFocus).semantics { contentType=ContentType.CreditCardNumber },
+                    modifier=Modifier.fillMaxWidth().bringIntoViewRequester(numberView).focusRequester(numberFocus).semantics { contentType=ContentType.CreditCardNumber;onAutofillText { fill(1,it.text) } },
                     visualTransformation=remember { CardGrouping(4,' ') },
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
                     keyboardActions=KeyboardActions(onNext={if(!focusMissing())keyboard?.hide()}),
                     isError=attempted&&!CardInput.panValid(pan),
                     supportingText=if(attempted&&!CardInput.panValid(pan)) {{Text("Revisá el número de tarjeta.")}} else null)
                 FlowRow(maxItemsInEachRow=if(LocalDensity.current.fontScale>1.2f)1 else 2,horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(value=expiry,onValueChange={ val digits=it.filter { c->c in '0'..'9' };expiry=if(digits.length==6)digits.take(2)+digits.takeLast(2) else digits.take(4) },
+                    OutlinedTextField(value=expiry,onValueChange={ filledFields=0;val digits=it.filter { c->c in '0'..'9' };expiry=if(digits.length==6)digits.take(2)+digits.takeLast(2) else digits.take(4) },
                         label={Text("Vencimiento")},placeholder={Text("MM/AA")},singleLine=true,enabled=!busy,
-                        modifier=Modifier.weight(1f).bringIntoViewRequester(expiryView).focusRequester(expiryFocus).semantics { contentType=ContentType.CreditCardExpirationDate },
+                        modifier=Modifier.weight(1f).bringIntoViewRequester(expiryView).focusRequester(expiryFocus).semantics { contentType=ContentType.CreditCardExpirationDate;onAutofillText { fill(2,it.text) } },
                         visualTransformation=remember { CardGrouping(2,'/') },
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
                         keyboardActions=KeyboardActions(onNext={if(!focusMissing())keyboard?.hide()}),
                         isError=attempted&&!CardInput.expiryValid(expiry),
                         supportingText=if(attempted&&!CardInput.expiryValid(expiry)) {{Text("Usá mes y año vigentes.")}} else null)
-                    OutlinedTextField(value=cvv,onValueChange={cvv=it.filter { c->c in '0'..'9' }.take(4)},
+                    OutlinedTextField(value=cvv,onValueChange={filledFields=0;cvv=it.filter { c->c in '0'..'9' }.take(4)},
                         label={Text("CVV")},singleLine=true,enabled=!busy,
-                        modifier=Modifier.weight(1f).bringIntoViewRequester(codeView).focusRequester(codeFocus).semantics { contentType=ContentType.CreditCardSecurityCode },
+                        modifier=Modifier.weight(1f).bringIntoViewRequester(codeView).focusRequester(codeFocus).semantics { contentType=ContentType.CreditCardSecurityCode;onAutofillText { fill(4,it.text) } },
                         visualTransformation=PasswordVisualTransformation(),
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword,imeAction=ImeAction.Done),
                         keyboardActions=KeyboardActions(onDone={if(!focusMissing())keyboard?.hide()}),
@@ -136,9 +165,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
             Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=12.dp)) {
                 Primary(if(busy)"Procesando…" else "Continuar",canContinue&&!busy&&!expandedChallenge) {
                     if(!focusMissing()) {
-                        autofill?.cancel();keyboard?.hide();focus.clearFocus()
-                        onSubmit(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
-                        cvv="";attempted=false
+                        submit()
                     }
                 }
                 TextButton(onClick={autofill?.cancel();onOriginal()},modifier=Modifier.fillMaxWidth()) { Text("Ver página original") }

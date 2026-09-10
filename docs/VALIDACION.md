@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.24
+## Versión vigente: 0.2.25
+
+El dueño mostró el formulario con número, vencimiento y CVV completos por Google y señaló que todavía debía tocar Continuar. Se implementó el avance propuesto: las acciones de autocompletado de Android se identifican por campo, se exige la entrega de los tres y su validación, y se continúa una sola vez al siguiente paso del proveedor. La escritura manual no se interpreta como autocompletado. Se conservan las comprobaciones del proveedor, CAPTCHA, limpieza al salir y confirmación financiera explícita. No se copió la tarjeta de la captura a pruebas ni documentación.
+
+La búsqueda de actualizaciones se ejecuta al abrir o retomar, con un intervalo mínimo de seis horas guardado entre aperturas. La consulta manual sigue disponible. No descarga automáticamente ni descarta una APK ya lista. Un aviso con Ver abre Configuración. El cartel reúne las notas disponibles de las versiones publicadas posteriores a la instalada, ordenadas de nueva a antigua; reconoce la sección breve actual y las viñetas/párrafos históricos. Los controles de instalación permanecen visibles mientras se desplaza el cuerpo.
+
+Ocho pruebas JVM, release y lint aprobados; compilación final en 21 s. Dieciséis pruebas Android aprobadas en 50,095 s (`outputs/android-final-0.2.25.txt`): autocompletado completo mediante la entrada real View.autofill de Android, datos parciales/inválidos/manuales, limpieza al salir, ausencia de duplicados, puente a WebView con formulario interceptado, recorrido hasta confirmación explícita y saldo, intervalos de actualización, preservación de descarga, aviso con Ver, historial acumulado, desplazamiento y aceptación/cancelación del instalador. Se revisó la captura del historial y se repitió su prueba en 360 × 640 dp con letra 1,5× (`outputs/update-large-0.2.25.txt`).
+
+APK código 43, 8.630.019 bytes, SHA-256 `78a58efc54057b6811f45473c72744fdb91555633b022f550a2e019ea952bfc8`, misma firma. No hubo pagos ni instalación en el teléfono físico. Las pruebas ejercen la entrega real de campos del framework con datos ficticios; la selección y autenticación de Google no se simularon como si fueran una prueba de su cuenta. Falta comprobar el avance con Google en su teléfono. La búsqueda automática y la acumulación se aplican a actualizaciones realizadas desde 0.2.25.
+
+## Versión anterior: 0.2.24
 
 Dos cambios: se evita exponer el fondo de Sistarbanc al cerrar el CAPTCHA y una actualización descargada espera la revisión de sus novedades antes de abrir Android. El resumen usa exclusivamente la sección «Novedades en la app» de la publicación elegida en GitHub, con un máximo de tres puntos cortos. Ahora no y Atrás conservan la descarga en la sesión; recrear la pantalla no dispara el instalador. El permiso de instalación continúa solo tras aceptar el cartel. El comportamiento nuevo aplica a actualizaciones realizadas desde 0.2.24.
 

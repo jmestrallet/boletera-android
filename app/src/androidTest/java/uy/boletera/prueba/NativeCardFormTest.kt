@@ -78,8 +78,11 @@ class NativeCardFormTest {
         compose.onNodeWithText("CVV").assertTextEquals("CVV","")
     }
 
-    @Test fun realWebViewReceivesOneExplicitSubmission() {
+    @Test fun realWebViewReceivesOneExplicitSubmission() = webViewSubmission(false)
+    @Test fun realWebViewReceivesOneAutofillSubmission() = webViewSubmission(true)
+    private fun webViewSubmission(autofill: Boolean) {
         lateinit var payment: EmbeddedPrexPayment
+        lateinit var host: android.view.View
         compose.runOnIdle {
             payment=EmbeddedPrexPayment(compose.activity)
             val delegate=payment.web.webViewClient
@@ -93,7 +96,7 @@ class NativeCardFormTest {
                 override fun onPageFinished(v:WebView,u:String?)=delegate.onPageFinished(v,u)
             }
             assertTrue(payment.open("https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago?id=NATIVE-CARD-FIXTURE"))
-            compose.activity.setContent { BoleteraTheme { EmbeddedPrexScreen(payment,null,{}) } }
+            compose.activity.setContent { host=androidx.compose.ui.platform.LocalView.current;BoleteraTheme { EmbeddedPrexScreen(payment,null,{}) } }
         }
         fun js(source:String):String {
             val latch=CountDownLatch(1);val result=AtomicReference<String>()
@@ -103,10 +106,19 @@ class NativeCardFormTest {
         try {
             compose.waitUntil(15000){payment.nativeStage=="card" && payment.canContinue}
             compose.onNodeWithText("Tu tarjeta").assertIsDisplayed()
+            if(autofill) {
+                val values=android.util.SparseArray<android.view.autofill.AutofillValue>()
+                listOf("Número de tarjeta" to "4111111111111111","Vencimiento" to "12/39","CVV" to "123").forEach { (label,value)->
+                    values.put(compose.onNodeWithText(label).fetchSemanticsNode().id,android.view.autofill.AutofillValue.forText(value))
+                }
+                compose.runOnIdle {host.autofill(values)}
+                compose.waitUntil(5000){payment.cardBusy}
+            } else {
             compose.onNodeWithText("Número de tarjeta").performTextInput("4111111111111111")
             compose.onNodeWithText("Vencimiento").performTextInput("1239")
             compose.onNodeWithText("CVV").performTextInput("123")
             compose.onNodeWithText("Continuar").performClick()
+            }
             compose.runOnIdle { payment.submitCard("4111111111111111","12/39","123") }
             assertEquals("1",js("window.sent"));assertEquals("true",js("window.correct"))
             assertEquals("false",js("JSON.stringify(window.BoleteraNative.snapshot()).includes('4111')"))

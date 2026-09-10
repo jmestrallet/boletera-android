@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.25-prueba — autocompletado y actualizaciones
+
+- Cuando Android autocompleta número, vencimiento y CVV válidos, se continúa una sola vez con Sistarbanc. No se infiere autocompletado a partir de escritura manual. Se respetan CAPTCHA, estado del proveedor y limpieza al salir; la confirmación financiera final continúa siendo explícita.
+- Al abrir o retomar la app se buscan versiones de fondo, como máximo cada seis horas. La consulta manual sigue disponible. Una descarga ya lista se conserva y nunca empieza otra automáticamente.
+- El cartel agrupa las novedades disponibles de las versiones posteriores a la instalada, incluida la elegida. Recupera también las viñetas o párrafos de publicaciones anteriores. El cuerpo se desplaza y los botones permanecen visibles.
+
 ## 0.2.24-prueba — cierre del CAPTCHA y novedades antes de instalar
 
 - Se oculta el fondo de Sistarbanc cuando se cierra el desafío de imágenes, incluso antes de que se actualice el recorte nativo. Se conserva el CAPTCHA original y sus datos.

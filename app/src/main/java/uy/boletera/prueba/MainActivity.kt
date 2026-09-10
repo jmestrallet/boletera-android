@@ -68,6 +68,7 @@ class MainActivity : FragmentActivity() {
     @Composable private fun App(appearance: String, onAppearance: (String) -> Unit) {
         val state = engine.state
         val updates: AppUpdates = viewModel()
+        LaunchedEffect(updates) { updates.checkAutomatic() }
         DisposableEffect(updates) {
             val observer = LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_RESUME) updates.onForeground(this@MainActivity)
@@ -115,6 +116,12 @@ class MainActivity : FragmentActivity() {
             return
         }
         val snackbar = remember { SnackbarHostState() }
+        LaunchedEffect(updates.automaticNotice) {
+            if(updates.automaticNotice) {
+                if(snackbar.showSnackbar("Hay una nueva versión de Boletera.",actionLabel="Ver",withDismissAction=true,duration=SnackbarDuration.Long)==SnackbarResult.ActionPerformed)showSettings=true
+                updates.dismissAutomaticNotice()
+            }
+        }
         LaunchedEffect(state.message, state.stage) {
             if (state.message.isNotBlank() && state.stage != "blocked") {
                 snackbar.showSnackbar(state.message, withDismissAction = true, duration = SnackbarDuration.Short)
@@ -290,10 +297,12 @@ class MainActivity : FragmentActivity() {
     AlertDialog(onDismissRequest=onLater,
         title={Text("Actualización lista")},
         text={Column(Modifier.heightIn(max=320.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-            Text("Novedades de la versión ${release?.version ?: "nueva"}",fontWeight=FontWeight.SemiBold)
-            val notes=release?.notes.orEmpty()
-            if(notes.isEmpty())Text("Esta versión no incluye un resumen de novedades.")
-            else notes.forEach { note -> Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {Text("•");Text(note)} }
+            val history=release?.history.orEmpty().ifEmpty {listOf(UpdateNews(release?.version ?: "nueva",release?.notes.orEmpty()))}
+            history.forEach { entry ->
+                Text("Novedades de la versión ${entry.version}",fontWeight=FontWeight.SemiBold)
+                if(entry.notes.isEmpty())Text("Esta versión no incluye un resumen de novedades.")
+                else entry.notes.forEach { note -> Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {Text("•");Text(note)} }
+            }
             Text("La descarga está lista. ¿Querés instalarla ahora?",color=Muted)
         }},
         confirmButton={TextButton(onClick=onInstall){Text("Instalar")}},

@@ -1,6 +1,7 @@
 package uy.boletera.prueba
 
 import android.content.pm.PackageManager
+import androidx.activity.compose.setContent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -17,14 +18,67 @@ class AppUpdatesTest {
     @Test fun popupUsesOnlyShortAuthoredNotesForSelectedVersion() {
         val body = "Intro técnica\n## Novedades en la app\n- **Mejora** del CAPTCHA.\n- Leé [las novedades](https://example.com).\n- " + "x".repeat(250) + "\n- Cuarto punto\n## Verificación\n- SHA-256: secreto"
         val parsed = UpdatePolicy.notes(body)
-        assertEquals(3, parsed.size)
+        assertEquals(4, parsed.size)
         assertEquals("Mejora del CAPTCHA.", parsed[0])
         assertEquals("Leé las novedades.", parsed[1])
-        assertTrue(parsed[2].length <= 180)
-        assertTrue(parsed[2].endsWith("…"))
-        assertTrue(UpdatePolicy.notes("- SHA-256: aaa").isEmpty())
+        assertEquals(250,parsed[2].length)
+        assertTrue(UpdatePolicy.notes("SHA-256: aaa").isEmpty())
         val json = org.json.JSONObject(fixture("0.2.25")).put("body", body)
         assertEquals(parsed, UpdatePolicy.select("[$json]", "0.2.24-prueba")!!.notes)
+    }
+    @Test fun skippedVersionsAccumulateWithoutInstalledOrDraftNotes() {
+        fun release(v:String,body:String,draft:Boolean=false)=org.json.JSONObject(fixture(v,draft)).put("body",body)
+        val entries=listOf(release("0.2.21","Instalada"),release("0.2.22","- Uno\n- Dos\n- Tres\n- Cuatro"),
+            release("0.2.23","Mejora anterior.\n\nSHA-256: aaa"),release("0.2.24","## Novedades en la app\n- Última\n## Verificación\n- Técnica"),release("0.2.99","Borrador",true))
+        val found=UpdatePolicy.select(entries.joinToString(",","[","]"),"0.2.21-prueba")!!
+        assertEquals(listOf("0.2.24","0.2.23","0.2.22"),found.history.map{it.version})
+        assertEquals(listOf("Mejora anterior."),found.history[1].notes)
+        assertEquals(4,found.history.last().notes.size)
+        assertEquals(listOf("Última"),found.notes)
+    }
+    @Test fun automaticChecksAreThrottledAndKeepDownloadedUpdate() {
+        val updates=androidx.lifecycle.ViewModelProvider(compose.activity)[AppUpdates::class.java]
+        compose.waitUntil(45000){!updates.busy}
+        val prefs=compose.activity.getSharedPreferences("updates",android.content.Context.MODE_PRIVATE)
+        val previous=prefs.getLong("last_attempt",0)
+        try {
+            prefs.edit().putLong("last_attempt",1000).commit()
+            assertFalse(updates.automaticCheckDue(1001))
+            assertFalse(updates.automaticCheckDue(1000+6*60*60*1000L-1))
+            assertTrue(updates.automaticCheckDue(1000+6*60*60*1000L))
+            compose.runOnIdle {updates.downloadReady();updates.dismissReview()}
+            assertFalse(updates.automaticCheckDue(1000+12*60*60*1000L))
+            compose.runOnIdle {updates.checkAutomatic()}
+            assertTrue(updates.ready);assertFalse(updates.busy);assertFalse(updates.installRequested)
+        } finally {prefs.edit().putLong("last_attempt",previous).commit()}
+    }
+    @Test fun accumulatedPopupScrollsAndKeepsInstallActionsVisible() {
+        val history=(25 downTo 21).map { UpdateNews("0.2.$it",listOf("Primera mejora de esta versión.","Segunda mejora de esta versión.","Tercera mejora de esta versión.")) }
+        compose.activity.setContent {BoleteraTheme(appearance="dark") {
+            UpdateReviewDialog(UpdateRelease("0.2.25","",1,"",history=history),{}, {})
+        }}
+        compose.onNodeWithText("Novedades de la versión 0.2.25").assertIsDisplayed()
+        compose.onNodeWithText("Instalar").assertIsDisplayed()
+        compose.onNodeWithText("Ahora no").assertIsDisplayed()
+        compose.onNodeWithText("Novedades de la versión 0.2.21").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Instalar").assertIsDisplayed()
+        android.os.SystemClock.sleep(400)
+        val screenshot=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(compose.activity.getExternalFilesDir(null),"accumulated-updates.png").outputStream().use {screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+        screenshot.recycle()
+    }
+    @Test fun automaticNoticeOpensSettingsWithoutDownloading() {
+        val updates=androidx.lifecycle.ViewModelProvider(compose.activity)[AppUpdates::class.java]
+        compose.waitUntil(45000){!updates.busy}
+        compose.runOnIdle {
+            @Suppress("UNCHECKED_CAST")
+            val state=AppUpdates::class.java.getDeclaredField("automaticNotice\$delegate").apply{isAccessible=true}.get(updates) as androidx.compose.runtime.MutableState<Boolean>
+            state.value=true
+        }
+        compose.onNodeWithText("Hay una nueva versión de Boletera.").assertIsDisplayed()
+        compose.onNodeWithText("Ver").performClick()
+        compose.onNodeWithText("Buscar actualizaciones").performScrollTo().assertIsDisplayed()
+        assertFalse(updates.automaticNotice);assertFalse(updates.ready);assertFalse(updates.installRequested)
     }
     @Test fun installerReceivesOnlyPrivateApkWithReadPermission() {
         val context = compose.activity
