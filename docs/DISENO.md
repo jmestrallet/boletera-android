@@ -83,3 +83,7 @@ Solo cambia el pie: aviso abreviado a la izquierda y botón Boletos con nombre a
 ## Pie alineado — 0.2.18
 
 Se recuperan el texto completo original de las 72 horas y Boletos y tarifas con icono de información. Ambos grupos se alinean arriba, con el acceso en dos renglones y área táctil mínima de 48 dp. No cambia el resto de la home.
+
+## Cierre de pago · 0.2.19
+
+Confirmación final, comprobante Prex y éxito STM usan la tipografía, superficies y colores de la app. El importe y la acción principal son visibles; los datos extensos del comprobante se despliegan. La acción principal queda fija abajo y el contenido se desplaza con pantalla pequeña o letra ampliada. La home y su pie no cambian.

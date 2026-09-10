@@ -1,18 +1,20 @@
 # Boletera · prueba Android
 
-App independiente y no oficial, de código abierto bajo licencia MIT, con interfaz nativa para el acceso, la boletera y el importe. Maneja el sitio de STM por detrás. **Versión de prueba: puede iniciar una recarga real. Prex se abre dentro de Boletera con perfiles de titular; eBROU conserva Chrome. La autorización y acreditación reales siguen pendientes de validación. No está lista para uso general.**
+App independiente y no oficial, de código abierto bajo licencia MIT, con interfaz nativa para el acceso, la boletera y el importe. Maneja el sitio de STM por detrás. **Versión de prueba: puede iniciar una recarga real. Prex se abre dentro de Boletera con perfiles de titular; eBROU conserva Chrome. El dueño completó una recarga real con Prex y aportó sus confirmaciones; el cierre visual corregido en 0.2.19 sigue pendiente de comprobación real. No está lista para uso general.**
 
-El código y la documentación se publican para permitir revisión y colaboración. Con 0.1.5 se comprobaron en un emulador Android 16 el ingreso real, saldo/mínimo, preferencias, el inicio real de Prex/eBROU y el regreso al saldo. La integración nueva de 0.1.8 se probó con formularios ficticios; por separado se midió el detector público sin operación. La autorización bancaria, la acreditación, el CAPTCHA real y la huella física siguen pendientes. Consultá [el estado de validación](docs/VALIDACION.md) y [las comprobaciones pendientes de pago](docs/COMPATIBILIDAD-PAGO.md).
+El código y la documentación se publican para permitir revisión y colaboración. Con 0.1.5 se comprobaron en un emulador Android 16 el ingreso real, saldo/mínimo, preferencias, el inicio real de Prex/eBROU y el regreso al saldo. La integración nueva de 0.1.8 se probó con formularios ficticios; por separado se midió el detector público sin operación. El 10/9/2026 el dueño aportó evidencia de un pago Prex exitoso, confirmación STM y saldo aumentado; esto no valida eBROU ni todas las variantes de CAPTCHA y huella. Consultá [el estado de validación](docs/VALIDACION.md) y [las comprobaciones pendientes de pago](docs/COMPATIBILIDAD-PAGO.md).
 
 La 0.1.9 corrige la conexión segura de Sistarbanc en Android 11; se reprodujo el fallo y se verificó la corrección en un OnePlus 6T. Ver [evidencia TLS](docs/TLS-ANDROID11.md).
 
 Desde **0.2.18**, la home recupera el diseño anterior: título separado, saldo grande y recarga mínima en su propio bloque. Las combinaciones de boletos siguen eliminadas. El icono vuelve al original: un rectángulo redondeado con dos líneas. El aviso de las 72 horas y el acceso a Boletos y tarifas comparten el pie, alineados arriba, para ganar espacio sin achicar los paneles. Se conservan Carga Express, el mínimo de STM, el medio guardado y las pantallas de error.
 
+Desde **0.2.19**, Prex tiene confirmación final y comprobante con el diseño de Boletera. **Confirmar pago** acciona una sola vez el botón original; Carga Express no autoriza este paso. **Volver a mi boletera** sigue el enlace original del proveedor, STM muestra su confirmación y **Ver mi saldo** vuelve a la home con una consulta nueva. Los resultados pendientes o rechazados se muestran como tales. [Cierre del pago](docs/CIERRE-PAGO.md).
+
 ## Probar en el celular
 
-**Objetivo pendiente:** completar y verificar el recorrido real de pago desde Boletera. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. El CAPTCHA, Google en el teléfono, la autorización y la acreditación requieren comprobación real. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
+**Estado actual:** un pago real Prex fue completado por el dueño; las capturas revelaron que faltaba integrar el cierre y el regreso. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. La 0.2.19 integra confirmación final, comprobante, resultado STM y regreso a la home. La corrección nueva se probó con datos ficticios; Google en el teléfono y otras variantes requieren comprobación. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
 
-**[Descargar la versión 0.2.18](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.18)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+**[Descargar la versión 0.2.19](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.19)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
@@ -22,7 +24,7 @@ Desde 0.1.15, las próximas versiones publicadas en este repositorio se pueden d
 
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Las versiones anteriores se conservan con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
 
-1. Pasá `outputs/boletera-prueba-0.2.18.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
+1. Pasá `outputs/boletera-prueba-0.2.19.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.

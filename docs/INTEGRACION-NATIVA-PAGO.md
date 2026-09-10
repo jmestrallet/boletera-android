@@ -1,5 +1,8 @@
 # Pago sin navegar por la web: investigación
 
+**Actualización 0.2.19 (10/9/2026):** el dueño completó un pago real con Prex y aportó comprobante exitoso, confirmación STM y saldo actualizado. Se corrigió el cierre visual y el regreso a la home; esta corrección nueva tiene pruebas ficticias, todavía no otra operación real. Ver [cierre del pago](CIERRE-PAGO.md). El detalle que sigue es histórico y debe leerse según su versión.
+
+
 Fecha: 9 de septiembre de 2026. Estado: viabilidad parcial; integración no implementada.
 
 ## Objetivo vigente

@@ -10,9 +10,9 @@
 
 ## Recorrido implementado
 
-Inicio propio → autorización biométrica opcional → entrada oficial → elección interna de Usuario gub.uy → documento → contraseña → selección propia de boletera → saldo → lectura de mínimo en el formulario de recarga → selección de monto → límite previo al proveedor.
+Inicio propio → autorización biométrica opcional → entrada oficial → elección interna de Usuario gub.uy → documento → contraseña → selección propia de boletera → saldo → lectura de mínimo en el formulario de recarga → selección de monto → elección de proveedor → Prex integrado o eBROU en Chrome → resultado original del proveedor → consulta nueva de saldo.
 
-Los identificadores temporales del login se obtienen siguiendo el sitio; no se reutiliza el enlace `process_state` compartido en el chat. Los importes se vuelven a validar desde el DOM al enviar el formulario de monto. No existe un comando `pay` ni código que seleccione proveedor en `recarga2.xhtml`.
+Los identificadores temporales del login se obtienen siguiendo el sitio; no se reutiliza el enlace `process_state` compartido en el chat. Los importes se vuelven a validar desde el DOM al enviar el formulario de monto. El envío del proveedor está separado del adaptador general y requiere una solicitud activa y una elección explícita. Prex conserva su página original; la confirmación final tiene un comando acotado al componente visible, importe coincidente y toque explícito del usuario.
 
 ## CAPTCHA
 
@@ -26,4 +26,4 @@ La APK entregada se compila como release sin depuración y se firma con una clav
 
 Los mensajes de error al usuario son genéricos y no incluyen URL con parámetros. El logging de consola WebView está deshabilitado. Nunca se continúa ante un error SSL. Cambios de huellas pueden invalidar el acceso guardado; existe borrado explícito.
 
-Una futura implementación de pago necesita identidad de la operación y conciliación antes de cualquier reintento. La variante actual evita ese riesgo deteniéndose antes de crear la solicitud al proveedor.
+La versión actual puede realizar un pago. No reintenta automáticamente una confirmación interrumpida ni infiere éxito al salir. La lectura de resultado y el retorno se documentan en [CIERRE-PAGO.md](CIERRE-PAGO.md).

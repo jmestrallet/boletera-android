@@ -1,5 +1,8 @@
 # Compatibilidad de pago — 9 de septiembre de 2026
 
+**Actualización 0.2.19 (10/9/2026):** el dueño completó un pago real con Prex y aportó comprobante exitoso, confirmación STM y saldo actualizado. Se corrigió el cierre visual y el regreso a la home; esta corrección nueva tiene pruebas ficticias, todavía no otra operación real. Ver [cierre del pago](CIERRE-PAGO.md). El detalle que sigue es histórico y debe leerse según su versión.
+
+
 ## Actualización 0.1.8 — 10 de septiembre de 2026
 
 Prex se abre ahora dentro de Boletera, en una página retenida que usa la identificación comprobada en la [prueba pública del detector](PRUEBA-IDENTIDAD-NAVEGADOR.md). Agrega apariencia y perfiles cifrados de titular; no reemplaza Google como servicio de autocompletado ni guarda datos de tarjeta. Salir y volver preserva la página y evita repetir un envío. El recorrido con fixtures Android está comprobado; la operación real, tarjeta, CAPTCHA, autorización y acreditación siguen pendientes. eBROU conserva Chrome.

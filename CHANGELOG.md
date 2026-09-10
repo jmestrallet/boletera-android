@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.19-prueba — cierre de Prex y regreso a Boletera
+
+- Confirmación final, comprobante y confirmación STM con pantallas propias; saldo original de STM vuelve automáticamente a la home y consulta los datos de nuevo.
+- Confirmar pago requiere un toque explícito y queda bloqueado contra duplicados; Carga Express no lo ejecuta. Se valida el importe visible contra la solicitud.
+- Pendiente y rechazo se distinguen del éxito. El regreso utiliza las acciones originales del proveedor y STM; no reconstruye enlaces ni reenvía pagos.
+- Primera evidencia de pago real aportada por el dueño; la corrección nueva se verifica con fixtures, sin otra operación financiera.
+
 ## 0.2.18-prueba — texto original y pie alineado
 
 - Vuelven el aviso completo de las 72 horas, el nombre Boletos y tarifas y su icono de información.

@@ -275,7 +275,7 @@ class StmEngine(private val context: Context) {
     private fun openPrexPayment(url: String) {
         if (handoffSent || !paymentInFlight || state.selectedProvider != "1033") return
         if (prexPayment.open(url, payerProfiles.find { it.id == state.activePayment?.payerProfileId },
-                expressAmount = state.activePayment?.amount?.takeIf { expressPayment })) {
+                expressAmount = state.activePayment?.amount?.takeIf { expressPayment }, expectedAmount = state.activePayment?.amount)) {
             paymentOpened()
             state = state.copy(stage = "embeddedPrex")
         } else fail("No se pudo abrir esta solicitud de Prex. No se volvió a enviar la recarga.")

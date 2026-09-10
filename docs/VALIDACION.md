@@ -1,6 +1,18 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.18
+## Versión vigente: 0.2.19
+
+El dueño aportó el 10/9/2026 la primera evidencia de pago real Prex: confirmación, comprobante exitoso, confirmación STM y saldo aumentado. El cierre quedaba en páginas originales dentro del panel. La nueva integración cubre confirmación final, comprobante, resultado STM y vuelta a la home con una consulta nueva. Las capturas privadas y referencias reales no se publican.
+
+54 pruebas JavaScript, ocho JVM, release/debug/pruebas/lint aprobados; compilación final en 34 s. Las seis pruebas JS nuevas cubren confirmación explícita, bloqueo de duplicados, importe distinto, tarjeta sin enmascarar, controles adicionales, CAPTCHA, éxito/rechazo/pendiente, enlace original de retorno y reconocimiento estricto de STM. La insignia invisible de reCAPTCHA no oculta la confirmación nativa.
+
+El recorrido Android completo con solicitudes interceptadas aprobó en 8,012 s. La prueba de pantalla 360 × 640 dp y letra 2× detectó que el scroll del detalle podía conservarse al cambiar de resultado; se corrigió reiniciándolo por etapa y aprobó en 7,664 s (`outputs/payment-completion-final-large-text-0.2.19.txt`). Con letra ampliada se desplaza el contenido y la acción principal queda accesible.
+
+La tanda normal de cinco pruebas Android aprobó en 60,324 s (`outputs/payment-completion-final-regression-0.2.19.txt`): cierre completo, regresión de acceso/boleteras/Prex y tres casos de Carga Express. Después del último ajuste visual que identifica a STM en el encabezado, el cierre completo volvió a aprobar en 7,562 s (`outputs/payment-completion-published-0.2.19.txt`). Se verifican una sola confirmación y un solo retorno, comprobante desplegable, continuación STM, saldo nuevo leído del sitio y ausencia de otra solicitud de recarga. Pantalla normal: 1080 × 2280, 420 dpi, tema oscuro. Capturas de confirmación, comprobante, éxito STM y home revisadas.
+
+APK código 37, SHA-256 `740aaa1720f49e52ddd7f1d788eeca75c72fff39b54523fcad0fae0962e0eafd`, 8.611.068 bytes, misma firma. No se modificó el teléfono físico ni se hicieron operaciones financieras durante esta corrección. La integración nueva necesita todavía comprobación real en el teléfono; no se infiere su validación del pago anterior. [Alcance y límites](CIERRE-PAGO.md).
+
+## Versión anterior: 0.2.18
 
 Se recuperan el texto original completo de las 72 horas y Boletos y tarifas con icono de información. Los dos grupos se alinean por arriba; el acceso ocupa dos renglones y tiene área táctil mínima de 48 dp. No cambia el resto de la home.
 

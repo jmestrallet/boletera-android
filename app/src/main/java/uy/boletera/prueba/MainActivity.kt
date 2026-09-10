@@ -273,7 +273,9 @@ class MainActivity : FragmentActivity() {
     val expressAdvancing=payment.expressPhase=="advancing"
     val expressVerification=payment.expressPhase=="verification"
     LaunchedEffect(payment.nativeStage) { showOriginal = false }
-    val native = payment.nativeStage in listOf("summary", "payer", "card", "loading") && !showOriginal
+    val completion = payment.nativeStage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "returnBalance")
+    LaunchedEffect(payment.nativeStage) { if(payment.nativeStage=="returnBalance") onClose() }
+    val native = (completion || payment.nativeStage in listOf("summary", "payer", "card", "loading")) && !showOriginal
     LaunchedEffect(native, payment.nativeStage, payment.expandedChallenge, payment.challenge != null) {
         if (native && payment.nativeStage in listOf("payer","card")) payment.positionVerification() else payment.restoreVerification()
     }
@@ -283,7 +285,7 @@ class MainActivity : FragmentActivity() {
             AppTopBar(title="Pago con Prex",onBack=onClose)
             Row(Modifier.padding(horizontal=24.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
                 AppGlyph(Glyph.Lock,Modifier.size(16.dp),tint=Muted)
-                Text("Sistarbanc · ${Amounts.format(pending?.amount)}",color=Muted,style=MaterialTheme.typography.bodySmall)
+                Text("${if(payment.currentHost=="stm.gub.uy")"STM" else "Sistarbanc"} · ${Amounts.format(pending?.amount)}",color=Muted,style=MaterialTheme.typography.bodySmall)
             }
             if (payment.payerNotice.isNotBlank()) {
                 Text(payment.payerNotice, color = Ink, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
@@ -301,10 +303,15 @@ class MainActivity : FragmentActivity() {
                     val pixelsPerDp = LocalDensity.current.density
                     val cssPixelsToDp = if (payment.cssViewportWidth > 0f) browserWidth / payment.cssViewportWidth / pixelsPerDp else 1f
                     if (!native) Column(Modifier.fillMaxSize()) {
-                        if(payment.nativeStage in listOf("summary","payer","card"))TextButton(onClick={showOriginal=false},modifier=Modifier.align(Alignment.End)) {
+                        if(completion || payment.nativeStage in listOf("summary","payer","card"))TextButton(onClick={showOriginal=false},modifier=Modifier.align(Alignment.End)) {
                             Text(when(payment.nativeStage){"summary"->"Ver resumen";"card"->"Ver formulario";else->"Ver datos"})
                         }
                         PaymentBrowserView(payment,false,null,browserWidth,browserHeight,Modifier.weight(1f).fillMaxWidth())
+                    }
+                    if (native && completion) {
+                        PaymentCompletionScreen(payment, pending, onOriginal={showOriginal=true}) {
+                            PaymentBrowserView(payment,true,null,browserWidth,browserHeight,Modifier.size(1.dp))
+                        }
                     }
                     if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{payment.stopExpress();showOriginal=true},focusCard=payment.expressPhase=="done") {
                         if(payment.expandedChallenge) ExpandedPaymentChallenge(payment,browserWidth,browserHeight,Modifier.fillMaxSize())
@@ -315,11 +322,11 @@ class MainActivity : FragmentActivity() {
                             PaymentBrowserView(payment,cap==null,cap,browserWidth,browserHeight,if(cap==null)Modifier.size(1.dp) else Modifier.width((cap.width*scale).dp).height((cap.height*scale).dp))
                         }
                     }
-                    if(native && payment.nativeStage!="card" && payment.expandedChallenge)Column(Modifier.fillMaxSize()) {
+                    if(native && !completion && payment.nativeStage!="card" && payment.expandedChallenge)Column(Modifier.fillMaxSize()) {
                         ExpandedPaymentChallenge(payment,browserWidth,browserHeight,Modifier.weight(1f).fillMaxWidth().padding(12.dp))
                         TextButton(onClick={payment.stopExpress();showOriginal=true},modifier=Modifier.fillMaxWidth()){Text("Ver página original")}
                     }
-                    if (native && payment.nativeStage!="card" && !payment.expandedChallenge) Column(Modifier.fillMaxSize().background(Paper)) {
+                    if (native && !completion && payment.nativeStage!="card" && !payment.expandedChallenge) Column(Modifier.fillMaxSize().background(Paper)) {
                       Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         if (payment.nativeStage != "payer" || expressAdvancing) PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.fillMaxWidth().height(1.dp))
                         if(expressAdvancing) LoadingState("Preparando Prex", "Usando el mínimo y tus datos guardados.",express=true) else {

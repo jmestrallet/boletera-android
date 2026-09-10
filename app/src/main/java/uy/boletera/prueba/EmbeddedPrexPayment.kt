@@ -18,6 +18,12 @@ class EmbeddedPrexPayment(context: Context) {
         private set
     var summaryRows by mutableStateOf<List<Pair<String, String>>>(emptyList())
         private set
+    var completionNotice by mutableStateOf("")
+        private set
+    var completionSubmitted by mutableStateOf(false)
+        private set
+    private var expectedAmount: Long? = null
+    private var finalSubmitted = false
     var payerValues by mutableStateOf<List<String>>(emptyList())
         private set
     var canContinue by mutableStateOf(false)
@@ -54,7 +60,7 @@ class EmbeddedPrexPayment(context: Context) {
     private var navigationVersion = 0
     private var expressAmount: Long? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val profileStatus = object : Runnable {
+    private val profileStatus: Runnable = object : Runnable {
         override fun run() {
             if (destroyed || !visible || originalLink == null) return
             val version = navigationVersion
@@ -64,6 +70,8 @@ class EmbeddedPrexPayment(context: Context) {
                     if (decoded != null) {
                         val state = org.json.JSONObject(decoded)
                         nativeStage = state.optString("stage", "loading")
+                        completionNotice = state.optString("completionNotice")
+                        completionSubmitted = state.optBoolean("submitted")
                         val rows = state.optJSONArray("rows")
                         summaryRows = if (rows == null) emptyList() else (0 until rows.length()).map {
                             rows.getJSONArray(it).let { row -> row.getString(0) to row.getString(1) }
@@ -94,12 +102,14 @@ class EmbeddedPrexPayment(context: Context) {
             handler.postDelayed(this, 1000)
         }
     }
+    private val completionScript = context.assets.open("prex-completion.js").bufferedReader().use { it.readText() }
+    private val returnScript = context.assets.open("stm-payment-return.js").bufferedReader().use { it.readText() }
     private val nativeScript = context.assets.open("prex-native.js").bufferedReader().use { it.readText() }
     private val cardScript = context.assets.open("prex-card.js").bufferedReader().use { it.readText() }
     private val expressScript = context.assets.open("prex-express.js").bufferedReader().use { it.readText() }
     private val verificationScript = context.assets.open("prex-verification.js").bufferedReader().use { it.readText() }
     private val payerScript = context.assets.open("prex-payer.js").bufferedReader().use { it.readText() }
-    val web = WebView(context).apply {
+    val web: WebView = WebView(context).apply {
         alpha = 0f
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -150,7 +160,8 @@ class EmbeddedPrexPayment(context: Context) {
                 if (url == null || url != view.url || !allowedDestination(url)) return
                 busy = false
                 if (PaymentPolicy.gateway(url)) {
-                    view.evaluateJavascript(verificationScript + "\n" + cardScript + "\n" + nativeScript + "\n" + payerScript + "\n" + expressScript, null)
+                    view.evaluateJavascript(verificationScript + "\n" + cardScript + "\n" + nativeScript + "\n" + completionScript + "\n" + payerScript + "\n" + expressScript, null)
+                    view.evaluateJavascript("window.BoleteraCompletion?.configure(${expectedAmount ?: "null"},$finalSubmitted)",null)
                     payer?.let { profile ->
                         view.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.use(${profile.json()}); }", null)
                         expressAmount?.let { amount ->
@@ -158,7 +169,15 @@ class EmbeddedPrexPayment(context: Context) {
                             view.evaluateJavascript("window.BoleteraExpress && window.BoleteraExpress.start($amount,${profile.json()})",null)
                         }
                     }
-                } else nativeStage = "original"
+                } else {
+                    view.evaluateJavascript(returnScript + ";window.BoleteraNative ? window.BoleteraNative.snapshot().stage : 'original'") { raw ->
+                        if (!destroyed && url == view.url) {
+                            nativeStage = try { org.json.JSONTokener(raw).nextValue() as? String ?: "original" } catch (_: Exception) { "original" }
+                            handler.removeCallbacks(profileStatus)
+                            if (visible) handler.post(profileStatus)
+                        }
+                    }
+                }
             }
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel()
@@ -173,7 +192,7 @@ class EmbeddedPrexPayment(context: Context) {
         }
     }
 
-    fun open(url: String, profile: PayerProfile? = null, expressAmount: Long? = null): Boolean {
+    fun open(url: String, profile: PayerProfile? = null, expressAmount: Long? = null, expectedAmount: Long? = null): Boolean {
         if (destroyed || !PaymentPolicy.prexLink(url) || profile?.valid() == false) return false
         if (originalLink == url) {
             if (payer?.id != profile?.id) return false
@@ -184,6 +203,7 @@ class EmbeddedPrexPayment(context: Context) {
         }
         if (originalLink != null) return false // Caller must explicitly finish/reset the previous journey.
         originalLink = url
+        this.expectedAmount = expectedAmount ?: expressAmount
         this.expressAmount = expressAmount
         expressPhase = if(expressAmount!=null)"advancing" else "off"
         payer = profile
@@ -203,10 +223,15 @@ class EmbeddedPrexPayment(context: Context) {
     }
 
     fun advance() {
-        if (destroyed || !visible || !canContinue || nativeStage !in listOf("summary", "payer")) return
+        if (destroyed || !visible || !canContinue || nativeStage !in listOf("summary", "payer", "finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess")) return
         stopExpress()
         val expected = nativeStage
+        if (expected == "finalConfirmation") {
+            if (finalSubmitted) return
+            finalSubmitted = true // Conservative lock survives navigation and reopening this journey.
+        }
         canContinue = false
+        completionSubmitted = true
         web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.advance(${org.json.JSONObject.quote(expected)})", null)
     }
 
@@ -257,6 +282,10 @@ class EmbeddedPrexPayment(context: Context) {
         originalLink = null
         nativeStage = "loading"
         summaryRows = emptyList()
+        expectedAmount = null
+        finalSubmitted = false
+        completionNotice = ""
+        completionSubmitted = false
         payerValues = emptyList()
         canContinue = false
         cardBusy = false
