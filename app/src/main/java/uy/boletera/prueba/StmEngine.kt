@@ -336,20 +336,27 @@ class StmEngine(private val context: Context) {
     private fun expressPayer() = payerProfiles.find { it.id==state.payerProfileId && it.valid() }
         ?: payerProfiles.singleOrNull()?.takeIf { it.valid() }
 
-    val expressAvailable: Boolean get() = accountVerified && payerStoreAvailable &&
-        choices.provider=="1033" && choices.card==state.selectedCard &&
+    val expressProviderName: String get() = when(choices.provider) {"1033"->"Prex";"1002"->"eBROU";else->"Medio guardado"}
+    private val expressProviderReady: Boolean get() = when(choices.provider) {
+        "1033" -> payerStoreAvailable && expressPayer()!=null
+        "1002" -> paymentBrowser.available()
+        else -> false
+    }
+    val expressAvailable: Boolean get() = accountVerified && expressProviderReady &&
+        choices.card==state.selectedCard &&
         state.selectedCard!=null && state.cards.any { it.id==state.selectedCard && it.active } &&
-        Amounts.valid(state.minimum,state.minimum) && expressPayer()!=null
+        Amounts.valid(state.minimum,state.minimum)
 
     fun startExpress() {
         val card=state.selectedCard ?: return
         val amount=state.minimum ?: return
         if(!accountVerified || state.busy || state.stage!="balance" || pageStage!="amount" || state.activePayment!=null || expressRequest!=null) return
         if(!expressAvailable)return
-        val payer=expressPayer() ?: return
+        val provider=choices.provider ?: return
+        val payer=if(provider=="1033")expressPayer() ?: return else null
         if(state.cards.none { it.id==card && it.active })return
         if(!Amounts.valid(amount,state.minimum))return
-        expressRequest=ExpressChoice(card,"1033",payer.id)
+        expressRequest=ExpressChoice(card,provider,payer?.id)
         expressPayment=true
         state=state.copy(amount=amount)
         // The existing adapter checks the live minimum before submitting; authorization stays with the provider.

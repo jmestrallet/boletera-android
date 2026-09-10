@@ -1,6 +1,20 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.13
+## Versión vigente: 0.2.14
+
+Home compacta sin combinaciones de boletos; identificación/saldo/mínimo en un solo panel y símbolo unificado de tarjeta sin contacto, incluido el lanzador Android. Carga Express usa el medio guardado y la ayuda aclara que el mínimo cambia según la cuenta/consulta. Se retiró la referencia a titular habitual. La guía de tarifas permanece aparte.
+
+48 pruebas JavaScript y ocho JVM aprobadas. Release/lint iniciales en 33 s y compilación final release/debug/pruebas/lint en 29 s. El mínimo sigue leyéndose de STM: las pruebas verifican valores de $564 y $731, tanto en home/ayuda como al preparar Express. Carga Express con eBROU funciona sin perfil Prex, consume una sola solicitud y conserva el importe actualizado; la prueba detiene el recorrido antes de navegar al banco. El medio desconocido o el mínimo ausente no habilitan Express.
+
+Android: seis pruebas en 360 × 640 dp con letra normal (12,736 s, `outputs/home-errors-express-small-0.2.14.txt`). Después del ajuste final del error, home y error completos sin desplazamiento (6,233 s, `outputs/home-errors-final-small-0.2.14.txt`). Cinco pruebas con tamaño habitual aprobaron en 56,537 s (`outputs/home-errors-flow-final-normal-0.2.14.txt`): home, error, recorrido de acceso/recarga común/Express interceptado y dos de respuesta táctil. Dos pruebas finales con letra 2× aprobaron en 5,295 s (`outputs/error-express-large-text-0.2.14.txt`): acceso a detalle/salida y confirmación de la pulsación. Con texto ampliado se permite desplazamiento para conservar legibilidad.
+
+La primera comprobación de home, todavía con el carrusel, detectó 29 dp de desplazamiento. La versión final lo elimina junto con el carrusel y el espacio vacío del host; las comprobaciones finales exigen desplazamiento máximo cero en tamaño normal. Se revisaron las capturas de home y error. Las capturas `*-normal-0.2.14.png` son del tema claro; el modo nocturno del emulador no reemplazaba la preferencia explícita de la app.
+
+La pantalla de error cubre fallos controlados del recorrido principal y de Prex. Clasifica según el mensaje conocido de la app, conserva detalle/referencia y nunca reintenta una recarga por sí sola. Enviar error al desarrollador permanece deshabilitado con Próximamente: no envía ni recopila nada adicional. No es recuperación de un cierre abrupto del proceso Android.
+
+APK código 32, SHA-256 `8a57bcf3bb243b764dafc10aed349cbc19677664d23a4e72cbddc089867e9c44`, misma firma de las versiones anteriores. No se realizaron pagos reales ni se modificó el teléfono físico. Autorización/acreditación y experiencia en el teléfono quedan pendientes de comprobación humana.
+
+## Versión anterior: 0.2.13
 
 Express recupera doce líneas radiales y confirma la preparación inmediatamente; el anillo no termina antes de aceptar el gesto, independientemente de la escala de animaciones de Android. El saldo recorre combinaciones comunes de 1 h y 2 h con sobrante, avance manual y automático.
 

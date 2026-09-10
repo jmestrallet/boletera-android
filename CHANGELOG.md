@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.14-prueba — home limpia, Carga Express y errores claros
+
+- Se retiran las combinaciones de boletos del saldo. Identificación, saldo y mínimo vigente se integran en un solo panel; el pie vuelve a entrar en pantalla a tamaño de letra normal.
+- Un mismo icono de tarjeta sin contacto representa la boletera en toda la app.
+- Modo Express se llama Carga Express. La explicación aclara el mínimo variable por cuenta/consulta y usa el medio guardado; se elimina la expresión titular habitual.
+- Carga Express permite el medio guardado Prex o eBROU: Prex necesita los datos requeridos y eBROU necesita Chrome; no se piden perfiles Prex para el banco. Se conserva el recorrido bancario y su autorización humana.
+- Pantalla propia para errores controlados de conexión, servicio, datos o verificación, con detalle desplegable y salida. Enviar error al desarrollador queda deshabilitado, rotulado Próximamente.
+
 ## 0.2.13-prueba — respuesta de Express y combinaciones de boletos
 
 - Express recupera doce líneas radiales durante la pulsación y la preparación. Al aceptar el gesto muestra que ya se puede soltar, sin esperar la respuesta de STM.

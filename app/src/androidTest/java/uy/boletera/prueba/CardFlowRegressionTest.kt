@@ -227,8 +227,8 @@ class CardFlowRegressionTest {
                 assertEquals(2,paymentLoads[newLink]?.get())
             }
             compose.onNodeWithText("Recargar boletera").assertExists()
-            compose.onNodeWithText("Modo Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
-            compose.onNodeWithText("Así funciona Express").assertIsDisplayed()
+            compose.onNodeWithText("Carga Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
+            compose.onNodeWithText("Así funciona Carga Express").assertIsDisplayed()
             compose.runOnIdle { assertEquals("balance",engine.state.stage);assertEquals(2,paymentLoads[newLink]?.get()) }
             compose.onNodeWithText("No volver a mostrar").performScrollTo().performClick()
             compose.onNodeWithText("Ahora no").performClick()
@@ -236,7 +236,7 @@ class CardFlowRegressionTest {
                 assertEquals("balance",engine.state.stage)
                 assertFalse(compose.activity.getSharedPreferences("feature_help",0).getBoolean("express_skip_intro_v1",false))
             }
-            compose.onNodeWithText("Modo Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
+            compose.onNodeWithText("Carga Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
             compose.onNodeWithText("No volver a mostrar").performScrollTo().performClick()
             compose.onNodeWithText("Aceptar y continuar").performClick()
             compose.runOnIdle { engine.startExpress() } // Duplicate cannot initiate another submission.
@@ -252,8 +252,8 @@ class CardFlowRegressionTest {
             }
             compose.onNodeWithContentDescription("Volver").performClick()
             compose.waitUntil(15000) { engine.state.stage=="balance" && !engine.state.busy }
-            compose.onNodeWithText("Modo Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
-            compose.onNodeWithText("Así funciona Express").assertDoesNotExist()
+            compose.onNodeWithText("Carga Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
+            compose.onNodeWithText("Así funciona Carga Express").assertDoesNotExist()
             compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" }
             assertEquals(4,paymentLoads[newLink]?.get())
         } finally {

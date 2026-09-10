@@ -49,31 +49,4 @@ class ExpressFeedbackTest {
         compose.onNodeWithTag("expressShortcut").performTouchInput {longClick(durationMillis=1500)}
         assertEquals(1,starts)
     }
-    @Test fun mixesRotateAndTappingThemDoesNotChangeTheCard() {
-        var changes=0
-        var balance by mutableStateOf(100000L)
-        compose.activity.setContent {BoleteraTheme("light") {Surface {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
-                WalletHome(UiState(stage="balance",selectedCard="DEMO1234",balance=balance,minimum=26000),{changes++},{},{})
-            }
-        }}}
-        val pause = compose.onNodeWithTag("ticketBudget").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.CustomActions].single().action
-        compose.runOnIdle {pause()}
-        compose.onNodeWithText("19 de 1 h").performScrollTo().assertIsDisplayed()
-        screenshot("ticket-mixes.png")
-        compose.onNodeWithTag("ticketBudget").performScrollTo().performClick()
-        compose.onNodeWithText("12 de 2 h").assertExists()
-        compose.onNodeWithTag("ticketBudget").performClick()
-        compose.onNodeWithText("7 de 1 h").assertExists()
-        compose.onNodeWithText("8 de 2 h").assertExists()
-        assertEquals(0,changes)
-        screenshot("ticket-mixed.png")
-        val resume = compose.onNodeWithTag("ticketBudget").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.CustomActions].single().action
-        compose.runOnIdle {resume()}
-        compose.waitUntil(10000) {compose.onAllNodesWithText("4 de 14",substring=true).fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("4 de 14",substring=true).assertExists()
-        compose.runOnIdle {balance=-40000}
-        compose.onNodeWithTag("ticketBudget").assertDoesNotExist()
-    }
 }
-

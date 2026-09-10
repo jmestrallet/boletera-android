@@ -143,8 +143,8 @@ class MainActivity : FragmentActivity() {
                     isRefreshing=stage=="balance"&&state.busy,state=pullState,enabled=stage=="balance"&&!state.busy,
                     onRefresh={if(engine.state.stage=="balance"&&!engine.state.busy)engine.refresh()}
                 )) {
-                    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal=24.dp).padding(top=12.dp,bottom=32.dp)
-                        .pageEntrance(stage, state.captcha==null),verticalArrangement=Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal=24.dp).padding(top=if(stage=="balance")4.dp else 12.dp,bottom=if(stage in listOf("balance","blocked"))4.dp else 32.dp)
+                        .pageEntrance(stage, state.captcha==null),verticalArrangement=Arrangement.spacedBy(if(stage in listOf("balance","blocked"))0.dp else 24.dp)) {
                         when(stage) {
                             "welcome" -> {
                                 WelcomeHero()
@@ -185,9 +185,9 @@ class MainActivity : FragmentActivity() {
                             }
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
                                 onExpressCharge=if(engine.expressAvailable)::requestExpress else null,
-                                onExpressHelp={showExpressHelp=true},onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing)
+                                onExpressHelp={showExpressHelp=true},onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressProviderName)
                             "connecting" -> {
-                                LoadingState(if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(engine.expressPreparing)"Ya podés soltar. Estamos conectando con STM y Prex." else "Estamos consultando el sitio. Tu información va a aparecer acá.",express=engine.expressPreparing)
+                                LoadingState(if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(engine.expressPreparing)"Ya podés soltar. Estamos preparando tu medio de pago." else "Estamos consultando el sitio. Tu información va a aparecer acá.",express=engine.expressPreparing)
                                 TextButton(onClick=::back) { Text("Cancelar") }
                             }
                             "openingPayment" -> LoadingState("Un momento…","Abriendo ${if(state.selectedProvider=="1033")"Prex" else "eBROU"} para tu recarga de ${Amounts.format(state.amount)}.",express=engine.expressPreparing)
@@ -215,11 +215,8 @@ class MainActivity : FragmentActivity() {
                                 Primary("Volver al saldo",action=engine::refresh)
                             }
                             "blocked" -> {
-                                Title("No pudimos seguir")
-                                Text(state.message.ifBlank { "No se pudo completar este paso. Volvé al inicio para intentar nuevamente." },color=Muted)
-                                if(state.diagnostic.isNotBlank())Text("Referencia: ${state.diagnostic}",style=MaterialTheme.typography.bodySmall,color=Muted)
-                                if(state.activePayment!=null)Primary("Volver al saldo",action=engine::refresh)
-                                TextButton(onClick=engine::cancel){Text("Volver al inicio")}
+                                AppErrorScreen(state.message,state.diagnostic,payment=state.activePayment!=null,
+                                    onExit=if(state.activePayment!=null)engine::refresh else engine::cancel)
                             }
                         }
                         // One stable host: transitions never duplicate or recreate the authenticated browser.
@@ -294,10 +291,8 @@ class MainActivity : FragmentActivity() {
             }
             if (payment.busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             if (payment.message.isNotBlank()) {
-                Column(Modifier.weight(1f).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                    Notice(payment.message)
-                    Text("Volvé al saldo para consultar tu boletera.", color = Muted)
-                    Primary("Volver a Boletera", action = onClose)
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp)) {
+                    AppErrorScreen(payment.message,payment=true,onExit=onClose)
                 }
             } else {
                 BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {

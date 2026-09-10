@@ -27,16 +27,16 @@ class ExpressModeTest {
                     onExpressCharge=if(available)({starts++}) else null)
             }
         } } }
-        compose.onNodeWithText("Modo Express").assertDoesNotExist()
+        compose.onNodeWithText("Carga Express").assertDoesNotExist()
         compose.onNodeWithText("Recargar boletera").performScrollTo().performClick();assertEquals(1,common)
         compose.runOnIdle { available=true }
-        compose.onNodeWithText("Modo Express").performScrollTo().performClick();assertEquals(0,starts)
-        compose.onNodeWithText("Modo Express").performTouchInput { down(center);advanceEventTime(600);up() };assertEquals(0,starts)
-        compose.onNodeWithText("Modo Express").performTouchInput { longClick(durationMillis=1500) };assertEquals(1,starts)
+        compose.onNodeWithText("Carga Express").performScrollTo().performClick();assertEquals(0,starts)
+        compose.onNodeWithText("Carga Express").performTouchInput { down(center);advanceEventTime(600);up() };assertEquals(0,starts)
+        compose.onNodeWithText("Carga Express").performTouchInput { longClick(durationMillis=1500) };assertEquals(1,starts)
         compose.onNodeWithText("Recargar boletera").assertExists()
         compose.onNodeWithText("Activar").assertDoesNotExist();compose.onNodeWithText("Ajustar").assertDoesNotExist()
         compose.runOnIdle {busy=true}
-        compose.onNodeWithText("Modo Express").performTouchInput { longClick(durationMillis=1500) };assertEquals(1,starts)
+        compose.onNodeWithText("Carga Express").performTouchInput { longClick(durationMillis=1500) };assertEquals(1,starts)
     }
 
     @Test fun visibilityRequiresCompleteDefaultsAndInterruptedRequestsCannotContinue() {
@@ -55,7 +55,7 @@ class ExpressModeTest {
             assertTrue(engine.savePayer(person));assertFalse(engine.expressAvailable)
             choices.provider="1033";assertFalse(engine.expressAvailable)
             choices.card="DEMO1234";assertTrue(engine.expressAvailable)
-            choices.provider="1002";assertFalse(engine.expressAvailable);choices.provider="1033"
+            choices.provider="unsupported";assertFalse(engine.expressAvailable);choices.provider="1033"
             state.value=state.value.copy(minimum=null);assertFalse(engine.expressAvailable)
             state.value=state.value.copy(minimum=26000,selectedCard="OTHER5678");assertFalse(engine.expressAvailable)
             engine.startExpress();assertNull(request.get(engine))
@@ -73,4 +73,31 @@ class ExpressModeTest {
             engine.cancel();engine.forgetChoices()
         }
     }
+    @Test fun savedBrouNeedsNoPrexProfileAndUsesTheCurrentAccountMinimum() {
+        compose.runOnIdle {
+            val engine=MainActivity::class.java.getDeclaredField("engine").apply {isAccessible=true}.get(compose.activity) as StmEngine
+            val choices=StmEngine::class.java.getDeclaredField("choices").apply {isAccessible=true}.get(engine) as JourneyPreferences
+            @Suppress("UNCHECKED_CAST")
+            val state=StmEngine::class.java.getDeclaredField("state\$delegate").apply {isAccessible=true}.get(engine) as MutableState<UiState>
+            val request=StmEngine::class.java.getDeclaredField("expressRequest").apply {isAccessible=true}
+            val snapshot=StmEngine::class.java.getDeclaredMethod("applySnapshot",org.json.JSONObject::class.java).apply {isAccessible=true}
+            engine.forgetChoices();choices.useAccount("00000000");choices.provider="1002";choices.card="DEMO1234"
+            StmEngine::class.java.getDeclaredField("accountVerified").apply {isAccessible=true}.setBoolean(engine,true)
+            StmEngine::class.java.getDeclaredField("pageStage").apply {isAccessible=true}.set(engine,"amount")
+            state.value=UiState(stage="balance",selectedCard="DEMO1234",cards=listOf(CardInfo("DEMO1234",true,"Operativa")),minimum=56400,balance=-30400)
+            assertTrue(engine.payerProfiles.isEmpty());assertTrue(engine.expressAvailable);assertEquals("eBROU",engine.expressProviderName)
+            state.value=state.value.copy(minimum=73100)
+            engine.startExpress()
+            assertEquals(73100L,engine.state.amount)
+            assertEquals(ExpressChoice("DEMO1234","1002",null),request.get(engine))
+            engine.startExpress();assertEquals(73100L,engine.state.amount)
+            snapshot.invoke(engine,org.json.JSONObject("""{"stage":"paymentBoundary","providers":[{"id":"1002","name":"BROU"}]}"""))
+            assertEquals("1002",engine.state.activePayment?.provider)
+            assertEquals(73100L,engine.state.activePayment?.amount)
+            assertNull(engine.state.activePayment?.payerProfileId)
+            assertNull(request.get(engine))
+            engine.cancel();engine.forgetChoices()
+        }
+    }
+
 }

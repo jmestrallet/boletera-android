@@ -2,7 +2,7 @@
 
 Acceso discreto al pie de la boletera y desde Configuración. Lista desplegable: 1 h, 2 h, paradas de intercambio, combinación metropolitana, céntrico, zonal, diferencial, común en efectivo y categorías especiales. Lectura local sin conexión; solo se abre el navegador al tocar una fuente.
 
-Los precios son una referencia fechada incluida en esta versión, no una consulta automática en vivo. Se indica fecha de vigencia y revisión. La guía no cambia el mínimo de recarga ni calcula plazos de bloqueo. Desde 0.2.13, el saldo incluye un carrusel de combinaciones exclusivamente de 1 h ($52) y 2 h ($78), a tarifa común electrónica. Muestra cantidades enteras y sobrante, sin usar sobregiro ni categorías especiales. Con $1.000 hay 14 alternativas: 19 de 1 h; 12 de 2 h; 7 de 1 h + 8 de 2 h; y otras mezclas. Los saldos altos tienen una selección acotada de hasta 49 opciones. Cambia cada cinco segundos (o el plazo recomendado de accesibilidad), permite avanzar al tocar y se pausa cuando la app pasa al fondo. La acción accesible permite pausar/reanudar. Un saldo desconocido, negativo o menor a $52 no muestra combinaciones. Es una estimación: depende del saldo informado por STM, que puede demorar en reflejar viajes, y de estas tarifas de referencia.
+Los precios son una referencia fechada incluida en esta versión, no una consulta automática en vivo. Se indica fecha de vigencia y revisión. La guía no cambia el mínimo de recarga ni calcula plazos de bloqueo. Desde 0.2.14 se retiran las combinaciones de boletos de la home a pedido del usuario. La guía permanece separada; no hay un cálculo de viajes posibles con el saldo.
 
 ## Fuentes verificadas
 

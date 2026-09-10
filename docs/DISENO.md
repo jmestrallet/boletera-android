@@ -60,4 +60,10 @@ Configuración incorpora Probar vibración con el pulso largo nativo. Se informa
 
 ## Express como atajo · 0.2.10
 
-Recargar boletera conserva la jerarquía principal. El control secundario Modo Express se ubica debajo y aparece solo con los datos habituales completos. Una pulsación de 1,2 s llena un anillo, comprime el control y emite pulsos; soltar antes cancela. Al terminar inicia esa recarga directamente, sin pantalla de configuración, activación persistente ni confirmación del modo. [Recorrido y condiciones](MODO-EXPRESS.md). Las capturas de `ExpressDemo` usan componentes de producción con datos ficticios; no representan una operación bancaria.
+Recargar boletera conserva la jerarquía principal. El control secundario Carga Express se ubica debajo y aparece solo con los datos habituales completos. Una pulsación de 1,2 s llena un anillo, comprime el control y emite pulsos; soltar antes cancela. Al terminar inicia esa recarga directamente, sin pantalla de configuración, activación persistente ni confirmación del modo. [Recorrido y condiciones](MODO-EXPRESS.md). Las capturas de `ExpressDemo` usan componentes de producción con datos ficticios; no representan una operación bancaria.
+
+## Home y errores — 0.2.14
+
+Se elimina el carrusel de boletos y el bloque separado de mínimo. Un panel integra identificación, saldo y mínimo actual; Carga Express permanece secundario. La tarjeta sin contacto sustituye la banda bancaria y se comparte en cabecera, saldo y selector. La home se comprueba completa sin scroll en 360 × 640 dp con letra normal; con ampliación accesible conserva desplazamiento para no recortar texto.
+
+Los errores que la app detecta en el recorrido principal y Prex usan la misma pantalla: ilustración de recorrido interrumpido, categoría prudente, explicación, detalle desplegable y salida. No se reintenta automáticamente una recarga. El reporte al desarrollador es un botón deshabilitado con Próximamente; no hay envío, captura ni recopilación adicional. No es un recuperador de cierres abruptos del proceso Android.

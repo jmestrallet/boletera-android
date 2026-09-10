@@ -120,16 +120,9 @@ internal enum class Glyph { Ticket, Arrow, Back, Close, Settings, Check, Lock, F
         Glyph.Info->R.drawable.ic_info; Glyph.Moon->R.drawable.ic_dark_mode; Glyph.Sun->R.drawable.ic_light_mode
         Glyph.Phone->R.drawable.ic_smartphone; Glyph.Chevron->R.drawable.ic_chevron_right; Glyph.Eye->R.drawable.ic_visibility
         Glyph.EyeOff->R.drawable.ic_visibility_off; Glyph.Download->R.drawable.ic_download; Glyph.Exit->R.drawable.ic_logout
-        Glyph.Ticket->null
+        Glyph.Ticket->R.drawable.ic_transit_card
     }
-    if(resource!=null) { Icon(painterResource(resource),contentDescription=label,modifier=modifier,tint=tint);return }
-    Canvas(if(label==null)modifier else modifier.semantics { contentDescription=label }) {
-        scale(size.width/24f,size.height/24f,pivot=Offset.Zero) {
-            drawRoundRect(tint,Offset(3f,5f),Size(18f,14f),CornerRadius(3f),style=Stroke(1.8f,cap=StrokeCap.Round))
-            drawLine(tint,Offset(7f,10f),Offset(17f,10f),1.8f,StrokeCap.Round)
-            drawLine(tint,Offset(7f,14f),Offset(13f,14f),1.8f,StrokeCap.Round)
-        }
-    }
+    Icon(painterResource(resource),contentDescription=label,modifier=modifier,tint=tint)
 }
 
 @Composable internal fun AppTopBar(onSettings: (() -> Unit)? = null, title: String? = null, onBack: (() -> Unit)? = null) {

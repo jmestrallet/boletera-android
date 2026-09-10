@@ -36,7 +36,7 @@ import kotlin.math.sin
 
 /** A one-shot shortcut. No activation preference, configuration screen, or change to ordinary recharge. */
 @OptIn(ExperimentalFoundationApi::class)
-@Composable internal fun ExpressShortcut(amount: Long?, enabled: Boolean, onExplain: (() -> Unit)? = null, preparing: Boolean = false, onStart: () -> Unit) {
+@Composable internal fun ExpressShortcut(amount: Long?, enabled: Boolean, onExplain: (() -> Unit)? = null, preparing: Boolean = false, providerName: String = "Medio guardado", onStart: () -> Unit) {
     val interaction=remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     var fired by remember { mutableStateOf(false) }
@@ -69,18 +69,18 @@ import kotlin.math.sin
             .graphicsLayer { scaleX=scale;scaleY=scale;shape=RoundedCornerShape(24.dp);clip=true }
             .combinedClickable(interactionSource=interaction,indication=ripple(),enabled=enabled,
                 onClick={if(!preparing){haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onExplain?.invoke()}},
-                onLongClickLabel="Recargar el mínimo con Prex",onLongClick=::start)
+                onLongClickLabel="Recargar el mínimo con $providerName",onLongClick=::start)
             .testTag("expressShortcut")
             .semantics {
                 progressBarRangeInfo=ProgressBarRangeInfo(progress,0f..1f)
                 stateDescription=if(preparing)"Preparando la recarga. Ya podés soltar." else if(fired)"Pulsación aceptada" else "Mantené apretado para recargar"
-                if(enabled && !preparing) customActions=listOf(CustomAccessibilityAction("Recargar ${Amounts.format(amount)} con Prex") { start();true })
+                if(enabled && !preparing) customActions=listOf(CustomAccessibilityAction("Recargar ${Amounts.format(amount)} con $providerName") { start();true })
             }) {
             Row(Modifier.padding(horizontal=18.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
                 ExpressEnergy(progress,preparing,ink,Modifier.size(56.dp))
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)) {
-                    Text(if(preparing)"Preparando tu recarga" else "Modo Express",style=MaterialTheme.typography.titleMedium,color=ink)
-                    Text(when {preparing->"Ya podés soltar · conectando con STM";fired->"Listo · ya podés soltar";pressed->"Soltá antes de completar para cancelar";else->"Prex · ${Amounts.format(amount)} · mantené apretado"},style=MaterialTheme.typography.bodySmall,color=Muted)
+                    Text(if(preparing)"Preparando tu recarga" else "Carga Express",style=MaterialTheme.typography.titleMedium,color=ink)
+                    Text(when {preparing->"Ya podés soltar · conectando con STM";fired->"Listo · ya podés soltar";pressed->"Soltá antes de completar para cancelar";else->"$providerName · ${Amounts.format(amount)} · mantené apretado"},style=MaterialTheme.typography.bodySmall,color=Muted)
                 }
             }
         }

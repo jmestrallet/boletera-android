@@ -21,12 +21,12 @@ import androidx.compose.ui.unit.dp
     var skip by rememberSaveable { mutableStateOf(false) }
     AlertDialog(onDismissRequest=onClose,containerColor=Paper,
         icon={AppGlyph(Glyph.Arrow,tint=MaterialTheme.colorScheme.primary)},
-        title={Text("Así funciona Express")},
+        title={Text("Así funciona Carga Express")},
         text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            Text("Prepara una recarga de ${Amounts.format(amount)}, el mínimo que pide STM, en la boletera que estás viendo.")
-            Text("Usa Prex y tu titular habitual. Saltea la elección del importe y los datos que ya tenés guardados.")
-            Text("Vos completás el CAPTCHA si aparece y continuás con tu tarjeta y las verificaciones del pago.")
-            Text("La próxima vez, mantené Express apretado hasta completar el círculo. Si soltás antes, se cancela el atajo.")
+            Text("Recarga el mínimo que STM indique para esta boletera. Puede cambiar entre cuentas y consultas. Ahora es ${Amounts.format(amount)}.")
+            Text("Usa tu medio de pago guardado y completa los pasos que ya dejaste preparados.")
+            Text("Vos completás las verificaciones que aparezcan y autorizás el pago en el medio elegido.")
+            Text("La próxima vez, mantené Carga Express apretado hasta completar el círculo. Si soltás antes, se cancela el atajo.")
             Row(Modifier.fillMaxWidth().toggleable(skip,role=Role.Checkbox,onValueChange={skip=it}),verticalAlignment=Alignment.CenterVertically) {
                 Checkbox(skip,onCheckedChange=null)
                 Text("No volver a mostrar",modifier=Modifier.weight(1f))
