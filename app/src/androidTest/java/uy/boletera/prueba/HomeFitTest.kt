@@ -31,7 +31,7 @@ class HomeFitTest {
         }
     }
     private fun verifyFit() {
-        compose.onNodeWithText("Boletos y tarifas").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Boletos y tarifas").assertIsDisplayed()
         compose.onNodeWithText("Carga Express").assertIsDisplayed()
         compose.onNodeWithText("Recargar boletera").assertIsDisplayed()
         val scrolls=compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)).fetchSemanticsNodes()
@@ -56,7 +56,7 @@ class HomeFitTest {
         screenshot("home-fit-positive.png")
         compose.runOnIdle {state.value=state.value.copy(balance=-4500)}
         verifyFit();screenshot("home-fit-negative.png")
-        compose.onNodeWithText("Boletos y tarifas").performClick()
+        compose.onNodeWithContentDescription("Boletos y tarifas").performClick()
         compose.onNodeWithText("1 hora").assertExists()
     }
 }

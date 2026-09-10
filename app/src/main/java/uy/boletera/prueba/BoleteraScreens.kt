@@ -109,16 +109,16 @@ import java.util.Locale
                     }
                 }
             }
-        Column(verticalArrangement=Arrangement.spacedBy(0.dp)) {
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            AppGlyph(Glyph.Info,Modifier.size(18.dp),tint=Muted)
-            Text("Los viajes de las últimas 72 horas pueden estar pendientes de descuento.",style=MaterialTheme.typography.bodySmall,color=Muted,modifier=Modifier.weight(1f))
-        }
-        if(onTicketGuide!=null) TextButton(onClick=onTicketGuide,modifier=Modifier.align(Alignment.CenterHorizontally)) {
-            AppGlyph(Glyph.Info,Modifier.size(18.dp),tint=Muted)
-            Spacer(Modifier.width(8.dp))
-            Text("Boletos y tarifas",color=Muted,style=MaterialTheme.typography.bodySmall)
-        }
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically) {
+                AppGlyph(Glyph.Info,Modifier.size(16.dp),tint=Muted)
+                Text("Puede haber viajes de las últimas 72 h sin descontar.",style=MaterialTheme.typography.bodySmall,color=Muted,modifier=Modifier.weight(1f))
+            }
+            if(onTicketGuide!=null) TextButton(onClick=onTicketGuide,modifier=Modifier.semantics {contentDescription="Boletos y tarifas"}) {
+                AppGlyph(Glyph.Ticket,Modifier.size(18.dp),tint=Muted)
+                Spacer(Modifier.width(6.dp))
+                Text("Boletos",color=Muted,style=MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

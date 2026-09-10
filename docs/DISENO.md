@@ -75,3 +75,7 @@ A pedido del usuario se recupera la composición anterior a 0.2.14: Tu boletera 
 ## Icono original — 0.2.16
 
 Se restaura el rectángulo redondeado con dos líneas del diseño original. El recurso de la interfaz reproduce sus coordenadas y trazo; el lanzador recupera el recurso previo a las variantes de ondas y ómnibus. La home permanece igual a 0.2.15.
+
+## Pie en una fila — 0.2.17
+
+Solo cambia el pie: aviso abreviado a la izquierda y botón Boletos con nombre accesible Boletos y tarifas a la derecha. El texto conserva el significado de viajes de las últimas 72 horas pendientes de descontar. No se alteran los tamaños ni separaciones de los paneles superiores; el texto ampliado puede ocupar más líneas sin recortarse.

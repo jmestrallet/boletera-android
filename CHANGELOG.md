@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.2.17-prueba — ajuste sutil del pie
+
+- Aviso abreviado de viajes pendientes y acceso a Boletos uno al lado del otro.
+- Se mantienen los tamaños, paneles y separaciones del resto de la home. El icono original no cambia.
+
 ## 0.2.16-prueba — icono original
 
 - Se recupera el icono original de boletera: rectángulo redondeado con dos líneas, tanto dentro de la app como en el lanzador.

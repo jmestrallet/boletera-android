@@ -1,6 +1,14 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.16
+## Versión vigente: 0.2.17
+
+Ajuste limitado al pie de la home: aviso abreviado de viajes de las últimas 72 horas sin descontar a la izquierda y acceso a Boletos a la derecha. Los tamaños, paneles y separaciones superiores no cambian. Se conserva el icono original.
+
+48 pruebas JavaScript, ocho JVM, release/debug/pruebas/lint aprobados; compilación final en 34 s. HomeFitTest aprobado en 4,665 s (`outputs/footer-fit-0.2.17.txt`) con 1080 × 2280, 420 dpi y letra 1×: saldo positivo y negativo, mínimo actualizado, ayuda y acceso a la guía; desplazamiento máximo cero. Captura oscura revisada: `outputs/footer-home-0.2.17.png`. El espacio útil y la escala de letra varían entre teléfonos; el texto se conserva sin recorte si hace falta desplazarse en otra configuración.
+
+APK código 35, SHA-256 `5b57623bf34dd2b88e3aa10602b15223b8fd43a90d19fbcfc4a902acd6e6afe4`, misma firma. No se instaló nada en el teléfono ni se realizaron operaciones financieras.
+
+## Versión anterior: 0.2.16
 
 Se restaura el icono original: rectángulo redondeado con dos líneas. El recurso de interfaz reproduce las coordenadas, proporciones y grosor del dibujo original de 0.2.13; los recursos del lanzador se recuperan sin diferencias respecto de esa revisión. No cambia la home ni el recorrido de pago.
 
