@@ -180,7 +180,7 @@ import java.util.Locale
                 Text(updates.message,style=MaterialTheme.typography.bodyMedium,color=Muted)
                 if(updates.busy)LinearProgressIndicator(Modifier.fillMaxWidth())
                 if(updates.ready)Primary("Instalar actualización",!updates.busy,onInstall)
-                else if(updates.release!=null)Primary("Descargar actualización",!updates.busy,updates::download)
+                else if(updates.release!=null)Primary("Actualizar ahora",!updates.busy,updates::download)
                 else OutlinedButton(onClick=updates::check,enabled=!updates.busy,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)) { Text("Buscar actualizaciones") }
                 if(updates.release!=null)TextButton(onClick=updates::check,enabled=!updates.busy) { Text("Buscar actualizaciones") }
             }

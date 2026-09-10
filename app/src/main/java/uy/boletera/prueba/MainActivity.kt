@@ -22,6 +22,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.withResumed
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +64,16 @@ class MainActivity : FragmentActivity() {
     @Composable private fun App(appearance: String, onAppearance: (String) -> Unit) {
         val state = engine.state
         val updates: AppUpdates = viewModel()
+        DisposableEffect(updates) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) updates.onForeground(this@MainActivity)
+            }
+            lifecycle.addObserver(observer)
+            onDispose { lifecycle.removeObserver(observer) }
+        }
+        LaunchedEffect(updates.installRequested, updates.busy) {
+            if (updates.installRequested && !updates.busy) lifecycle.withResumed { updates.install(this@MainActivity) }
+        }
         var automaticUnlockHandled by rememberSaveable { mutableStateOf(false) }
         var authenticating by remember { mutableStateOf(false) }
         fun unlockSavedAccess() {

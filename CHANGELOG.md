@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.4-prueba — instalador automático
+
+- Actualizar ahora descarga y verifica la APK; al terminar abre la confirmación de Android sin otro toque.
+- Al habilitar la instalación desde Boletera y volver, continúa automáticamente.
+- Si se deniega el permiso o se cancela la instalación, no insiste en bucle; conserva la opción manual.
+- Una descarga terminada en segundo plano espera a que la app vuelva a estar activa antes de abrir el instalador.
+
 ## 0.2.3-prueba — pago más claro y acción siempre visible
 
 - Preparación de recarga compacta con importe, selección directa de Prex/eBROU y acción fija al pie.

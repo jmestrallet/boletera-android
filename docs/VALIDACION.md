@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.3
+## Versión vigente: 0.2.4
+
+Actualizar ahora conserva la descarga y verificación existentes y solicita abrir el instalador al completarlas. Si la app está en segundo plano, espera al regreso. La solicitud se consume antes de abrir Android para evitar repeticiones. Al habilitar la instalación desde Boletera y volver, se reanuda automáticamente; rechazar el permiso conserva la opción manual sin insistir.
+
+Pasaron seis pruebas Android: apertura automática una sola vez y solo en primer plano, descarga pública con digest correcto, rechazo de alteraciones/retrocesos, validación de identidad y firma, selección de versiones y apertura real del instalador con permiso temporal. Una séptima prueba usó la pantalla real de permisos de Android y comprobó tanto volver sin habilitarlo como habilitarlo y continuar. No se confirmó ninguna instalación.
+
+La prueba del disparo automático usa un estado de descarga verificada simulado y una APK local; las comprobaciones de descarga, integridad e instalador se ejecutan por separado. Esto no representa haber instalado una versión nueva de extremo a extremo. Registros: `outputs/automatic-install-0.2.4-test.txt` y `outputs/automatic-install-permission-0.2.4-test.txt`. Compilación release y lint aprobados.
+
+APK 0.2.4-prueba, código 22, SHA-256 `A7DB8105EBF02E7BFB9C74692F296A0648C1E5A13DD856B14E31503A776A3C03`. Para instalarla desde una versión anterior todavía se toca Instalar actualización manualmente; el automatismo aplica una vez instalada la 0.2.4. Se publica en GitHub sin instalarla en el teléfono. La huella no se modificó: el usuario aclaró que el problema era una descarga que todavía no había instalado.
+
+## Versión anterior: 0.2.3
 
 Revisión de la preparación de recarga y las pantallas de pago: contenido compacto, acción principal fija, alta directa sin titulares, selección automática del único titular y lista aparte si hay varios. Se corrigen los textos que confundían perfiles con tarjetas, uso habitual y confirmación de pago. Formulario con nombre opcional, validación visible y guardado fijo. [Hallazgos y alcance](AUDITORIA-PAGOS-UX.md).
 

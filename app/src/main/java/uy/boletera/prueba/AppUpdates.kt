@@ -146,6 +146,8 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     var message by mutableStateOf("Buscá una versión nueva sin salir de la app."); private set
     internal var release by mutableStateOf<UpdateRelease?>(null); private set
     var ready by mutableStateOf(false); private set
+    var installRequested by mutableStateOf(false); private set
+    private var awaitingInstallPermission = false
     private val worker = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     private var closed = false
@@ -161,6 +163,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     }
     fun check() {
         if (busy) return
+        installRequested = false; awaitingInstallPermission = false
         ready = false; release = null; message = "Buscando actualizaciones…"
         work {
             val connection = UpdateFiles.open(UpdatePolicy.API)
@@ -179,6 +182,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     fun download() {
         val selected = release ?: return
         if (busy) return
+        installRequested = false; awaitingInstallPermission = false
         ready = false; message = "Descargando…"
         work {
             apk.parentFile!!.mkdirs()
@@ -187,21 +191,29 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                 UpdateFiles.download(selected, partial) { percent -> publish { message = "Descargando… $percent %" } }
                 UpdateFiles.verify(getApplication(), partial, selected.version)
                 check(partial.renameTo(apk)) { "No se pudo guardar la descarga." }
-                publish { ready = true; message = "Descarga lista. Tocá Instalar actualización." }
+                publish { ready = true; installRequested = true; message = "Descarga verificada. Abriendo el instalador…" }
             } finally { partial.delete() }
         }
     }
+    fun onForeground(context: Context) {
+        if (!awaitingInstallPermission) return
+        awaitingInstallPermission = false
+        if (context.packageManager.canRequestPackageInstalls() && ready) installRequested = true
+        else message = "Falta habilitar la instalación desde Boletera. Podés volver a intentarlo."
+    }
     fun install(context: Context) {
         if (!ready || busy) return
+        installRequested = false
         try {
             if (!context.packageManager.canRequestPackageInstalls()) {
-                message = "Activá «Permitir desde esta fuente», volvé y tocá Instalar actualización."
+                awaitingInstallPermission = true
+                message = "Activá «Permitir desde esta fuente» y volvé. El instalador se abrirá automáticamente."
                 context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
                 return
             }
             context.startActivity(UpdateFiles.installIntent(context, apk))
             message = "Confirmá la instalación en Android. Si la cancelás, podés volver a intentarlo."
-        } catch (_: Exception) { message = "Android no pudo abrir el instalador. Volvé a intentar." }
+        } catch (_: Exception) { awaitingInstallPermission = false; message = "Android no pudo abrir el instalador. Volvé a intentar." }
     }
     override fun onCleared() { closed = true; worker.shutdownNow(); main.removeCallbacksAndMessages(null) }
 }
