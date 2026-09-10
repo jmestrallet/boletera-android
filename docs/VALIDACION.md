@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.26
+## Versión vigente: 0.2.27
+
+El dueño confirmó que el caso reportado era una autorización inicial para vincular STM y Usuario gub.uy. El rastro password → unknown era compatible con ese paso; la app no dispone todavía de un adaptador verificado para presentar ese consentimiento de forma nativa. Se implementó la alternativa autorizada: informar y guiar al navegador, sin aceptar por la persona.
+
+Antes del ingreso aparece ¿Es tu primer ingreso a STM? con una guía y Abrir STM. Si un paso desconocido persiste después de la pantalla de contraseña, el motor detiene el intento y limpia las credenciales temporales, muestra Completá el acceso en la web de STM y ofrece el mismo recorrido. Conserva la espera de reconocimiento de 25 segundos para no interrumpir transiciones normales. El texto presenta la autorización inicial como una posibilidad, no como la clasificación de todo paso desconocido. El vínculo externo es fijo: https://stm.gub.uy/app/mistm/cuenta/, sin query, cookies, contraseñas ni tokens. Al volver no se afirma que el consentimiento esté concedido: Volver a ingresar permite un nuevo intento explícito.
+
+Compilación debug/release, ocho pruebas JVM y lint aprobados en 15 s. Nueve pruebas Android aprobadas en 61,750 s (`outputs/access-android-0.2.27.txt`): autorización ficticia sin pulsar Autorizar, enlace externo interceptado y comprobado sin datos de sesión, retorno y nuevo acceso ficticio, ayuda antes de credenciales, rechazo de acceso con 200/401, caída con 503 y recuperación de sesión. Captura `outputs/first-stm-access-0.2.27.png` revisada en 1080 × 2340, 420 dpi. La guía previa también pasó en 360 × 640 dp con letra 1,5× (`outputs/access-guide-large-0.2.27.txt`). No cambió JavaScript respecto de las 61 pruebas aprobadas en 0.2.26.
+
+APK código 45, 8.630.443 bytes, SHA-256 `1679fb6711117238571c7930ba9ea43ff4163d1e64d9c73ad1f9ad986d0faf27`, misma firma. No hubo autorización real, acceso con cuentas reales, instalación en el teléfono físico ni pagos. La prueba de reingreso simula que la autorización ya se completó en la web; falta verificar el recorrido completo en el caso real reportado.
+
+## Versión anterior: 0.2.26
 
 El dueño compartió el reporte de un tercero: al equivocarse en la contraseña, la pantalla decía que el servicio no respondió. La captura no mostraba la versión ni la respuesta exacta de gub.uy, por lo que no acredita una causa única ni permite medir el tiempo normal de acceso. En el código se encontraron la prioridad del error HTTP sobre el cuerpo reconocido y la ausencia de una presentación específica para credenciales rechazadas.
 

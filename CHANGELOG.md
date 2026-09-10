@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.27-prueba — primer acceso y autorización de STM
+
+- Se agrega ¿Es tu primer ingreso a STM? antes de ingresar, con instrucciones y acceso al sitio público de STM.
+- Un paso desconocido persistente después de la contraseña ofrece Completá el acceso en la web de STM, en vez del error genérico. Se explica que la autorización inicial es una posibilidad, sin afirmar que todo paso desconocido sea consentimiento.
+- Abrir STM en el navegador no transporta credenciales, cookies ni enlaces de la sesión interna. La autorización se decide en el sitio; Volver a ingresar inicia luego un intento normal y explícito. No se aceptan autorizaciones automáticamente.
+
 ## 0.2.26-prueba — errores de acceso claros
 
 - Los mensajes visibles de gub.uy que rechazan documento o contraseña se clasifican antes del error HTTP genérico. Se muestra Revisá tus datos, una explicación directa y Corregir datos.

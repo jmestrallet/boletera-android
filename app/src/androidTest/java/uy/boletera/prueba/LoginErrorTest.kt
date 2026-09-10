@@ -19,7 +19,7 @@ class LoginErrorTest {
     @Volatile private var httpFailure:Pair<WebResourceRequest,WebResourceResponse>?=null
     private val submitted=AtomicInteger()
     private val root="https://stm.gub.uy/app/mistm/cuenta/pages/"
-    private fun setup(status:Int,body:String) {
+    private fun setup(status:Int,body:String,expected:String="blocked") {
         compose.runOnIdle {
             engine=MainActivity::class.java.getDeclaredField("engine").apply{isAccessible=true}.get(compose.activity) as StmEngine
             engine.forgetChoices()
@@ -55,7 +55,7 @@ class LoginErrorTest {
             engine.savedAccess(true)
             engine.connect("00000000","synthetic-rejected-password")
         }
-        compose.waitUntil(20000){engine.state.stage=="blocked"}
+        compose.waitUntil(if(expected=="accessHelp")35000 else 20000){engine.state.stage==expected}
     }
     private fun checkRejection(status:Int) {
         setup(status,"<form><input type='password'><button>Continuar</button><div class='error-message'>Documento o contraseña incorrectos</div></form>")
@@ -87,5 +87,53 @@ class LoginErrorTest {
         compose.onNodeWithText("DATOS DE ACCESO").assertDoesNotExist()
         assertEquals(1,submitted.get())
         compose.runOnIdle {engine.forgetChoices()}
+    }
+    @Test fun firstAccessConsentIsNeverAcceptedAndOffersPublicStmBrowserThenRetry() {
+        setup(200,"<h1>Autorización para STM</h1><p>Compartir datos de Usuario gub.uy</p><button onclick='window.approved=true'>Autorizar</button>","accessHelp")
+        compose.onNodeWithText("Completá el acceso\nen la web de STM").assertIsDisplayed()
+        compose.onNodeWithText("PASO INTERRUMPIDO").assertDoesNotExist()
+        assertEquals(1,submitted.get())
+        val latch=java.util.concurrent.CountDownLatch(1)
+        var approved=""
+        compose.runOnIdle {
+            engine.web.evaluateJavascript("Boolean(window.approved)"){approved=it;latch.countDown()}
+            assertNull(StmEngine::class.java.getDeclaredField("password").apply{isAccessible=true}.get(engine))
+        }
+        assertTrue(latch.await(5,java.util.concurrent.TimeUnit.SECONDS));assertEquals("false",approved)
+        val instrumentation=InstrumentationRegistry.getInstrumentation()
+        val intents=java.util.concurrent.CopyOnWriteArrayList<android.content.Intent>()
+        val monitor=object:android.app.Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent:android.content.Intent?):android.app.Instrumentation.ActivityResult? {
+                if(intent?.action==android.content.Intent.ACTION_VIEW) {
+                    intents.add(android.content.Intent(intent));return android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_CANCELED,null)
+                }
+                return null
+            }
+        }
+        instrumentation.addMonitor(monitor)
+        try {
+            compose.onNodeWithText("Abrir STM en el navegador").performScrollTo().performClick()
+            assertEquals("https://stm.gub.uy/app/mistm/cuenta/",intents.single().data.toString())
+            assertTrue(intents.single().extras?.isEmpty!=false)
+            assertEquals("accessHelp",engine.state.stage);assertEquals(1,submitted.get())
+            compose.waitForIdle();android.os.SystemClock.sleep(300)
+            val shot=instrumentation.uiAutomation.takeScreenshot()
+            File(compose.activity.getExternalFilesDir(null),"first-stm-access.png").outputStream().use{shot.compress(Bitmap.CompressFormat.PNG,100,it)};shot.recycle()
+            reject=false // Fixture represents consent completed independently on the provider's website.
+            compose.onNodeWithText("Volver a ingresar").performScrollTo().performClick()
+            compose.onNodeWithText("Ingresar manualmente").performScrollTo().performClick()
+            compose.onNodeWithText("Documento uruguayo").performScrollTo().performTextInput("00000000")
+            compose.onNodeWithText("Contraseña de gub.uy").performScrollTo().performTextInput("synthetic-password")
+            compose.onNodeWithText("Ingresar",useUnmergedTree=true).performScrollTo().performClick()
+            compose.waitUntil(20000){engine.state.stage=="balance"&&engine.state.minimum==26000L&&!engine.state.busy}
+            assertEquals(2,submitted.get())
+        } finally {instrumentation.removeMonitor(monitor);compose.runOnIdle{engine.forgetChoices()}}
+    }
+    @Test fun firstAccessInstructionsAreAvailableBeforeEnteringCredentials() {
+        compose.onNodeWithText("¿Es tu primer ingreso a STM?").performScrollTo().performClick()
+        compose.onNodeWithText("Primer ingreso a STM").assertIsDisplayed()
+        compose.onNodeWithText("Abrir STM").assertIsDisplayed()
+        compose.onNodeWithText("Volver").performClick()
+        compose.onNodeWithText("Primer ingreso a STM").assertDoesNotExist()
     }
 }

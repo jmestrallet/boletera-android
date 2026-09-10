@@ -43,6 +43,14 @@ import androidx.fragment.app.FragmentActivity
 class MainActivity : FragmentActivity() {
     private lateinit var engine: StmEngine
     private lateinit var vault: AccessVault
+    private fun openStmAccess() {
+        try {
+            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://stm.gub.uy/app/mistm/cuenta/")).addCategory(android.content.Intent.CATEGORY_BROWSABLE))
+        } catch (_:android.content.ActivityNotFoundException) {
+            engine.notice("No se pudo abrir un navegador. Entrá a stm.gub.uy y buscá Mi STM.")
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Screenshots remain available for the owner's prototype feedback.
@@ -104,6 +112,7 @@ class MainActivity : FragmentActivity() {
         }
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showTicketGuide by rememberSaveable { mutableStateOf(false) }
+        var showAccessGuide by rememberSaveable { mutableStateOf(false) }
         var showExpressHelp by rememberSaveable { mutableStateOf(false) }
         val helpPreferences=remember { getSharedPreferences("feature_help",MODE_PRIVATE) }
         fun requestExpress() {
@@ -205,6 +214,7 @@ class MainActivity : FragmentActivity() {
                                     AppGlyph(Glyph.Lock,Modifier.size(16.dp),tint=Muted)
                                     Text("App independiente de STM · Versión de prueba",style=MaterialTheme.typography.bodySmall,color=Muted)
                                 }
+                                TextButton(onClick={showAccessGuide=true}) {Text("¿Es tu primer ingreso a STM?")}
                             }
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
                                 onExpressCharge=if(engine.expressAvailable)::requestExpress else null,
@@ -212,6 +222,13 @@ class MainActivity : FragmentActivity() {
                             "connecting" -> {
                                 LoadingState(if(state.recoveringSession)"Recuperando tu sesión" else if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(state.recoveringSession)"Estamos comprobando si podés volver a entrar sin identificarte otra vez." else if(engine.expressPreparing)"Ya podés soltar. Estamos preparando tu medio de pago." else "Estamos consultando el sitio. Tu información va a aparecer acá.",express=engine.expressPreparing)
                                 TextButton(onClick=::back) { Text("Cancelar") }
+                            }
+                            "accessHelp" -> {
+                                Title("Completá el acceso\nen la web de STM")
+                                Text("Después de la contraseña apareció un paso que Boletera todavía no reconoce.",color=Muted)
+                                StmAccessInstructions()
+                                Primary("Abrir STM en el navegador",action=::openStmAccess)
+                                TextButton(onClick=engine::cancel,modifier=Modifier.align(Alignment.CenterHorizontally)) {Text("Volver a ingresar")}
                             }
                             "openingPayment" -> LoadingState("Un momento…","Abriendo ${if(state.selectedProvider=="1033")"Prex" else "eBROU"} para tu recarga de ${Amounts.format(state.amount)}.",express=engine.expressPreparing)
                             "cards" -> {
@@ -269,6 +286,10 @@ class MainActivity : FragmentActivity() {
         }
         if(showAmount)AmountSheet(state,{showAmount=false}){amount->showAmount=false;engine.prepare(amount)}
         if(showTicketGuide)TicketGuideSheet {showTicketGuide=false}
+        if(showAccessGuide)AlertDialog(onDismissRequest={showAccessGuide=false},title={Text("Primer ingreso a STM")},
+            text={Column(Modifier.heightIn(max=350.dp).verticalScroll(rememberScrollState())) {StmAccessInstructions()}},
+            confirmButton={TextButton(onClick=::openStmAccess){Text("Abrir STM")}},
+            dismissButton={TextButton(onClick={showAccessGuide=false}){Text("Volver")}})
         if(showExpressHelp && stage=="balance")ExpressIntroDialog(state.minimum,
             onSkipChanged={skip->helpPreferences.edit().putBoolean("express_skip_intro_v1",skip).apply()},
             onClose={showExpressHelp=false},onAccept={skip->
@@ -296,6 +317,15 @@ class MainActivity : FragmentActivity() {
                 showForget = false
             }) { Text("Olvidar") } },
             dismissButton = { TextButton(onClick = { showForget = false }) { Text("Cancelar") } })
+    }
+}
+
+@Composable internal fun StmAccessInstructions() {
+    Column(verticalArrangement=Arrangement.spacedBy(14.dp)) {
+        Text("La primera vez, STM puede pedirte autorización para vincular tu Usuario gub.uy. Esa autorización la decidís vos en su sitio.",color=Muted)
+        Text("1. Abrí STM en el navegador e ingresá con el mismo Usuario gub.uy.",color=Ink)
+        Text("2. Revisá y completá allí la autorización u otro paso que te pida el sitio.",color=Ink)
+        Text("3. Volvé a Boletera e ingresá nuevamente.",color=Ink)
     }
 }
 

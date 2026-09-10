@@ -30,6 +30,7 @@ class StmEngine(private val context: Context) {
     private var destroyed = false
     private var polling = false
     private var pageStage = ""
+    private var passwordStepSeen = false
     private var navigationGeneration = 0
     private var secretsExpireAt = 0L
     private var sessionRequest = 0
@@ -155,7 +156,7 @@ class StmEngine(private val context: Context) {
         paymentInFlight = false; providerSubmitted = false; handoffSent = false
         interruptedAccess = false; stageTrail.clear()
         secretsExpireAt = System.currentTimeMillis() + 180000
-        lastAction = ""; pageStage = ""; actionStarted = System.currentTimeMillis()
+        lastAction = ""; pageStage = ""; passwordStepSeen = false; actionStarted = System.currentTimeMillis()
         state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId, paymentNeedsReview = paymentNeedsReview)
         active = false
         handler.removeCallbacks(poll)
@@ -386,6 +387,7 @@ class StmEngine(private val context: Context) {
 
     fun cancel() {
         sessionRequest++
+        passwordStepSeen = false
         recoveringSession = false; recoverySteps.clear(); paymentNeedsReview = false; pendingHttpError = null
         clearPaymentSession()
         clearSecrets(); active = false; accountVerified = false; paymentInFlight = false; handler.removeCallbacks(poll)
@@ -520,6 +522,7 @@ class StmEngine(private val context: Context) {
 
     private fun applySnapshot(data: JSONObject) {
         val stage = data.optString("stage", "unknown")
+        if(stage=="password")passwordStepSeen=true
         val loginStage = stage in setOf("start", "identity", "document", "password", "signedOut")
         if (stage == "sessionExpired" || accountVerified && loginStage) {
             if (recoveringSession) expired() else recoverSession()
@@ -672,7 +675,12 @@ class StmEngine(private val context: Context) {
             }
             "signedOut" -> expired()
             "unknown", "verification" -> if (System.currentTimeMillis() - actionStarted > 25000) {
-                if(recoveringSession)expired() else fail("Este acceso pide un paso que la prueba no reconoce. No vamos a mostrarte la página completa.")
+                if(recoveringSession)expired()
+                else if(!accountVerified && !paymentInFlight && passwordStepSeen) {
+                    clearSecrets();active=false;pendingHttpError=null;handler.removeCallbacks(poll)
+                    host.crop=null;web.stopLoading()
+                    state=state.copy(stage="accessHelp",busy=false,captcha=null,message="")
+                } else fail("Este acceso pide un paso que la prueba no reconoce. No vamos a mostrarte la página completa.")
             }
             "blocked" -> fail("Pantalla fuera del recorrido permitido.")
         }
