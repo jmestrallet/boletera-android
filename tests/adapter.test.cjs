@@ -148,6 +148,25 @@ test('invisible CAPTCHA is not exposed as an interactive panel', () => {
   const { adapter } = page('login', `<iframe src="https://www.google.com/recaptcha/api2/anchor?size=invisible"></iframe>`, 'mi.iduruguay.gub.uy');
   assert.equal(adapter.snapshot().captcha, null);
 });
+test('offscreen verification is positioned only by an explicit scroll command', () => {
+  const { dom, adapter } = page('login', '<iframe src="https://www.google.com/recaptcha/api2/anchor?size=normal"></iframe>', 'mi.iduruguay.gub.uy');
+  const frame = dom.window.document.querySelector('iframe');
+  let top = 2500, scrolls = 0, clicks = 0;
+  frame.getBoundingClientRect = () => ({ left: 10, top, width: 304, height: 78 });
+  frame.onclick = () => clicks++;
+  frame.scrollIntoView = () => { top = 50; scrolls++; };
+  assert.equal(adapter.snapshot().captcha.inViewport, false);
+  assert.equal(adapter.snapshot().captcha.y, 2500);
+  assert.equal(scrolls, 0);
+  assert.equal(adapter.command('positionCaptcha', ''), true);
+  assert.equal(adapter.snapshot().captcha.inViewport, true);
+  assert.equal(scrolls, 1);
+  assert.equal(clicks, 0);
+  assert.equal(adapter.command('positionCaptcha', ''), false);
+  frame.getBoundingClientRect = () => ({ left: -20, top: 50, width: 304, height: 78 });
+  assert.equal(adapter.snapshot().captcha.x, -20); // Do not silently crop the missing part.
+  assert.equal(adapter.snapshot().captcha.inViewport, false);
+});
 test('expanded challenge is prioritized over checkbox; hidden frames ignored', () => {
   const { adapter } = page('login', `
     <iframe src="https://www.google.com/recaptcha/api2/anchor?size=normal"></iframe>

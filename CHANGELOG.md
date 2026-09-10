@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.1.7-prueba
+
+- Exige completar el ingreso antes de mostrar o permitir reconocer un pago pendiente. Un intento de acceso sin verificar ya no puede eliminar ese aviso.
+- Desplaza la página original cuando su verificación queda fuera de la vista, antes de mostrar el recorte nativo. No copia el desafío ni automatiza su respuesta.
+- Comprueba que el desafío entre completo; si no se puede encuadrar, detiene el paso con una explicación.
+
+Las dos regresiones se reprodujeron antes de corregirlas. Aprobadas 22 pruebas JS, 6 JVM, lint y 11 Android; el panel chico y expandido recibió toques en un fixture local. CAPTCHA real, biometría física, autorización bancaria y acreditación siguen sin validación completa.
+
 ## 0.1.6-prueba
 
 - Permite volver al enlace de la solicitud anterior de Prex desde la revisión del pago o el saldo, sin volver a seleccionar proveedor ni crear otra solicitud en STM.

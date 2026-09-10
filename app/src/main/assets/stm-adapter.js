@@ -34,7 +34,7 @@
     const value = Number(raw);
     return Number.isFinite(value) ? Math.round(value * 100) : null;
   };
-  const captcha = () => {
+  const captchaFrame = () => {
     const frames = [...document.querySelectorAll('iframe')].filter(el => {
       try {
         const u = new URL(el.src);
@@ -42,11 +42,16 @@
           /\/recaptcha\//.test(u.pathname) && u.searchParams.get('size') !== 'invisible' && visible(el);
       } catch { return false; }
     });
-    const frame = frames.find(el => /\/bframe/.test(el.src)) || frames.find(el => /\/anchor/.test(el.src));
+    return frames.find(el => /\/bframe/.test(el.src)) || frames.find(el => /\/anchor/.test(el.src));
+  };
+  const captcha = () => {
+    const frame = captchaFrame();
     if (!frame) return null;
     const r = frame.getBoundingClientRect();
     // The original iframe is cropped by the native parent, never moved into another document.
-    return { x: Math.max(0, r.left), y: Math.max(0, r.top), width: r.width, height: r.height,
+    return { x: r.left, y: r.top, width: r.width, height: r.height,
+      viewportWidth: innerWidth, viewportHeight: innerHeight,
+      inViewport: r.left >= -1 && r.top >= -1 && r.left + r.width <= innerWidth + 1 && r.top + r.height <= innerHeight + 1,
       expanded: /\/bframe/.test(frame.src) };
   };
   const rowText = el => {
@@ -137,6 +142,13 @@
     if (!trusted()) return false;
     const state = snapshot();
     // A CAPTCHA must be handled by the user, not by commands or retries.
+    // Positioning scrolls the original page only: no frame content, click, answer or token is read or changed.
+    if (action === 'positionCaptcha' && state.captcha && !state.captcha.inViewport) {
+      const frame = captchaFrame();
+      if (!frame || typeof frame.scrollIntoView !== 'function') return false;
+      frame.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+      return true;
+    }
     if (action === 'start' && state.stage === 'start') return click(button(/INGRESAR CON USUARIO GUB\.UY/i));
     if (action === 'identity' && state.stage === 'identity') return click(button(/^Usuario Gub\.uy(?:$|\s|Realiza)/i));
     if (action === 'document' && state.stage === 'document') {

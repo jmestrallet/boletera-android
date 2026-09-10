@@ -121,6 +121,9 @@ class CardFlowRegressionTest {
                 assertFalse(engine.state.canReopenPrex)
                 engine.reopenPrexPayment()
                 assertTrue(chromeLinks.isEmpty()) // A document alone, before successful login, cannot reopen a saved payment.
+                engine.acknowledgePayment()
+                assertNotNull("An unverified login must not clear this account's pending payment", preferences.pending)
+                assertNull("Pending payment details stay hidden until login is complete", engine.state.pendingPayment)
             }
             compose.waitUntil(20000) { engine.state.stage == "balance" && engine.state.minimum == 56400L && !engine.state.busy }
             compose.runOnIdle { assertTrue(engine.state.canReopenPrex); assertNotNull(engine.state.pendingPayment) }

@@ -35,6 +35,7 @@ class StmEngine(private val context: Context) {
     private var sessionRequest = 0
     private val stageTrail = ArrayDeque<String>()
     private var interruptedAccess = false
+    private var accountVerified = false
     private var debugDestination = ""
     private val choices = JourneyPreferences(context)
     private var choosingCard = false
@@ -127,13 +128,14 @@ class StmEngine(private val context: Context) {
         if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
         clearSecrets()
         document = doc; password = pass
+        accountVerified = false
         choices.useAccount(doc)
         choosingCard = false
         paymentInFlight = false; providerSubmitted = false; handoffSent = false
         interruptedAccess = false; stageTrail.clear()
         secretsExpireAt = System.currentTimeMillis() + 180000
         lastAction = ""; pageStage = ""; actionStarted = System.currentTimeMillis()
-        state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess, pendingPayment = choices.pending)
+        state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess)
         active = false
         handler.removeCallbacks(poll)
         // A new explicit login must never silently reuse a DIFFERENT person's old web session.
@@ -194,6 +196,7 @@ class StmEngine(private val context: Context) {
     }
 
     fun acknowledgePayment() {
+        if (!accountVerified || state.busy) return
         if (!choices.acknowledgePayment()) { notice("No se pudo actualizar el registro local. No se inició otra carga."); return }
         state = state.copy(pendingPayment = null, canReopenPrex = false, message = "")
         paymentBrowser.close(); paymentInFlight = false; handoffSent = false
@@ -288,7 +291,7 @@ class StmEngine(private val context: Context) {
 
     fun cancel() {
         sessionRequest++
-        clearSecrets(); active = false; paymentInFlight = false; handler.removeCallbacks(poll)
+        clearSecrets(); active = false; accountVerified = false; paymentInFlight = false; handler.removeCallbacks(poll)
         web.stopLoading(); web.loadUrl("about:blank"); host.crop = null
         state = UiState(hasSavedAccess = state.hasSavedAccess)
     }
@@ -413,9 +416,23 @@ class StmEngine(private val context: Context) {
         pageStage = stage
         val c = data.optJSONObject("captcha")
         val rect = c?.let { CaptchaRect(it.optDouble("x").toFloat(), it.optDouble("y").toFloat(), it.optDouble("width").toFloat(), it.optDouble("height").toFloat()) }
-        if (rect != null && (!rect.width.isFinite() || !rect.height.isFinite() || rect.width < 20 || rect.height < 20 || rect.height > 1800)) {
+        if (rect != null && (!rect.x.isFinite() || !rect.y.isFinite() || !rect.width.isFinite() || !rect.height.isFinite() || rect.width < 20 || rect.height < 20 || rect.height > 1800)) {
             fail("El desafío no se pudo encuadrar. No mostraremos la página completa."); return
         }
+        if (rect != null && !c.optBoolean("inViewport", true)) {
+            host.crop = null
+            state = state.copy(captcha = null)
+            if (rect.width > c.optDouble("viewportWidth") + 1 || rect.height > c.optDouble("viewportHeight") + 1) {
+                fail("La verificación no entra completa en este tamaño de pantalla. No se enviaron respuestas al desafío.")
+            } else if (lastAction != "positionCaptcha") {
+                act("positionCaptcha")
+                state = state.copy(stage = "captcha", message = "Acomodando la verificación para que puedas completarla…")
+            } else if (System.currentTimeMillis() - actionStarted > 3000) {
+                fail("No pudimos encuadrar la verificación completa. Volvé a ingresar para intentarlo otra vez.")
+            }
+            return
+        }
+        if (rect != null && lastAction == "positionCaptcha") { lastAction = ""; state = state.copy(message = "") }
         host.crop = rect
         state = state.copy(captcha = rect)
         if (data.optBoolean("error")) {
@@ -444,7 +461,9 @@ class StmEngine(private val context: Context) {
                 val list = (0 until cards.length()).map { cards.getJSONObject(it) }.map { CardInfo(it.getString("id"), it.getBoolean("active"), it.getString("status")) }
                 if (list.isEmpty()) return // Never treat an unparsed/unfinished page as a completed login.
                 clearSecrets()
-                state = state.copy(stage = "cards", cards = list, canReopenPrex = choices.pendingPrexLink != null, message = "")
+                accountVerified = true
+                state = state.copy(stage = "cards", cards = list, pendingPayment = choices.pending,
+                    canReopenPrex = choices.pendingPrexLink != null, message = "")
                 val preferred = choices.card
                 if (!choosingCard && !state.busy && lastAction != "card" && preferred != null) {
                     if (list.any { it.id == preferred && it.active }) chooseCard(preferred)

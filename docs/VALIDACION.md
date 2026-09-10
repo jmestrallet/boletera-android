@@ -2,14 +2,14 @@
 
 ## Resultado
 
-La APK release 0.1.6 agrega recuperación del enlace de Prex y conserva Google. El inicio real de Prex y eBROU se comprobó con 0.1.5; las comprobaciones nuevas de 0.1.6 usan datos ficticios e interceptan la apertura del navegador. **No se validó una autorización bancaria ni acreditación. No está lista para publicación general.**
+La APK release 0.1.7 protege la revisión de pagos hasta completar el ingreso y corrige el encuadre de verificaciones fuera de la vista. Conserva Google y la recuperación de Prex. El inicio real de Prex y eBROU se comprobó con 0.1.5; las comprobaciones nuevas de 0.1.6 usan datos ficticios e interceptan la apertura del navegador. **No se validó una autorización bancaria ni acreditación. No está lista para publicación general.**
 
 | Comprobación | Resultado |
 |---|---|
-| Adaptador JavaScript: acceso, dinero, deuda, mínimo variable, tarjetas, origen, privacidad, CAPTCHA y límite de pago | 21 pruebas aprobadas; incluye formularios superpuestos, traspaso de identidad, selección de celda, importe mediante el control numérico de STM y medios de pago |
+| Adaptador JavaScript: acceso, dinero, deuda, mínimo variable, tarjetas, origen, privacidad, CAPTCHA y límite de pago | 22 pruebas aprobadas; incluye formularios superpuestos, traspaso de identidad, selección de celda, importe mediante el control numérico de STM y medios de pago |
 | Modelos JVM: importes exactos, mínimo, política de navegación y origen de respuestas durante transiciones | 6 pruebas aprobadas, incluyendo destinos y formulario de pago |
 | Compilación desde clon público limpio de GitHub (`a6724d5`) | APK debug, 3 pruebas JVM, lint y 11 pruebas JS aprobados. Sin `local.properties` ni claves del proyecto; se usaron JDK/SDK instalados y caché de dependencias de la PC |
-| Emulador Android 16: arranque nativo, fixture en WebView, ausencia de guardado plano sin biometría, capturas habilitadas y recorrido offline usando StmEngine con login en URL protegida y tabla demorada hasta saldo/mínimo | 9 pruebas locales aprobadas; también preferencias por cuenta, guardia pendiente, traspaso eBROU y recuperación cifrada de Prex |
+| Emulador Android 16: arranque nativo, fixture en WebView, ausencia de guardado plano sin biometría, capturas habilitadas y recorrido offline usando StmEngine con login en URL protegida y tabla demorada hasta saldo/mínimo | 10 pruebas locales aprobadas; también preferencias por cuenta, guardia pendiente, traspaso eBROU y recuperación cifrada de Prex |
 | Entrada pública real de STM desde WebView | Aprobada en Android 16 tras corregir la cadena TLS incompleta y reconocer la descripción incluida en el botón de identidad. Solo navegación pública; sin enviar documento ni contraseña |
 | Login real con credenciales del usuario en la APK | Comprobado en emulador Android 16 con credenciales autorizadas: la APK release 0.1.5 ingresó, recordó la boletera operativa y llegó automáticamente al saldo y mínimo. Pendiente de confirmación en teléfono físico |
 | CAPTCHA real completo dentro del recorte | No validado |
@@ -42,13 +42,21 @@ Se probó la persistencia cifrada del enlace tras recrear las preferencias, su s
 
 La suite final comprende 21 pruebas JavaScript, 6 JVM, lint y 10 pruebas Android (9 locales y el sondeo público). No se agregó un servicio de autocompletado ni se cambiaron los ajustes de Google.
 
+## Validación de 0.1.7
+
+Se reprodujo que un ingreso sin verificar podía eliminar el aviso pendiente; la regresión falló antes del cambio y aprobó después. Los avisos no se cargan en la interfaz ni pueden reconocerse hasta leer las boleteras de la sesión autenticada.
+
+Otra regresión Android reprodujo un iframe fuera del área visible del WebView. Se agregó una orden que desplaza la página original antes del recorte, sin leer ni modificar el contenido del desafío. Con un iframe completamente ficticio, servido localmente bajo URLs interceptadas, se verificaron el panel chico, el expandido y los toques a través del contenedor nativo. Se esperó la entrega asíncrona del evento; la comprobación de posición admite un píxel CSS de redondeo. Se inspeccionó la captura del panel expandido: texto y controles sin recortes.
+
+Resultado final: 22 pruebas JavaScript, 6 JVM, lint y 11 Android aprobadas. No se contactó Google para resolver un CAPTCHA ni se validó uno real; tampoco se autorizó un pago. El único sondeo de red de la suite es la entrada pública de STM.
+
 ## Evidencia local
 
 - JVM: `app/build/test-results/testDebugUnitTest/`.
 - Emulador: `app/build/outputs/androidTest-results/connected/debug/` y `app/build/reports/androidTests/connected/debug/`.
 - Lint: `app/build/reports/lint-results-debug.html`.
 - Captura de pantalla nativa sin datos personales: `outputs/welcome-test.png`.
-- Entrega: `outputs/boletera-prueba-0.1.6.apk` (7918446 bytes), SHA-256 `65a236a5fe291fb61a4793ba70bcf9796f55cdbf0dca0c2964e3ccc6fbe0b9e9`. Firma verificada, igual que las versiones anteriores.
+- Entrega: `outputs/boletera-prueba-0.1.7.apk` (7918654 bytes), SHA-256 `d8114f93387e34882b78e131d5a238c52a4a058a6bf25ad1911874c8eadc306b`. Firma verificada, igual que las versiones anteriores.
 
 ## Criterio para continuar
 
