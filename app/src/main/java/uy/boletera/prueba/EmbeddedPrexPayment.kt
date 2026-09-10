@@ -26,6 +26,8 @@ class EmbeddedPrexPayment(context: Context) {
         private set
     var expandedChallenge by mutableStateOf(false)
         private set
+    var cssViewportWidth by mutableStateOf(0f)
+        private set
     val chosenPayer get() = payer
     var busy by mutableStateOf(false)
         private set
@@ -62,6 +64,7 @@ class EmbeddedPrexPayment(context: Context) {
                         canContinue = state.optBoolean("canContinue")
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
+                        cssViewportWidth = state.optDouble("viewportWidth", 0.0).toFloat()
                     }
                 } catch (_: Exception) { nativeStage = "original" }
             }
@@ -80,6 +83,7 @@ class EmbeddedPrexPayment(context: Context) {
         }
     }
     private val nativeScript = context.assets.open("prex-native.js").bufferedReader().use { it.readText() }
+    private val verificationScript = context.assets.open("prex-verification.js").bufferedReader().use { it.readText() }
     private val payerScript = context.assets.open("prex-payer.js").bufferedReader().use { it.readText() }
     val web = WebView(context).apply {
         settings.javaScriptEnabled = true
@@ -126,7 +130,7 @@ class EmbeddedPrexPayment(context: Context) {
                 if (url == null || !allowedDestination(url)) return
                 busy = false
                 if (PaymentPolicy.gateway(url)) {
-                    view.evaluateJavascript(nativeScript + "\n" + payerScript, null)
+                    view.evaluateJavascript(verificationScript + "\n" + nativeScript + "\n" + payerScript, null)
                     payer?.let { profile ->
                         view.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.use(${profile.json()}); }", null)
                     }
@@ -181,6 +185,10 @@ class EmbeddedPrexPayment(context: Context) {
 
     fun positionVerification() {
         if (!destroyed && visible && nativeStage == "payer") web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.showVerification()", null)
+    }
+
+    fun restoreVerification() {
+        if (!destroyed) web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.restoreVerification()", null)
     }
 
     fun editPayer(profile: PayerProfile): Boolean {

@@ -14,6 +14,8 @@ La 0.1.9 corrige la conexión segura de Sistarbanc en Android 11; se reprodujo e
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
+El candidato vigente es **0.1.12**, en `outputs/boletera-prueba-0.1.12.apk`: mejora la adaptación del panel del CAPTCHA a la ventana y conserva su componente original. Ver [pruebas de tamaños y densidades](docs/CAPTCHA-RESPONSIVO.md). Todavía no se publicó una versión remota nueva.
+
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Las versiones anteriores se conservan con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
 
 1. Pasá `outputs/boletera-prueba-0.1.10.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.

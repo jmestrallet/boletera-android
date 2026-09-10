@@ -1,5 +1,9 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
+## Candidato vigente: 0.1.12
+
+Se mejoró el panel del CAPTCHA para conservar el componente original en una posición estable y adaptar sus dimensiones a la ventana real de la app. Pasaron 39 pruebas JavaScript, 7 JVM, lint, compilación y la matriz Android del panel con contenido ficticio, más la prueba de retención de la página. La APK está instalada en el OnePlus; el checkbox real se ve completo. [Evidencia y límites](CAPTCHA-RESPONSIVO.md). La verificación humana y el pago completo siguen pendientes.
+
 ## Candidato local: 0.1.11
 
 El resumen y los datos del titular se presentan con controles nativos Android. La sesión sigue en el WebView original; el adaptador lee únicamente los pares de texto del resumen y los cinco campos ordinarios del cliente. Las acciones nativas solo avanzan desde los componentes reconocidos de resumen o cliente; no autorizan el pago.

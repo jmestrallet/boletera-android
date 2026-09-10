@@ -23,7 +23,7 @@
     const stage = summary ? 'summary' : client ? 'payer' : 'original';
     if (sentStep && sentStep !== stage) sentStep = null;
     if (!root) return {stage};
-    // Only the summary table and explicitly named ordinary payer fields are read.
+    // Only summary text and explicitly named ordinary payer fields are read.
     const rows = summary ? [...summary.querySelectorAll('div')].map(div => {
       const label = div.querySelector(':scope > b');
       const value = div.querySelector(':scope > p');
@@ -35,16 +35,19 @@
     const challenge = frames.find(e => /\/bframe/.test(e.src)) || frames.find(e => /\/anchor/.test(e.src));
     const expanded = !!challenge && /\/bframe/.test(challenge.src);
     const r = challenge?.getBoundingClientRect();
+    const measurable = r && r.width > 0 && r.height > 0;
     return {stage, rows, values, canContinue: ready(button(root)) && sentStep !== stage,
-      challenge: r ? {x:r.x,y:r.y,width:r.width,height:r.height} : null, expanded};
+      challenge: measurable ? {x:r.x,y:r.y,width:r.width,height:r.height} : null, viewportWidth:innerWidth, expanded:!!measurable && expanded};
   }
   window.BoleteraNative = {
     snapshot,
     showVerification() {
       const frames = challengeFrames();
+      window.BoleteraVerification?.present(frames.find(e => /\/anchor/.test(e.src)));
       const frame = frames.find(e => /\/bframe/.test(e.src)) || frames.find(e => /\/anchor/.test(e.src));
       frame?.scrollIntoView({block:'center',inline:'center'});
     },
+    restoreVerification() { window.BoleteraVerification?.restore(); },
     advance(expected) {
       const state = snapshot();
       if (!['summary','payer'].includes(expected) || state.stage !== expected || !state.canContinue) return false;

@@ -50,7 +50,7 @@ class EmbeddedPrexPaymentTest {
         }
         try {
             assertTrue(completed.await(10, TimeUnit.SECONDS))
-            assertEquals("true", js("document.getElementById('boletera-payment-appearance') !== null"))
+            assertEquals("true", js("!!window.BoleteraNative && !!window.BoleteraVerification"))
             assertEquals("\"Persona Ficticia\"", js("document.querySelector('#titular').value"))
             assertEquals("\"00000000\"", js("document.querySelector('[formcontrolname=documentoControl]').value"))
             assertEquals("\"\"", js("document.querySelector('[formcontrolname=nroTarjetaControl]').value"))

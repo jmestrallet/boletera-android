@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -340,7 +341,9 @@ class MainActivity : FragmentActivity() {
     var editing by remember { mutableStateOf(false) }
     LaunchedEffect(payment.nativeStage) { showOriginal = false }
     val native = payment.nativeStage in listOf("summary", "payer", "loading") && !showOriginal
-    LaunchedEffect(payment.nativeStage, payment.expandedChallenge, payment.challenge != null) { payment.positionVerification() }
+    LaunchedEffect(native, payment.nativeStage, payment.expandedChallenge, payment.challenge != null) {
+        if (native && payment.nativeStage == "payer") payment.positionVerification() else payment.restoreVerification()
+    }
     BackHandler(onBack = onClose)
     Surface(color = Paper, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -365,10 +368,14 @@ class MainActivity : FragmentActivity() {
                     Primary("Volver a Boletera", action = onClose)
                 }
             } else {
-                Box(Modifier.fillMaxWidth().weight(1f)) {
-                    if (!native) PaymentBrowserView(payment, false, null, Modifier.fillMaxSize())
+                BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+                    val browserWidth = constraints.maxWidth
+                    val browserHeight = constraints.maxHeight
+                    val pixelsPerDp = LocalDensity.current.density
+                    val cssPixelsToDp = if (payment.cssViewportWidth > 0f) browserWidth / payment.cssViewportWidth / pixelsPerDp else 1f
+                    if (!native) PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.fillMaxSize())
                     if (native) Column(Modifier.fillMaxSize().background(Paper).verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                        if (payment.nativeStage != "payer") PaymentBrowserView(payment, true, null, Modifier.fillMaxWidth().height(1.dp))
+                        if (payment.nativeStage != "payer") PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.fillMaxWidth().height(1.dp))
                         Text(if (payment.nativeStage == "payer") "02 / TUS DATOS" else "01 / TU RECARGA", color = Muted, fontSize = 12.sp)
                         Text(if (payment.nativeStage == "payer") "Datos del titular" else "Revisá tu recarga", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Ink)
                         if (payment.nativeStage == "loading") {
@@ -395,11 +402,11 @@ class MainActivity : FragmentActivity() {
                                 }
                             }
                             Text("Sistarbanc necesita verificar que sos vos antes de pasar a la tarjeta.", color = Muted)
-                            val screenHeight = LocalConfiguration.current.screenHeightDp
                             BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 val cap = payment.challenge
-                                val scale = if (cap == null) 1f else minOf(1f, maxWidth.value / cap.width, (screenHeight - 260).coerceAtLeast(180).toFloat() / cap.height)
-                                PaymentBrowserView(payment, cap == null, cap, if (cap == null) Modifier.size(1.dp) else Modifier.width((cap.width * scale).dp).height((cap.height * scale).dp))
+                                val maxPanelHeight = (browserHeight / pixelsPerDp - 140f).coerceAtLeast(140f)
+                                val scale = if (cap == null) 1f else minOf(cssPixelsToDp, maxWidth.value / cap.width, maxPanelHeight / cap.height)
+                                PaymentBrowserView(payment, cap == null, cap, browserWidth, browserHeight, if (cap == null) Modifier.size(1.dp) else Modifier.width((cap.width * scale).dp).height((cap.height * scale).dp))
                             }
                             Primary("Continuar a la tarjeta", payment.canContinue, payment::advance)
                             TextButton(onClick = { editing = true }, enabled = payment.chosenPayer != null) { Text("Editar datos para este pago") }
@@ -419,14 +426,24 @@ class MainActivity : FragmentActivity() {
 }
 
 /** Keep the real page laid out while native content owns display and accessibility. */
-@Composable private fun PaymentBrowserView(payment: EmbeddedPrexPayment, hidden: Boolean, crop: CaptchaRect?, modifier: Modifier) {
+@Composable internal fun PaymentBrowserView(payment: EmbeddedPrexPayment, hidden: Boolean, crop: CaptchaRect?, browserWidth: Int, browserHeight: Int, modifier: Modifier) {
     AndroidView(factory = {
         (payment.web.parent as? android.view.ViewGroup)?.removeView(payment.web)
         PaymentPageHost(it, payment.web)
-    }, update = { it.nativeHidden = hidden; it.crop = crop }, modifier = modifier.clip(RoundedCornerShape(4.dp)))
+    }, update = {
+        it.viewportWidth = browserWidth; it.viewportHeight = browserHeight
+        it.cssViewportWidth = payment.cssViewportWidth
+        it.nativeHidden = hidden; it.crop = crop
+    }, modifier = modifier.clip(RoundedCornerShape(4.dp)))
 }
 
-private class PaymentPageHost(context: android.content.Context, private val browser: android.webkit.WebView) : android.view.ViewGroup(context) {
+internal class PaymentPageHost(context: android.content.Context, private val browser: android.webkit.WebView) : android.view.ViewGroup(context) {
+    var viewportWidth = 1
+        set(value) { if (field != value) { field = value.coerceAtLeast(1); requestLayout() } }
+    var viewportHeight = 1
+        set(value) { if (field != value) { field = value.coerceAtLeast(1); requestLayout() } }
+    var cssViewportWidth = 0f
+        set(value) { if (field != value) { field = value; requestLayout() } }
     var crop: CaptchaRect? = null
         set(value) { if (field != value) { field = value; requestLayout() } }
     var nativeHidden: Boolean = false
@@ -439,14 +456,13 @@ private class PaymentPageHost(context: android.content.Context, private val brow
         }
     init { clipChildren = true; clipToPadding = true; addView(browser) }
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val metrics = resources.displayMetrics
-        browser.measure(MeasureSpec.makeMeasureSpec(metrics.widthPixels, MeasureSpec.EXACTLY),
-            if (crop != null || nativeHidden) MeasureSpec.makeMeasureSpec(metrics.heightPixels, MeasureSpec.EXACTLY) else heightMeasureSpec)
+        browser.measure(MeasureSpec.makeMeasureSpec(viewportWidth, MeasureSpec.EXACTLY),
+            if (crop != null || nativeHidden) MeasureSpec.makeMeasureSpec(viewportHeight, MeasureSpec.EXACTLY) else heightMeasureSpec)
         setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
     }
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val rect = crop
-        val density = resources.displayMetrics.density
+        val density = if (cssViewportWidth > 0f) browser.measuredWidth / cssViewportWidth else resources.displayMetrics.density
         val scale = if (rect == null) 1f else minOf(1f, width / (rect.width * density), height / (rect.height * density))
         browser.pivotX = 0f; browser.pivotY = 0f; browser.scaleX = scale; browser.scaleY = scale
         val x = ((rect?.x ?: 0f) * density * scale).toInt()

@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.1.12-prueba — panel adaptable
+
+- Presenta el componente original del CAPTCHA en una posición estable sin copiarlo ni recrearlo; restaura su presentación al volver a la página original.
+- Calcula el panel con el espacio disponible en la ventana y las medidas CSS del navegador, en lugar del tamaño físico completo de la pantalla.
+- Prueba Android de distintos anchos y densidades, desafío expandido ficticio y continuidad del mismo iframe. [Alcance y resultados](docs/CAPTCHA-RESPONSIVO.md).
+
+Continúa pendiente resolver la verificación real y comprobar el resto del pago. Candidato local, todavía no publicado.
+
 ## 0.1.11-prueba — candidato nativo
 
 - Resumen y confirmación del titular con controles Android propios, alimentados por la solicitud vigente de Sistarbanc. La página conserva la sesión por detrás.
