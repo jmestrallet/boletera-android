@@ -1,6 +1,12 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.15
+## Versión vigente: 0.2.16
+
+Se restaura el icono original: rectángulo redondeado con dos líneas. El recurso de interfaz reproduce las coordenadas, proporciones y grosor del dibujo original de 0.2.13; los recursos del lanzador se recuperan sin diferencias respecto de esa revisión. No cambia la home ni el recorrido de pago.
+
+48 pruebas JavaScript, ocho JVM, release y lint aprobados; compilación en 39 s. Por tratarse de una restauración de recursos gráficos no se repitió el recorrido Android ya validado en 0.2.15. APK código 34, SHA-256 `52d11fec362b590c32378eb0a8d806bf6853f85a0306022c6706d3e1218fdf96`, misma firma. No se instaló nada en el teléfono ni se hicieron operaciones financieras.
+
+## Versión anterior: 0.2.15
 
 Se restaura la home previa a la compactación: título separado, saldo grande y mínimo en su bloque. No vuelve el carrusel de boletos. El icono representa una tarjeta con un ómnibus de perfil, sin ondas, y comparte el dibujo con el lanzador Android.
 

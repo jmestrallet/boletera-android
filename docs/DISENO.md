@@ -71,3 +71,7 @@ Los errores que la app detecta en el recorrido principal y Prex usan la misma pa
 ## Restauración de home — 0.2.15
 
 A pedido del usuario se recupera la composición anterior a 0.2.14: Tu boletera separado, saldo en tipografía grande y mínimo en su propio panel. No se restaura el carrusel de boletos. El aviso y la guía se agrupan sin el espacio extra entre ambos. El símbolo pasa a ser una tarjeta con un ómnibus de perfil; no contiene ondas y comparte geometría con el lanzador. Se conservan los cambios funcionales y la pantalla de error.
+
+## Icono original — 0.2.16
+
+Se restaura el rectángulo redondeado con dos líneas del diseño original. El recurso de la interfaz reproduce sus coordenadas y trazo; el lanzador recupera el recurso previo a las variantes de ondas y ómnibus. La home permanece igual a 0.2.15.

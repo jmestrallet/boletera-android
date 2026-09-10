@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.2.16-prueba — icono original
+
+- Se recupera el icono original de boletera: rectángulo redondeado con dos líneas, tanto dentro de la app como en el lanzador.
+- Se conserva la home restaurada de 0.2.15.
+
 ## 0.2.15-prueba — vuelve la home anterior
 
 - Se recuperan el título por fuera del panel, el saldo grande y el bloque separado de recarga mínima. Las combinaciones de boletos siguen fuera de la home.
