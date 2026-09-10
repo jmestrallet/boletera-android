@@ -22,7 +22,7 @@ class DeviceSmokeTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     @Test fun nativeWelcomeHasNoOfficialPageAndStartsWithoutSavedSecrets() {
-        compose.onNodeWithText("Tu próxima carga,\nsin las vueltas.").assertIsDisplayed()
+        compose.onNodeWithText("Tu próximo viaje\nempieza acá.").assertIsDisplayed()
         compose.onNodeWithText("Documento uruguayo").assertIsDisplayed()
         compose.runOnIdle {
             val vault = AccessVault(compose.activity)

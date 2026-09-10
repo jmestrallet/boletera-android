@@ -66,21 +66,21 @@ class AppUpdatesTest {
         val source = context.applicationInfo.sourceDir
         val candidate = pm.getPackageArchiveInfo(source, flags)!!
         val baseline = pm.getPackageArchiveInfo(source, flags)!!
-        baseline.versionName = "0.1.14-prueba"; baseline.longVersionCode = 15
-        UpdateFiles.verifyArchive(candidate, baseline, context.packageName, "0.1.15")
-        candidate.longVersionCode = 15
-        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, "0.1.15") }
-        candidate.longVersionCode = 16
+        baseline.versionName = "0.1.14-prueba"; baseline.longVersionCode = BuildConfig.VERSION_CODE.toLong() - 1
+        UpdateFiles.verifyArchive(candidate, baseline, context.packageName, BuildConfig.VERSION_NAME.removeSuffix("-prueba"))
+        candidate.longVersionCode = BuildConfig.VERSION_CODE.toLong() - 1
+        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, BuildConfig.VERSION_NAME.removeSuffix("-prueba")) }
+        candidate.longVersionCode = BuildConfig.VERSION_CODE.toLong()
         candidate.packageName = "another.app"
-        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, "0.1.15") }
+        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, BuildConfig.VERSION_NAME.removeSuffix("-prueba")) }
         candidate.packageName = context.packageName
         candidate.signingInfo = null
-        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, "0.1.15") }
+        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, BuildConfig.VERSION_NAME.removeSuffix("-prueba")) }
     }
 
     @Test fun settingsCanCheckPublicGithubAndKeepInstalledNewerVersion() {
-        compose.onNodeWithText("Configuración").performClick()
-        compose.onNodeWithText("Buscar actualizaciones").performClick()
+        compose.onNodeWithContentDescription("Configuración").performClick()
+        compose.onNodeWithText("Buscar actualizaciones").performScrollTo().performClick()
         compose.waitUntil(45_000) { compose.onAllNodesWithText("Ya tenés la versión más nueva disponible para esta app.").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Descargar actualización").assertDoesNotExist()
     }

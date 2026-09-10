@@ -1,0 +1,35 @@
+# Diseño de Boletera · 0.1.16
+
+La pantalla principal responde primero cuánto saldo hay y cuál es la próxima acción. El importe se elige en un panel; no compite con la consulta del saldo. Configuración reúne apariencia, actualizaciones y acciones de la sesión. Los pasos bancarios conservan su funcionamiento y las verificaciones originales.
+
+## Identidad
+
+- Verde profundo para acciones, lima para el saldo y superficies suaves. Colores semánticos distintos para claro y oscuro; también puede seguir el sistema.
+- Google Sans para títulos y Google Sans Text para lectura. Las fuentes se incluyen localmente, con su licencia OFL, sin llamadas a servidores de fuentes.
+- Material Symbols oficiales para controles y un símbolo propio de boletera. Icono de inicio adaptable y variante monocromática.
+- Márgenes de 24 dp, controles de al menos 48 dp, contenido principal limitado a 600 dp en ventanas anchas. Los paneles y formularios se desplazan cuando el espacio o el teclado lo requieren.
+
+## Movimiento y respuesta
+
+- Entrada de pantalla de 280 ms, con desplazamiento de 16 dp y opacidad. Ocurre al dibujar; no duplica la composición ni recrea el navegador autenticado.
+- Botones con respuesta nativa al toque y cambio de curvatura mediante un resorte de amortiguación 0,85 y rigidez 900. El tamaño del área táctil permanece estable.
+- Paneles y gesto de actualización de Material 3. La selección de importe da una respuesta táctil breve; no vibra cada control.
+- Las preferencias de duración de animación de Android siguen vigentes. El progreso representa espera real, sin porcentajes inventados para el acceso o el pago.
+
+## Comprobaciones
+
+Capturas y pruebas usan valores ficticios: boletera DEMO1234, saldo $ 1.240 y mínimo $ 260. No se presentan como información de una cuenta.
+
+Se revisaron saldo, acceso, importe, medio de pago y configuración en claro y oscuro. Se comprobó la selección de importe, el desplazamiento de paneles y la ausencia de texto truncado mediante los límites de las líneas dibujadas. Matrices: 360 × 640 dp, 411 × 868 dp con fuente 2× y animación desactivada, y 1280 × 720 dp en horizontal. Esto no equivale a haber probado todos los teléfonos ni constituye una medición de 60/120 fps.
+
+Los ocho pares principales de color medidos superan 4,5:1. El menor contraste de texto secundario fue 5,91:1 en claro; en oscuro fue 10,24:1. No se atribuye esta comprobación de colores a una auditoría completa con lector de pantalla.
+
+## Referencias originales
+
+- [Investigación de Material 3 Expressive, Google Design](https://design.google/library/expressive-material-design-google-research).
+- [Animaciones de Compose y trabajo en la fase de dibujo](https://developer.android.com/develop/ui/compose/animation/quick-guide).
+- [Sistema de movimiento de Material](https://github.com/material-components/material-components-android/blob/master/docs/theming/Motion.md).
+- [Áreas táctiles de Android](https://support.google.com/accessibility/android/answer/7101858).
+- [Google Sans v14.000](https://github.com/googlefonts/googlesans/releases/tag/v14.000) y [Material Symbols](https://github.com/google/material-design-icons). Sus licencias se distribuyen en `app/src/main/assets/licenses/`.
+
+La dirección visual es propia; Boletera no está diseñada, avalada ni publicada por Google o STM.

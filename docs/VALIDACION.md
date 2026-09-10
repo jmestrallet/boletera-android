@@ -1,6 +1,18 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Candidato vigente: 0.1.15
+## Versión vigente: 0.1.16
+
+Rediseño nativo de acceso, saldo, importe, configuración y datos del titular. Incluye temas claro/oscuro, Google Sans y Material Symbols. [Decisiones y referencias](DISENO.md).
+
+Pasaron 40 pruebas JavaScript, 7 JVM, lint y compilación release. Cinco comprobaciones de diseño pasaron en tamaño habitual, pantalla de 360 × 640 dp, texto 2× con animaciones desactivadas y orientación horizontal. Las capturas usan datos ficticios. La comprobación del texto se realiza sobre las líneas de glifos; una primera medición confundía el ancho disponible del párrafo con texto recortado y fue corregida.
+
+También pasaron las cuatro pruebas de dispositivo, el recorrido completo interceptado localmente, la conservación de la página y la carga demorada de Prex. La comprobación funcional final usó el gesto real de actualizar y el nuevo selector de importe, y terminó sin repetir una solicitud. La búsqueda de actualizaciones desde el nuevo icono también aprobó. Registros locales: `outputs/design-final-functional-0.1.16.txt` y `outputs/design-*-0.1.16.txt`.
+
+La demostración de movimiento usa los componentes de producción con valores ficticios, sin acceso a STM ni autorización de pagos. No es una medición de rendimiento de todos los dispositivos. La APK está instalada en el OnePlus, versión `0.1.16-prueba`, código 17. SHA-256: `884356F391F71CB379FB93CB96D31B98E6ECDC854649EAD63AE93D2D7E930761`.
+
+La aceptación visual del titular y la autorización/acreditación reales siguen pendientes. Esta entrega no hizo un pago real.
+
+## Versión anterior: 0.1.15
 
 Configuración permite buscar versiones de prueba publicadas en `jmestrallet/boletera-android`, descargar una versión posterior y abrir el instalador de Android. No usa credenciales de GitHub ni consulta la cuenta STM. Verifica tamaño, SHA-256 publicado, paquete, versión y misma firma; no ofrece bajar de versión. Comparte únicamente la APK privada mediante FileProvider y un permiso de lectura temporal.
 
@@ -8,7 +20,7 @@ Pasaron 40 pruebas JavaScript, 7 JVM, lint y compilación. Cuatro pruebas Androi
 
 Una quinta prueba comprobó el URI privado, el permiso temporal, el rechazo de un archivo fuera del directorio compartido y abrió el instalador real de Android 16. La captura local muestra «Do you want to update this app?»; se salió sin confirmar. Para esa prueba se habilitó la instalación desde esta app únicamente en el emulador. No se modificó ese ajuste en el teléfono.
 
-Evidencia local: `outputs/updates-0.1.15-test.txt`, `outputs/updates-installer-0.1.15-test.txt`, `outputs/update-installer-0.1.15.png`. APK final instalada por cable en el OnePlus y versión comprobada: `0.1.15-prueba`, código 16; SHA-256 `CE4AA79CABCF834371DF7FE6D65B772F42F9F63B555A6A235C27ABB31C7A8E4B`. Todavía no se completó una actualización de extremo a extremo desde GitHub: su última publicación sigue siendo 0.1.10. No hubo publicación remota nueva.
+Evidencia local: `outputs/updates-0.1.15-test.txt`, `outputs/updates-installer-0.1.15-test.txt`, `outputs/update-installer-0.1.15.png`. APK final instalada por cable en el OnePlus y versión comprobada: `0.1.15-prueba`, código 16; SHA-256 `CE4AA79CABCF834371DF7FE6D65B772F42F9F63B555A6A235C27ABB31C7A8E4B`. Todavía no se completó una actualización de extremo a extremo desde GitHub. La 0.1.15 se publicó posteriormente en GitHub y se verificó que el archivo remoto coincidiera con esta APK.
 
 Referencias de Android: [compartir archivos con FileProvider](https://developer.android.com/training/secure-file-sharing/setup-sharing) y [autorización por fuente de instalación](https://android-developers.googleblog.com/2017/08/making-it-safer-to-get-apps-on-android-o.html).
 

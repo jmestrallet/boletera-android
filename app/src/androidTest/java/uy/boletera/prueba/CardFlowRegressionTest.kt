@@ -6,9 +6,14 @@ import android.webkit.WebViewClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -102,8 +107,12 @@ class CardFlowRegressionTest {
                 assertEquals(-30400L, engine.state.balance)
                 assertEquals("ABCD1234", engine.state.selectedCard)
                 assertFalse(engine.state.busy)
-                engine.prepare(56400)
             }
+            val beforeRefresh=networkRequests.get()
+            compose.onRoot().performTouchInput { swipe(Offset(centerX,height*0.35f),Offset(centerX,height*0.85f),500) }
+            compose.waitUntil(20000) { networkRequests.get()>beforeRefresh && engine.state.stage=="balance" && !engine.state.busy && engine.state.minimum==56400L }
+            compose.onNodeWithText("Recargar boletera").performScrollTo().performClick()
+            compose.onNodeWithText("Continuar").performScrollTo().performClick()
             compose.waitUntil(20000) { engine.state.stage == "paymentBoundary" }
             compose.runOnIdle {
                 assertEquals(2, engine.state.providers.size)
@@ -156,7 +165,7 @@ class CardFlowRegressionTest {
                 assertEquals(123456L, engine.state.pendingPayment?.createdAt)
             }
             compose.onNodeWithText("Pago con Prex").assertIsDisplayed()
-            compose.onNodeWithText("Volver").performClick()
+            compose.onNodeWithContentDescription("Volver").performClick()
             compose.waitUntil(5000) { engine.state.stage == "paymentReview" }
             // Start a new, entirely synthetic journey after explicitly clearing the old guard.
             compose.runOnIdle { engine.acknowledgePayment() }
@@ -206,7 +215,7 @@ class CardFlowRegressionTest {
                 screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
             }
             screenshot.recycle()
-            compose.onNodeWithText("Volver").performClick()
+            compose.onNodeWithContentDescription("Volver").performClick()
             compose.runOnIdle { engine.reopenPrexPayment() }
             compose.waitUntil(5000) { engine.state.stage == "embeddedPrex" }
             assertEquals(1, paymentLoads[newLink]?.get())

@@ -10,17 +10,17 @@ La 0.1.9 corrige la conexión segura de Sistarbanc en Android 11; se reprodujo e
 
 **Objetivo pendiente:** completar y verificar el recorrido real de pago desde Boletera. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. El CAPTCHA, Google en el teléfono, la autorización y la acreditación requieren comprobación real. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
 
-**[Descargar la versión publicada 0.1.10](https://github.com/jmestrallet/boletera-android/releases/tag/v0.1.10)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+**[Descargar la versión 0.1.16](https://github.com/jmestrallet/boletera-android/releases/tag/v0.1.16)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
-El candidato vigente es **0.1.15**, en `outputs/boletera-prueba-0.1.15.apk`: agrega **Configuración → Buscar actualizaciones**, descarga desde GitHub y apertura del instalador de Android. Conserva la actualización del saldo al arrastrar hacia abajo de 0.1.14 y las mejoras anteriores del pago. Todavía no se publicó una versión remota nueva.
+La **0.1.16** rediseña la experiencia completa: saldo protagonista, importe en un panel, tipografía Google Sans, iconos Material Symbols, modo claro/oscuro y transiciones nativas. Conserva Configuración y las actualizaciones desde GitHub. [Diseño, referencias y comprobaciones](docs/DISENO.md). El archivo es `outputs/boletera-prueba-0.1.16.apk`.
 
 Desde 0.1.15, las próximas versiones publicadas en este repositorio se pueden descargar desde Configuración, sin buscar el archivo a mano. Se incluyen las publicaciones de prueba porque esta app todavía está en prueba. Primero se comprueba la descarga y la firma; luego **Instalar actualización** abre la confirmación de Android. La primera vez puede pedir **Permitir desde esta fuente**: al volver, tocá Instalar actualización nuevamente. Una actualización conserva los datos guardados. Si tu candidato local es más nuevo que GitHub, no ofrece volver a una versión anterior.
 
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Las versiones anteriores se conservan con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
 
-1. Pasá `outputs/boletera-prueba-0.1.10.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
+1. Pasá `outputs/boletera-prueba-0.1.16.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.

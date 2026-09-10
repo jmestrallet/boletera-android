@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.1.16-prueba — nueva experiencia
+
+- Rediseño de acceso, saldo, recarga, titulares y configuración; tipografía Google Sans, iconos Material Symbols e identidad adaptable en el inicio de Android.
+- Saldo protagonista y selector de importe en un panel. Conserva el gesto de actualizar y la revisión de solicitudes pendientes.
+- Apariencia clara, oscura o según el sistema; preferencia guardada en el teléfono.
+- Transiciones de pantalla, respuesta al toque y paneles nativos, respetando la duración de animaciones de Android.
+- Configuración concentra actualizaciones y acciones de la sesión. No cambia la autorización ni las verificaciones del proveedor de pago.
+
+Ver [criterios de diseño y referencias](docs/DISENO.md).
+
 ## 0.1.15-prueba — actualizaciones desde Configuración
 
 - Agrega Configuración con versión instalada, búsqueda en GitHub, descarga e instalación mediante la confirmación de Android.

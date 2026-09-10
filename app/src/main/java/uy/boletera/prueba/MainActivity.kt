@@ -7,6 +7,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,36 +30,26 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-
-private val Ink = Color(0xFF101D2A)
-private val Lime = Color(0xFFB9F375)
-private val Paper = Color(0xFFF4F5EF)
-private val Muted = Color(0xFF64716E)
 
 class MainActivity : FragmentActivity() {
     private lateinit var engine: StmEngine
     private lateinit var vault: AccessVault
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = true
-            isAppearanceLightNavigationBars = true
-        }
-        // Screenshots are enabled at the owner's request to report problems in this prototype.
+        // Screenshots remain available for the owner's prototype feedback.
         engine = StmEngine(this)
         vault = AccessVault(this)
         engine.savedAccess(vault.exists)
+        val preferences = getSharedPreferences("appearance", MODE_PRIVATE)
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme(primary = Ink, onPrimary = Color.White,
-                secondary = Lime, background = Paper, surface = Color.White, onSurface = Ink)) {
-                App()
+            var appearance by remember { mutableStateOf(preferences.getString("theme", "system") ?: "system") }
+            BoleteraTheme(appearance) {
+                App(appearance) { appearance = it; preferences.edit().putString("theme", it).apply() }
             }
         }
     }
@@ -67,9 +58,8 @@ class MainActivity : FragmentActivity() {
     override fun onDestroy() { if (::vault.isInitialized) vault.cancel(); if (::engine.isInitialized) engine.destroy(); super.onDestroy() }
 
     @OptIn(ExperimentalMaterial3Api::class)
-    @Composable private fun App() {
+    @Composable private fun App(appearance: String, onAppearance: (String) -> Unit) {
         val state = engine.state
-        val pullState = rememberPullToRefreshState()
         val updates: AppUpdates = viewModel()
         var showSettings by rememberSaveable { mutableStateOf(false) }
         if (state.stage == "embeddedPrex") {
@@ -79,245 +69,179 @@ class MainActivity : FragmentActivity() {
         var manual by remember { mutableStateOf(false) }
         var document by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
+        var revealPassword by remember { mutableStateOf(false) }
         var save by remember { mutableStateOf(false) }
         var authenticating by remember { mutableStateOf(false) }
-        var amountText by remember(state.selectedCard, state.minimum) { mutableStateOf("") }
-        var showProbe by remember { mutableStateOf(false) }
         var showForget by remember { mutableStateOf(false) }
+        var showAmount by remember { mutableStateOf(false) }
         var changeProvider by remember(state.stage) { mutableStateOf(false) }
         var reviewPayment by remember { mutableStateOf(false) }
         var reopenPrex by remember { mutableStateOf(false) }
         var showPayerPicker by remember { mutableStateOf(false) }
         var showPayerEditor by remember { mutableStateOf(false) }
         var editingPayer by remember { mutableStateOf<PayerProfile?>(null) }
-        BackHandler(enabled = state.stage != "welcome" || showProbe) {
-            showProbe = false; document = ""; password = ""; engine.cancel()
+        val stage = if(state.stage=="connecting" && state.selectedCard!=null && state.balance!=null && state.amount==null) "balance" else state.stage
+        val scroll = rememberScrollState()
+        val pullState = rememberPullToRefreshState()
+        LaunchedEffect(stage) { scroll.scrollTo(0) }
+        fun back() {
+            document=""; password=""
+            if(state.stage=="paymentBoundary") engine.refresh() else engine.cancel()
         }
-        Surface(color = Paper, modifier = Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                Row(Modifier.fillMaxWidth().background(Ink).padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("boletera", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 25.sp)
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = { showSettings = true }) { Text("Configuración", color = Lime, fontSize = 13.sp) }
-                }
-                Box(Modifier.weight(1f).fillMaxWidth().pullToRefresh(
-                    isRefreshing = state.stage == "balance" && state.busy,
-                    state = pullState,
-                    enabled = state.stage == "balance" && !state.busy,
-                    onRefresh = { if (engine.state.stage == "balance" && !engine.state.busy) engine.refresh() }
+        BackHandler(enabled = state.stage != "welcome") { back() }
+        Surface(color=Paper,modifier=Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding(),horizontalAlignment=Alignment.CenterHorizontally) {
+                AppTopBar(onSettings={showSettings=true},onBack=if(stage in listOf("paymentBoundary","cards","captcha","blocked","paymentReview"))::back else null,
+                    title=when(stage){ "paymentBoundary"->"Tu recarga"; "cards"->"Boleteras"; "captcha"->"Verificación"; "paymentReview"->"Revisar recarga"; else->null })
+                Box(Modifier.weight(1f).widthIn(max=600.dp).fillMaxWidth().pullToRefresh(
+                    isRefreshing=stage=="balance"&&state.busy,state=pullState,enabled=stage=="balance"&&!state.busy,
+                    onRefresh={if(engine.state.stage=="balance"&&!engine.state.busy)engine.refresh()}
                 )) {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                    if (state.message.isNotBlank()) Notice(state.message)
-                    when (state.stage) {
-                        "welcome" -> {
-                            Text("Tu próxima carga,\nsin las vueltas.", fontSize = 33.sp, lineHeight = 37.sp, fontWeight = FontWeight.Bold, color = Ink)
-                            Text("Tu saldo, tu boletera y tu medio habitual.", color = Muted, fontSize = 16.sp)
-                            WhiteCard {
-                                Text("Entrar a tu STM", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-                                if (state.hasSavedAccess && !manual) {
-                                    Text("Tu acceso está cifrado en este celular.", color = Muted)
-                                    Primary("Entrar con huella", enabled = !authenticating && !state.busy) {
-                                        authenticating = true
-                                        vault.unlock { doc, pass ->
-                                            authenticating = false
-                                            if (doc != null && pass != null) engine.connect(doc, pass)
-                                            else engine.notice("No se desbloqueó el acceso. Si cambiaste las huellas del celular, olvidá el acceso y guardalo de nuevo.")
-                                        }
-                                    }
-                                    TextButton(onClick = { manual = true }) { Text("Ingresar manualmente") }
-                                } else {
-                                    OutlinedTextField(document, { document = it.filter(Char::isDigit).take(8) },
-                                        label = { Text("Documento uruguayo") }, singleLine = true,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
-                                    OutlinedTextField(password, { password = it }, label = { Text("Contraseña de gub.uy") }, singleLine = true,
-                                        visualTransformation = PasswordVisualTransformation(),
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Checkbox(save, { save = it }, enabled = vault.available)
-                                        Text("Guardar acceso con huella", fontSize = 14.sp)
-                                    }
-                                    Text(if (vault.available) "Solo se guarda si activás esta opción. Android exige tu biometría para descifrarlo."
-                                        else "Este celular no tiene biometría compatible configurada. Podés ingresar sin guardar el acceso.", color = Muted, fontSize = 12.sp)
-                                    Primary(if (save) "Guardar e ingresar" else "Ingresar", enabled = document.length == 8 && password.isNotBlank() && !authenticating && !state.busy) {
-                                        val doc = document; val pass = password
-                                        document = ""; password = ""
-                                        if (save) {
-                                            authenticating = true
-                                            vault.save(doc, pass) { ok ->
-                                                authenticating = false; engine.savedAccess(vault.exists)
-                                                if (ok) engine.connect(doc, pass)
-                                                else engine.notice("No se guardó el acceso. Podés intentar de nuevo o ingresar sin guardarlo.")
+                    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal=24.dp).padding(top=12.dp,bottom=32.dp)
+                        .pageEntrance(stage, state.captcha==null),verticalArrangement=Arrangement.spacedBy(24.dp)) {
+                        if(state.message.isNotBlank())Notice(state.message)
+                        when(stage) {
+                            "welcome" -> {
+                                WelcomeHero()
+                                WhiteCard {
+                                    Text(if(state.hasSavedAccess&&!manual)"Qué bueno verte de nuevo" else "Entrá a tu STM",style=MaterialTheme.typography.titleLarge)
+                                    if(state.hasSavedAccess&&!manual) {
+                                        Text("Tu acceso está protegido en este teléfono.",style=MaterialTheme.typography.bodyMedium,color=Muted)
+                                        Box(Modifier.fillMaxWidth().padding(vertical=8.dp),contentAlignment=Alignment.Center) { AppGlyph(Glyph.Fingerprint,Modifier.size(56.dp),tint=MaterialTheme.colorScheme.primary) }
+                                        Primary(if(authenticating)"Esperando tu huella…" else "Entrar con huella",enabled=!authenticating&&!state.busy) {
+                                            authenticating=true
+                                            vault.unlock { doc,pass ->
+                                                authenticating=false
+                                                if(doc!=null&&pass!=null)engine.connect(doc,pass)
+                                                else engine.notice("No se desbloqueó el acceso. Podés volver a intentar o ingresar manualmente.")
                                             }
-                                        } else engine.connect(doc, pass)
-                                    }
-                                }
-                                Text("Por ahora: Usuario gub.uy. Otros métodos quedan para una próxima prueba.", color = Muted, fontSize = 12.sp)
-                            }
-                            Text("Aplicación independiente, no oficial de STM. Prex y eBROU autorizan el pago en su pantalla oficial de Chrome.", color = Muted, fontSize = 12.sp)
-                        }
-                        "connecting" -> {
-                            Title("Entrando a STM")
-                            Text("Estamos recorriendo los pasos del sitio por vos.", color = Muted)
-                        }
-                        "openingPayment" -> {
-                            Title("Abriendo el pago")
-                            Text("Estamos preparando ${Amounts.format(state.amount)} con ${if (state.selectedProvider == "1033") "Prex" else "eBROU"}.", color = Muted)
-                        }
-                        "cards" -> {
-                            Title("Elegí tu boletera")
-                            Text("Vamos a recordar tu elección para las próximas cargas.", color = Muted, fontSize = 14.sp)
-                            state.cards.forEach { card ->
-                                WhiteCard {
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text("STM · ${card.id.takeLast(4)}", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                                        Text(card.status, color = if (card.active) Color(0xFF386B20) else Muted, fontSize = 13.sp)
-                                    }
-                                    if (card.active) Primary("Usar esta boletera", enabled = !state.busy) { engine.chooseCard(card.id) }
-                                    else Text("No está habilitada para esta prueba.", color = Muted)
-                                }
-                            }
-                            if (state.cards.isEmpty()) Notice("Todavía no pudimos leer las boleteras.")
-                        }
-                        "balance" -> {
-                            Text("TU BOLETERA ${state.selectedCard?.takeLast(4) ?: ""}", color = Muted, fontSize = 12.sp, letterSpacing = 1.sp)
-                            TextButton(onClick = { engine.changeCard() }, enabled = !state.busy) { Text("Cambiar boletera") }
-                            Surface(color = Ink, shape = RoundedCornerShape(26.dp)) {
-                                Column(Modifier.fillMaxWidth().padding(25.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                                    Text("Saldo informado por STM", color = Color(0xFFBEC8CE), fontSize = 14.sp)
-                                    Text(Amounts.format(state.balance), color = Lime, fontSize = 44.sp, fontWeight = FontWeight.Bold)
-                                    if ((state.balance ?: 0) < 0) Text("Tenés ${Amounts.format(-(state.balance ?: 0))} de deuda.", color = Color.White)
-                                    state.consultedAt?.let { Text("Consultado ${SimpleDateFormat("HH:mm", Locale.forLanguageTag("es-UY")).format(Date(it))}", color = Color(0xFFBEC8CE), fontSize = 12.sp) }
-                                }
-                            }
-                            Text("Puede haber viajes de las últimas 72 horas todavía sin descontar.", color = Muted, fontSize = 12.sp)
-                            if (state.pendingPayment != null) {
-                                val pending = state.pendingPayment
-                                Notice("Hay un pago por revisar: ${Amounts.format(pending.amount)} con ${if (pending.provider == "1033") "Prex" else "eBROU"}, para la boletera ${pending.card.takeLast(4)}. Revisá su resultado antes de iniciar otra carga.")
-                                if (state.canReopenPrex) OutlinedButton(onClick = { reopenPrex = true }, modifier = Modifier.fillMaxWidth()) { Text("Volver al pago de Prex") }
-                                OutlinedButton(onClick = { reviewPayment = true }, modifier = Modifier.fillMaxWidth()) { Text("Ya revisé el pago anterior") }
-                            }
-                            WhiteCard {
-                                Text("¿Cuánto querés cargar?", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Mínimo informado: ${Amounts.format(state.minimum)}", color = Muted)
-                                Primary("Elegir mínimo · ${Amounts.format(state.minimum)}", enabled = !state.busy && state.minimum != null && state.pendingPayment == null) {
-                                    state.minimum?.let { engine.prepare(it) }
-                                }
-                                OutlinedTextField(amountText, { amountText = it }, label = { Text("Otro monto en pesos") }, singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
-                                val parsed = Amounts.parse(amountText)
-                                val valid = Amounts.valid(parsed, state.minimum)
-                                if (valid && state.balance != null) Text("Te quedarían ${Amounts.format(state.balance + parsed!!)} antes de viajes pendientes.", color = Muted, fontSize = 13.sp)
-                                if (amountText.isNotEmpty() && !valid) Text("Ingresá un monto igual o mayor al mínimo, con hasta 2 decimales.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-                                OutlinedButton(onClick = { parsed?.let { engine.prepare(it) } }, enabled = valid && !state.busy && state.pendingPayment == null, modifier = Modifier.fillMaxWidth()) { Text("Elegir este monto") }
-                            }
-                        }
-                        "captcha" -> {
-                            Title("Una verificación")
-                            Text("Este es el desafío original del sitio. Completalo para seguir.", color = Muted)
-                        }
-                        "paymentBoundary" -> {
-                            Title("Tu recarga")
-                            WhiteCard {
-                                Text(Amounts.format(state.amount), fontSize = 40.sp, fontWeight = FontWeight.Bold)
-                                Text("Boletera · ${state.selectedCard?.takeLast(4) ?: ""}", color = Muted)
-                                val preferred = state.providers.find { it.id == state.selectedProvider }
-                                if (preferred != null && !changeProvider) {
-                                    Text("Tu medio habitual: ${preferred.name}", fontWeight = FontWeight.SemiBold)
-                                    TextButton(onClick = { changeProvider = true }) { Text("Cambiar medio de pago") }
-                                } else {
-                                    Text("¿Con qué querés pagar?", fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
-                                    Text("Recordaremos tu elección en este celular. Podés cambiarla cuando quieras.", color = Muted, fontSize = 13.sp)
-                                    state.providers.filter { it.id in PaymentPolicy.supported }.sortedBy { if (it.id == "1033") 0 else 1 }.forEach { provider ->
-                                        OutlinedButton(onClick = { engine.chooseProvider(provider.id); changeProvider = false }, modifier = Modifier.fillMaxWidth()) {
-                                            Text(if (provider.id == "1002") "eBROU" else provider.name)
+                                        }
+                                        TextButton(onClick={manual=true},modifier=Modifier.align(Alignment.CenterHorizontally)) { Text("Ingresar manualmente") }
+                                    } else {
+                                        Text("Usá tu Usuario gub.uy.",style=MaterialTheme.typography.bodyMedium,color=Muted)
+                                        OutlinedTextField(document,{document=it.filter(Char::isDigit).take(8)},label={Text("Documento uruguayo")},singleLine=true,
+                                            keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp))
+                                        OutlinedTextField(password,{password=it},label={Text("Contraseña de gub.uy")},singleLine=true,
+                                            visualTransformation=if(revealPassword)VisualTransformation.None else PasswordVisualTransformation(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password),
+                                            modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),trailingIcon={IconButton(onClick={revealPassword=!revealPassword}) { AppGlyph(if(revealPassword)Glyph.EyeOff else Glyph.Eye,label=if(revealPassword)"Ocultar contraseña" else "Mostrar contraseña",tint=Muted) }})
+                                        if(vault.available) Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                                            Text("Guardar acceso con huella",style=MaterialTheme.typography.bodyMedium,modifier=Modifier.weight(1f))
+                                            Switch(checked=save,onCheckedChange={save=it})
+                                        }
+                                        Primary(if(authenticating)"Esperando tu huella…" else if(save)"Guardar e ingresar" else "Ingresar",enabled=document.length==8&&password.isNotBlank()&&!authenticating&&!state.busy) {
+                                            val doc=document; val pass=password; document="";password="";revealPassword=false
+                                            if(save) {
+                                                authenticating=true
+                                                vault.save(doc,pass) { ok -> authenticating=false;engine.savedAccess(vault.exists)
+                                                    if(ok)engine.connect(doc,pass) else engine.notice("No se guardó el acceso. Podés intentar de nuevo o ingresar sin guardarlo.") }
+                                            } else engine.connect(doc,pass)
                                         }
                                     }
-                                    if (state.providers.isEmpty()) Text("No pudimos leer los medios disponibles de STM. Volvé al saldo para consultar de nuevo.", color = Muted)
+                                }
+                                Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
+                                    AppGlyph(Glyph.Lock,Modifier.size(16.dp),tint=Muted)
+                                    Text("App independiente de STM · Versión de prueba",style=MaterialTheme.typography.bodySmall,color=Muted)
                                 }
                             }
-                            if (state.selectedProvider == "1033") {
-                                val payer = engine.payerProfiles.find { it.id == state.payerProfileId }
+                            "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,{reopenPrex=true},{reviewPayment=true})
+                            "connecting" -> {
+                                LoadingState(if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", "Estamos consultando el sitio. Tu información va a aparecer acá.")
+                                TextButton(onClick=::back) { Text("Cancelar") }
+                            }
+                            "openingPayment" -> LoadingState("Un momento…","Abriendo ${if(state.selectedProvider=="1033")"Prex" else "eBROU"} para tu recarga de ${Amounts.format(state.amount)}.")
+                            "cards" -> {
+                                Title("Elegí tu boletera")
+                                Text("Recordamos tu elección para la próxima.",color=Muted)
+                                state.cards.forEach { card -> WhiteCard {
+                                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
+                                        AppGlyph(Glyph.Ticket,Modifier.size(32.dp),tint=MaterialTheme.colorScheme.primary)
+                                        Column { Text("STM · ${card.id.takeLast(4)}",style=MaterialTheme.typography.titleLarge);Text(card.status,style=MaterialTheme.typography.bodyMedium,color=Muted) }
+                                    }
+                                    if(card.active)Primary("Usar esta boletera",!state.busy){engine.chooseCard(card.id)}
+                                    else Text("Esta boletera no está habilitada.",style=MaterialTheme.typography.bodyMedium,color=Muted)
+                                } }
+                                if(state.cards.isEmpty())Notice("Todavía no pudimos leer las boleteras.")
+                            }
+                            "captcha" -> { Title("Una verificación\ny seguimos.");Text("Completá el desafío de abajo para continuar.",color=Muted) }
+                            "paymentBoundary" -> {
+                                ProgressSteps(1)
+                                Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                                    Text("Vas a recargar",style=MaterialTheme.typography.bodyLarge,color=Muted)
+                                    Text(Amounts.format(state.amount),style=MaterialTheme.typography.displayMedium,color=Ink)
+                                    Text("STM · ${state.selectedCard?.takeLast(4).orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=Muted)
+                                }
                                 WhiteCard {
-                                    Text("Datos para esta Prex", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-                                    if (payer == null) {
-                                        Text("Guardalos una vez. Si usás otra Prex, elegí un perfil distinto.", color = Muted)
-                                        Primary("Elegir titular") { showPayerPicker = true }
+                                    Text("Medio de pago",style=MaterialTheme.typography.titleLarge)
+                                    val preferred=state.providers.find{it.id==state.selectedProvider}
+                                    if(preferred!=null&&!changeProvider) {
+                                        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
+                                            AppGlyph(Glyph.Card,tint=MaterialTheme.colorScheme.primary)
+                                            Column(Modifier.weight(1f)) { Text(if(preferred.id=="1033")"Prex" else "eBROU",style=MaterialTheme.typography.titleMedium);Text("Tu medio habitual",style=MaterialTheme.typography.bodySmall,color=Muted) }
+                                            AppGlyph(Glyph.Check,tint=MaterialTheme.colorScheme.primary)
+                                        }
+                                        TextButton(onClick={changeProvider=true}){Text("Cambiar medio de pago")}
                                     } else {
-                                        Text(payer.label, fontWeight = FontWeight.Bold)
-                                        Text("${payer.givenName} ${payer.familyName}", color = Muted)
-                                        TextButton(onClick = { showPayerPicker = true }) { Text("Elegir otra Prex o editar datos") }
+                                        state.providers.filter{it.id in PaymentPolicy.supported}.sortedBy{if(it.id=="1033")0 else 1}.forEach{provider ->
+                                            OutlinedButton(onClick={engine.chooseProvider(provider.id);changeProvider=false},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {
+                                                Text(if(provider.id=="1033")"Prex" else "eBROU",modifier=Modifier.weight(1f));AppGlyph(Glyph.Chevron,tint=LocalContentColor.current)
+                                            }
+                                        }
+                                        if(state.providers.isEmpty())Text("No pudimos leer los medios disponibles. Volvé al saldo para consultar de nuevo.",color=Muted)
                                     }
                                 }
+                                if(state.selectedProvider=="1033") {
+                                    val payer=engine.payerProfiles.find{it.id==state.payerProfileId}
+                                    WhiteCard {
+                                        Text("Titular de la Prex",style=MaterialTheme.typography.titleMedium)
+                                        if(payer==null) { Text("Elegí los datos para esta tarjeta.",color=Muted);Primary("Elegir titular"){showPayerPicker=true} }
+                                        else {
+                                            Text("${payer.givenName} ${payer.familyName}",style=MaterialTheme.typography.bodyLarge)
+                                            Text(payer.label,style=MaterialTheme.typography.bodySmall,color=Muted)
+                                            TextButton(onClick={showPayerPicker=true}){Text("Elegir otra Prex o editar datos")}
+                                        }
+                                    }
+                                }
+                                Text(if(state.selectedProvider=="1033")"La confirmación sigue con Prex dentro de Boletera." else "La confirmación de eBROU se abre en Chrome.",style=MaterialTheme.typography.bodyMedium,color=Muted)
+                                Primary("Pagar ${Amounts.format(state.amount)}",enabled=!state.busy&&state.selectedProvider in PaymentPolicy.supported&&state.pendingPayment==null&&
+                                    (state.selectedProvider!="1033"||engine.payerProfiles.any{it.id==state.payerProfileId})){engine.beginPayment()}
+                                TextButton(onClick=engine::refresh,modifier=Modifier.align(Alignment.CenterHorizontally)){Text("Volver al saldo")}
                             }
-                            Text(if (state.selectedProvider == "1033") "Seguís con Prex dentro de Boletera. La verificación y autorización corresponden a Sistarbanc." else "La autorización de eBROU se abre en Chrome.", color = Muted, fontSize = 14.sp)
-                            Primary("Pagar ${Amounts.format(state.amount)}", enabled = !state.busy && state.selectedProvider in PaymentPolicy.supported && state.pendingPayment == null &&
-                                (state.selectedProvider != "1033" || engine.payerProfiles.any { it.id == state.payerProfileId })) { engine.beginPayment() }
-                            Primary("Volver al saldo") { engine.refresh() }
+                            "paymentReview" -> {
+                                Title("Revisemos tu recarga")
+                                WhiteCard {
+                                    Text(Amounts.format(state.pendingPayment?.amount),style=MaterialTheme.typography.displayMedium)
+                                    Text("Con ${if(state.pendingPayment?.provider=="1033")"Prex" else "eBROU"}",color=Muted)
+                                    Text("Salir de la pantalla de pago no confirma ni cancela la recarga. Revisá su resultado antes de repetirla.",color=Muted)
+                                }
+                                if(state.canReopenPrex)Primary("Volver al pago de Prex"){reopenPrex=true}
+                                OutlinedButton(onClick=engine::refresh,modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("Consultar saldo")}
+                                TextButton(onClick={reviewPayment=true}){Text("Ya revisé el resultado")}
+                            }
+                            "blocked" -> {
+                                Title("No pudimos seguir")
+                                Text(if(state.pendingPayment==null)"Podés volver a intentar el acceso." else "Tu solicitud queda guardada para revisar el resultado.",color=Muted)
+                                if(state.pendingPayment!=null)OutlinedButton(onClick={reviewPayment=true}){Text("Ya revisé el resultado")}
+                                if(state.canReopenPrex)Primary("Volver al pago de Prex"){reopenPrex=true}
+                                TextButton(onClick=engine::cancel){Text("Volver al inicio")}
+                            }
                         }
-                        "paymentReview" -> {
-                            Title("Tu pago en ${if (state.pendingPayment?.provider == "1033") "Prex" else "eBROU"}")
-                            Text("La autorización y el resultado se muestran en la pantalla del proveedor. Salir de esa pantalla no confirma ni cancela un pago autorizado.", color = Muted)
-                            Text(Amounts.format(state.pendingPayment?.amount), fontSize = 38.sp, fontWeight = FontWeight.Bold)
-                            Text("Podés consultar el saldo sin volver a enviar la recarga.", color = Muted)
-                            if (state.canReopenPrex) Primary("Volver al pago de Prex") { reopenPrex = true }
-                            Primary("Consultar saldo") { engine.refresh() }
-                            OutlinedButton(onClick = { reviewPayment = true }, modifier = Modifier.fillMaxWidth()) { Text("Ya revisé el resultado") }
+                        // One stable host: transitions never duplicate or recreate the authenticated browser.
+                        val cap=state.captcha
+                        val screenHeight=LocalConfiguration.current.screenHeightDp
+                        BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
+                            val captchaScale=if(cap==null)1f else minOf(1f,maxWidth.value/cap.width,(screenHeight-260).coerceAtLeast(180).toFloat()/cap.height)
+                            AndroidView(factory={engine.host},modifier=if(cap==null)Modifier.size(1.dp) else Modifier.width((cap.width*captchaScale).dp).height((cap.height*captchaScale).dp).clip(RoundedCornerShape(8.dp)),update={it.crop=cap})
                         }
-                        "blocked" -> {
-                            Title("Nos detenemos acá")
-                            Text(if (state.pendingPayment == null) "No se inició un pago. Podés volver a intentar el acceso." else "Hay una solicitud por revisar. Comprobá su resultado en el proveedor antes de iniciar otra carga.", color = Muted)
-                            if (state.pendingPayment != null) OutlinedButton(onClick = { reviewPayment = true }) { Text("Ya revisé el resultado") }
-                            if (state.canReopenPrex) OutlinedButton(onClick = { reopenPrex = true }) { Text("Volver al pago de Prex") }
-                            Primary("Volver al inicio") { engine.cancel() }
-                        }
+                        if(cap!=null)Primary("Ya completé la verificación"){engine.continueCaptcha()}
                     }
-                    // Keep a single WebView attached. Only the original CAPTCHA's rectangle becomes visible.
-                    val cap = state.captcha
-                    val screenHeight = LocalConfiguration.current.screenHeightDp
-                    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        val captchaScale = if (cap == null) 1f else minOf(1f, maxWidth.value / cap.width,
-                            (screenHeight - 260).coerceAtLeast(180).toFloat() / cap.height)
-                        AndroidView(factory = { engine.host },
-                            modifier = if (cap == null) Modifier.size(1.dp) else Modifier
-                                .width((cap.width * captchaScale).dp).height((cap.height * captchaScale).dp).clip(RoundedCornerShape(4.dp)),
-                            update = { it.crop = cap })
-                    }
-                    if (cap != null) {
-                        Primary("Ya completé la verificación") { engine.continueCaptcha() }
-                        Text("Si no entra el desafío completo o no responde, cancelá. Esta función está en prueba.", color = Muted, fontSize = 12.sp)
-                    }
-                    if (state.busy || authenticating) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                        Text(if (authenticating) "Esperando tu huella…" else "Consultando el sitio…", color = Muted)
-                    }
-                    if (state.stage != "welcome") TextButton(onClick = { engine.logout() }) { Text("Cerrar sesión local") }
-                    if (state.hasSavedAccess) TextButton(onClick = { showForget = true }) { Text("Olvidar acceso guardado") }
-                    if (state.diagnostic.isNotBlank()) Text("Referencia: ${state.diagnostic}", color = Muted, fontSize = 11.sp)
-                }
-                if (state.stage == "balance") PullToRefreshDefaults.Indicator(
-                    state = pullState,
-                    isRefreshing = state.busy,
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    containerColor = Lime,
-                    color = Ink
-                )
+                    if(stage=="balance")PullToRefreshDefaults.Indicator(state=pullState,isRefreshing=state.busy,modifier=Modifier.align(Alignment.TopCenter),containerColor=Lime,color=MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
         }
-        if (showSettings) AlertDialog(onDismissRequest = { showSettings = false },
-            title = { Text("Configuración") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Boletera · ${BuildConfig.VERSION_NAME}", fontWeight = FontWeight.SemiBold)
-                    Text(updates.message)
-                    if (updates.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    if (updates.ready) Primary("Instalar actualización", !updates.busy) { updates.install(this@MainActivity) }
-                    else if (updates.release != null) Primary("Descargar actualización", !updates.busy) { updates.download() }
-                    TextButton(onClick = updates::check, enabled = !updates.busy) { Text("Buscar actualizaciones") }
-                    Text("Las actualizaciones se descargan de GitHub. Android te pide confirmar la instalación y conserva tus datos.", color = Muted, fontSize = 12.sp)
-                }
-            }, confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Volver") } })
-        if (showProbe) AutofillProbe { showProbe = false }
+        if(showAmount)AmountSheet(state,{showAmount=false}){amount->showAmount=false;engine.prepare(amount)}
+        if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",state.diagnostic,
+            onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall={updates.install(this@MainActivity)},onClose={showSettings=false})
+
         if (showPayerPicker) AlertDialog(onDismissRequest = { showPayerPicker = false }, title = { Text("¿Qué Prex vas a usar?") },
             text = {
                 Column(Modifier.heightIn(max = 350.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -353,24 +277,6 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-@Composable private fun Title(text: String) { Text(text, fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, color = Ink) }
-@Composable private fun Notice(text: String) {
-    Surface(color = Color(0xFFE7ECDD), shape = RoundedCornerShape(14.dp)) {
-        Text(text, Modifier.padding(16.dp), fontSize = 14.sp, color = Ink)
-    }
-}
-@Composable private fun WhiteCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(color = Color.White, shape = RoundedCornerShape(22.dp)) {
-        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
-    }
-}
-@Composable private fun Primary(label: String, enabled: Boolean = true, action: () -> Unit) {
-    Button(onClick = action, enabled = enabled, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Ink)) {
-        Text(label, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-    }
-}
-
 @Composable internal fun EmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: PendingPayment?, onClose: () -> Unit) {
     var showOriginal by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
@@ -382,15 +288,11 @@ class MainActivity : FragmentActivity() {
     BackHandler(onBack = onClose)
     Surface(color = Paper, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-            Row(Modifier.fillMaxWidth().background(Ink).padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onClose) { Text("Volver", color = Lime) }
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text("Pago con Prex", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    Text("Recarga · ${Amounts.format(pending?.amount)}", color = Color(0xFFBEC8CE), fontSize = 13.sp)
-                }
-                Text("boletera", color = Lime, fontWeight = FontWeight.Bold)
+            AppTopBar(title="Pago con Prex",onBack=onClose)
+            Row(Modifier.padding(horizontal=24.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
+                AppGlyph(Glyph.Lock,Modifier.size(16.dp),tint=Muted)
+                Text("Sistarbanc · ${Amounts.format(pending?.amount)}",color=Muted,style=MaterialTheme.typography.bodySmall)
             }
-            Text("Pago seguro · Sistarbanc", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             if (payment.payerNotice.isNotBlank()) {
                 Text(payment.payerNotice, color = Ink, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
                 if (payment.payerConflict) TextButton(onClick = payment::applyChosenPayer, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Usar los datos del perfil elegido") }
@@ -411,15 +313,14 @@ class MainActivity : FragmentActivity() {
                     if (!native) PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.fillMaxSize())
                     if (native) Column(Modifier.fillMaxSize().background(Paper).verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         if (payment.nativeStage != "payer") PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.fillMaxWidth().height(1.dp))
-                        Text(if (payment.nativeStage == "payer") "02 / TUS DATOS" else "01 / TU RECARGA", color = Muted, fontSize = 12.sp)
-                        Text(if (payment.nativeStage == "payer") "Datos del titular" else "Revisá tu recarga", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Ink)
+                        ProgressSteps(if(payment.nativeStage=="payer")1 else 0,listOf("Recarga","Titular","Tarjeta"))
+                        Text(if (payment.nativeStage == "payer") "Datos del titular" else "Revisá tu recarga",style=MaterialTheme.typography.headlineMedium,color=Ink)
                         if (payment.nativeStage == "loading") {
-                            CircularProgressIndicator(color = Ink)
-                            Text("Estamos recuperando tu solicitud…", color = Muted)
+                            LoadingState("Un momento…","Estamos recuperando tu solicitud.")
                         } else if (payment.nativeStage == "summary") {
-                            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+                            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(28.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                    Text(payment.summaryRows.singleOrNull { it.first.trim().equals("Total:", ignoreCase = true) }?.second ?: Amounts.format(pending?.amount), fontSize = 36.sp, fontWeight = FontWeight.Bold, color = Ink)
+                                    Text(payment.summaryRows.singleOrNull { it.first.trim().equals("Total:", ignoreCase = true) }?.second ?: Amounts.format(pending?.amount),style=MaterialTheme.typography.displayMedium,color=Ink)
                                     payment.summaryRows.filterNot { it.first.trim().equals("Total:", ignoreCase = true) }.forEach { (label, value) ->
                                         Column { Text(label, color = Muted, fontSize = 12.sp); Text(value, color = Ink, fontSize = 16.sp) }
                                     }
@@ -427,7 +328,7 @@ class MainActivity : FragmentActivity() {
                             }
                             Primary("Continuar", payment.canContinue, payment::advance)
                         } else {
-                            if (!payment.expandedChallenge) Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+                            if (!payment.expandedChallenge) Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(28.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                     val values = payment.payerValues
                                     val rows = if (values.size == 5) listOf("Titular" to "${values[0]} ${values[1]}", "Documento" to values[2], "Correo" to values[3], "Celular" to values[4]) else emptyList()
@@ -506,6 +407,7 @@ internal class PaymentPageHost(context: android.content.Context, private val bro
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun PayerProfileEditor(existing: PayerProfile?, onSave: (PayerProfile) -> Boolean, onDelete: (String) -> Boolean, onClose: () -> Unit, paymentOnly: Boolean = false) {
     val id = remember(existing?.id) { existing?.id ?: java.util.UUID.randomUUID().toString() }
     var label by remember(id) { mutableStateOf(existing?.label.orEmpty()) }
@@ -517,30 +419,30 @@ internal class PaymentPageHost(context: android.content.Context, private val bro
     var phone by remember(id) { mutableStateOf(existing?.phone.orEmpty()) }
     var error by remember(id) { mutableStateOf("") }
     val profile = PayerProfile(id, label.trim(), given.trim(), family.trim(), document.trim(), email.trim(), phone, documentType)
-    AlertDialog(onDismissRequest = onClose, title = { Text(if (existing == null) "Nueva Prex" else "Datos del titular") }, text = {
-        Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Estos datos se guardan cifrados en este celular. No incluyen el número ni el código de la tarjeta.", color = Muted)
-            OutlinedTextField(label, { label = it.take(80) }, label = { Text("Nombre del perfil · por ejemplo, Mi Prex") }, singleLine = true)
-            OutlinedTextField(given, { given = it.take(80) }, label = { Text("Nombre del titular") }, singleLine = true)
-            OutlinedTextField(family, { family = it.take(80) }, label = { Text("Apellido del titular") }, singleLine = true)
-            Text("Tipo de documento")
-            listOf("CI" to "Cédula uruguaya", "PAS" to "Pasaporte").forEach { (type, title) ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = documentType == type, onClick = { documentType = type })
-                    TextButton(onClick = { documentType = type }) { Text(title) }
+    ModalBottomSheet(onDismissRequest=onClose,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=Paper) {
+        Column(Modifier.fillMaxWidth().widthIn(max=560.dp).align(Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).imePadding().padding(horizontal=24.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            Text(if(existing==null)"Nueva Prex" else "Datos del titular",style=MaterialTheme.typography.headlineMedium,color=Ink)
+            Text(if(paymentOnly)"Los cambios se usan solo en esta recarga." else "Guardamos estos datos cifrados en tu teléfono. No guardamos el número ni el código de la tarjeta.",style=MaterialTheme.typography.bodyMedium,color=Muted)
+            OutlinedTextField(label,{label=it.take(80)},label={Text("Nombre del perfil")},placeholder={Text("Por ejemplo, Mi Prex")},singleLine=true,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(given,{given=it.take(80)},label={Text("Nombre del titular")},singleLine=true,modifier=Modifier.fillMaxWidth())
+            OutlinedTextField(family,{family=it.take(80)},label={Text("Apellido del titular")},singleLine=true,modifier=Modifier.fillMaxWidth())
+            Text("Tipo de documento",style=MaterialTheme.typography.titleMedium,color=Ink)
+            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                listOf("CI" to "Cédula uruguaya","PAS" to "Pasaporte").forEach { (type,title) ->
+                    FilterChip(selected=documentType==type,onClick={documentType=type},label={Text(title)},modifier=Modifier.weight(1f).heightIn(min=48.dp))
                 }
             }
-            OutlinedTextField(document, { document = if (documentType == "CI") it.filter(Char::isDigit).take(8) else it.take(40) }, label = { Text(if (documentType == "CI") "Cédula uruguaya, sin puntos ni guion" else "Número de pasaporte") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = if (documentType == "CI") KeyboardType.Number else KeyboardType.Text))
-            OutlinedTextField(email, { email = it.take(120) }, label = { Text("Correo electrónico") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
-            OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(15) }, label = { Text("Celular, con código de país si corresponde") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
-            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
-            if (existing != null && !paymentOnly) TextButton(onClick = {
-                if (onDelete(existing.id)) onClose() else error = "No se pudo borrar. Revisá si este perfil tiene un pago pendiente."
-            }) { Text("Eliminar este perfil") }
+            OutlinedTextField(document,{document=if(documentType=="CI")it.filter(Char::isDigit).take(8) else it.take(40)},label={Text(if(documentType=="CI")"Cédula uruguaya, sin puntos ni guion" else "Número de pasaporte")},singleLine=true,modifier=Modifier.fillMaxWidth(),keyboardOptions=KeyboardOptions(keyboardType=if(documentType=="CI")KeyboardType.Number else KeyboardType.Text))
+            OutlinedTextField(email,{email=it.take(120)},label={Text("Correo electrónico")},singleLine=true,modifier=Modifier.fillMaxWidth(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email))
+            OutlinedTextField(phone,{phone=it.filter(Char::isDigit).take(15)},label={Text("Celular")},singleLine=true,modifier=Modifier.fillMaxWidth(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Phone))
+            if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error)
+            Primary(if(paymentOnly)"Usar en este pago" else "Guardar y usar",enabled=profile.valid()) {
+                if(onSave(profile))onClose() else error="No se pudieron guardar los datos. Revisá si hay un pago pendiente."
+            }
+            if(existing!=null&&!paymentOnly)TextButton(onClick={if(onDelete(existing.id))onClose() else error="No se pudo borrar. Revisá si tiene un pago pendiente."}){Text("Eliminar este perfil")}
+            TextButton(onClick=onClose,modifier=Modifier.align(Alignment.CenterHorizontally)){Text("Cancelar")}
         }
-    }, confirmButton = { TextButton(enabled = profile.valid(), onClick = {
-        if (onSave(profile)) onClose() else error = "No se pudieron guardar los datos. Revisá si hay un pago pendiente."
-    }) { Text(if (paymentOnly) "Usar en este pago" else "Guardar y usar") } }, dismissButton = { TextButton(onClick = onClose) { Text("Cancelar") } })
+    }
 }
 
 @Composable private fun AutofillProbe(onClose: () -> Unit) {
