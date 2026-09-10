@@ -15,6 +15,8 @@ class HomeFitTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     private lateinit var state:MutableState<UiState>
     private fun prepare() {
+        compose.runOnIdle {compose.activity.getSharedPreferences("appearance",0).edit().putString("theme","dark").commit()}
+        compose.activityRule.scenario.recreate()
         compose.runOnIdle {
             val engine=MainActivity::class.java.getDeclaredField("engine").apply {isAccessible=true}.get(compose.activity) as StmEngine
             val choices=StmEngine::class.java.getDeclaredField("choices").apply {isAccessible=true}.get(engine) as JourneyPreferences
@@ -44,12 +46,12 @@ class HomeFitTest {
         prepare();verifyFit()
         compose.onNodeWithTag("ticketBudget").assertDoesNotExist()
         compose.runOnIdle {state.value=state.value.copy(minimum=56400)}
-        compose.onNodeWithText("Mínimo $ 564").assertExists()
+        compose.onNodeWithText("$ 564").assertExists()
         compose.onNodeWithText("Carga Express").performClick()
         compose.onNodeWithText("Ahora es $ 564",substring=true).assertExists()
         compose.onNodeWithText("Ahora no").performClick()
         compose.runOnIdle {state.value=state.value.copy(minimum=73100)}
-        compose.onNodeWithText("Mínimo $ 731").assertExists()
+        compose.onNodeWithText("$ 731").assertExists()
         verifyFit()
         screenshot("home-fit-positive.png")
         compose.runOnIdle {state.value=state.value.copy(balance=-4500)}

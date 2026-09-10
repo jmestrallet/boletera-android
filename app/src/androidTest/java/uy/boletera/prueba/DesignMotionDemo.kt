@@ -50,7 +50,7 @@ class DesignMotionDemo {
         }
         compose.mainClock.autoAdvance=false
         try {
-            press("Tu boletera")
+            press("Saldo disponible")
             press("Recargar boletera")
             compose.onNodeWithText("$ 500").performClick();frames(650)
             compose.onNodeWithText("$ 1.000").performClick();frames(650)

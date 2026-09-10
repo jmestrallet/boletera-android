@@ -59,7 +59,7 @@ import java.util.Locale
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit,
     onExpressCharge: (() -> Unit)? = null, onExpressHelp: (() -> Unit)? = null, onTicketGuide: (() -> Unit)? = null, expressPreparing: Boolean = false, expressProvider: String = "Medio guardado") {
     val colors=MaterialTheme.colorScheme
@@ -68,45 +68,57 @@ import java.util.Locale
     val haptic=LocalHapticFeedback.current
     val compression by animateFloatAsState(if(held)0.985f else 1f,spring(dampingRatio=0.8f,stiffness=650f),label="wallet press")
     fun chooseCard() { haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onChangeCard() }
-    Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
-        Surface(color=Lime,shape=RoundedCornerShape(28.dp),modifier=Modifier.graphicsLayer { scaleX=compression; scaleY=compression; shape=RoundedCornerShape(28.dp);clip=true }.combinedClickable(
+    Column(verticalArrangement=Arrangement.spacedBy(24.dp)) {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Tu boletera",style=MaterialTheme.typography.headlineLarge,color=Ink)
+                Text("STM · ${state.selectedCard?.takeLast(4).orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=Muted)
+            }
+            IconButton(onClick=::chooseCard,enabled=!state.busy) { AppGlyph(Glyph.Ticket,label="Cambiar boletera",tint=colors.primary) }
+        }
+        Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.graphicsLayer { scaleX=compression; scaleY=compression; shape=RoundedCornerShape(32.dp);clip=true }.combinedClickable(
             interactionSource=touch, indication=androidx.compose.material3.ripple(), enabled=!state.busy,
             onClickLabel="Cambiar boletera", onLongClickLabel="Elegir boletera", onClick=::chooseCard, onLongClick=onChangeCard
         ).semantics {
             customActions=listOf(CustomAccessibilityAction("Actualizar saldo") { if (!state.busy) { onRefresh(); true } else false })
         }) {
-            Column(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.fillMaxWidth().padding(28.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Tu boletera",style=MaterialTheme.typography.titleLarge,color=colors.onPrimaryContainer)
-                        Text("STM · ${state.selectedCard?.takeLast(4).orEmpty()} · Saldo disponible",style=MaterialTheme.typography.bodySmall,color=colors.onPrimaryContainer)
-                    }
-                    IconButton(onClick=::chooseCard,enabled=!state.busy) { AppGlyph(Glyph.Ticket,label="Cambiar boletera",tint=colors.onPrimaryContainer) }
+                    Text("Saldo disponible",style=MaterialTheme.typography.titleMedium,color=colors.onPrimaryContainer,modifier=Modifier.weight(1f))
+                    AppGlyph(Glyph.Ticket,tint=colors.onPrimaryContainer)
                 }
-                Text(Amounts.format(state.balance),style=MaterialTheme.typography.displayMedium,
+                Text(Amounts.format(state.balance),style=if(Amounts.format(state.balance).length>10)MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge,
                     color=colors.onPrimaryContainer,modifier=Modifier.fillMaxWidth())
-                if((state.balance?:0)<0) Text("Saldo pendiente de cubrir",style=MaterialTheme.typography.bodySmall,color=colors.onPrimaryContainer)
+                Text(if((state.balance?:0)<0) "Saldo pendiente de cubrir" else "Informado por STM",style=MaterialTheme.typography.bodyMedium,color=colors.onPrimaryContainer)
                 HorizontalDivider(color=colors.onPrimaryContainer.copy(alpha=0.15f))
-                FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                        AppGlyph(Glyph.Refresh,Modifier.size(14.dp),tint=colors.onPrimaryContainer)
-                        Text(if(state.busy) "Actualizando…" else state.consultedAt?.let { "Actualizado ${SimpleDateFormat("HH:mm",Locale.forLanguageTag("es-UY")).format(Date(it))}" } ?: "Deslizá para actualizar",
-                            style=MaterialTheme.typography.labelSmall,color=colors.onPrimaryContainer)
-                    }
-                    Text("Mínimo ${Amounts.format(state.minimum)}",style=MaterialTheme.typography.labelSmall,color=colors.onPrimaryContainer)
+                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    AppGlyph(Glyph.Refresh,Modifier.size(16.dp),tint=colors.onPrimaryContainer)
+                    Text(if(state.busy) "Actualizando…" else state.consultedAt?.let { "Actualizado a las ${SimpleDateFormat("HH:mm",Locale.forLanguageTag("es-UY")).format(Date(it))}" } ?: "Deslizá hacia abajo para actualizar",
+                        style=MaterialTheme.typography.bodySmall,color=colors.onPrimaryContainer)
                 }
             }
         }
-        Primary("Recargar boletera",enabled=!state.busy && state.minimum!=null,action=onCharge)
-        if(onExpressCharge!=null) ExpressShortcut(state.minimum,enabled=!state.busy,onExplain=onExpressHelp,preparing=expressPreparing,providerName=expressProvider,onStart=onExpressCharge)
+            Primary("Recargar boletera",enabled=!state.busy && state.minimum!=null,action=onCharge)
+            if(onExpressCharge!=null) ExpressShortcut(state.minimum,enabled=!state.busy,onExplain=onExpressHelp,preparing=expressPreparing,providerName=expressProvider,onStart=onExpressCharge)
+            Surface(color=Panel,shape=RoundedCornerShape(24.dp)) {
+                Row(Modifier.fillMaxWidth().padding(20.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
+                    Surface(color=colors.secondaryContainer,shape=RoundedCornerShape(14.dp),modifier=Modifier.size(44.dp)) { Box(contentAlignment=Alignment.Center) { AppGlyph(Glyph.Ticket,tint=colors.onSecondaryContainer) } }
+                    Column(Modifier.weight(1f)) {
+                        Text("Recarga mínima",style=MaterialTheme.typography.bodyMedium,color=Muted)
+                        Text(Amounts.format(state.minimum),style=MaterialTheme.typography.titleLarge,color=Ink)
+                    }
+                }
+            }
         Column(verticalArrangement=Arrangement.spacedBy(0.dp)) {
-            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                AppGlyph(Glyph.Info,Modifier.size(16.dp),tint=Muted)
-                Text("Los viajes de las últimas 72 horas pueden estar pendientes de descuento.",style=MaterialTheme.typography.bodySmall,color=Muted,modifier=Modifier.weight(1f))
-            }
-            if(onTicketGuide!=null) TextButton(onClick=onTicketGuide,modifier=Modifier.align(Alignment.CenterHorizontally)) {
-                Text("Boletos y tarifas",color=Muted,style=MaterialTheme.typography.bodySmall)
-            }
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            AppGlyph(Glyph.Info,Modifier.size(18.dp),tint=Muted)
+            Text("Los viajes de las últimas 72 horas pueden estar pendientes de descuento.",style=MaterialTheme.typography.bodySmall,color=Muted,modifier=Modifier.weight(1f))
+        }
+        if(onTicketGuide!=null) TextButton(onClick=onTicketGuide,modifier=Modifier.align(Alignment.CenterHorizontally)) {
+            AppGlyph(Glyph.Info,Modifier.size(18.dp),tint=Muted)
+            Spacer(Modifier.width(8.dp))
+            Text("Boletos y tarifas",color=Muted,style=MaterialTheme.typography.bodySmall)
+        }
         }
     }
 }

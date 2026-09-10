@@ -67,3 +67,7 @@ Recargar boletera conserva la jerarquía principal. El control secundario Carga 
 Se elimina el carrusel de boletos y el bloque separado de mínimo. Un panel integra identificación, saldo y mínimo actual; Carga Express permanece secundario. La tarjeta sin contacto sustituye la banda bancaria y se comparte en cabecera, saldo y selector. La home se comprueba completa sin scroll en 360 × 640 dp con letra normal; con ampliación accesible conserva desplazamiento para no recortar texto.
 
 Los errores que la app detecta en el recorrido principal y Prex usan la misma pantalla: ilustración de recorrido interrumpido, categoría prudente, explicación, detalle desplegable y salida. No se reintenta automáticamente una recarga. El reporte al desarrollador es un botón deshabilitado con Próximamente; no hay envío, captura ni recopilación adicional. No es un recuperador de cierres abruptos del proceso Android.
+
+## Restauración de home — 0.2.15
+
+A pedido del usuario se recupera la composición anterior a 0.2.14: Tu boletera separado, saldo en tipografía grande y mínimo en su propio panel. No se restaura el carrusel de boletos. El aviso y la guía se agrupan sin el espacio extra entre ambos. El símbolo pasa a ser una tarjeta con un ómnibus de perfil; no contiene ondas y comparte geometría con el lanzador. Se conservan los cambios funcionales y la pantalla de error.

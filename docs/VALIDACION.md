@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.14
+## Versión vigente: 0.2.15
+
+Se restaura la home previa a la compactación: título separado, saldo grande y mínimo en su bloque. No vuelve el carrusel de boletos. El icono representa una tarjeta con un ómnibus de perfil, sin ondas, y comparte el dibujo con el lanzador Android.
+
+Se consultaron únicamente resolución, densidad y escala de letra del teléfono conectado: 1080 × 2340, 420 dpi, letra 1×. No se instaló ni modificó nada en ese teléfono. La comprobación se hizo en un emulador con esas medidas, tema oscuro y datos ficticios. El primer restablecimiento exacto necesitaba 16 dp de scroll; se eliminó el espacio extra entre aviso y guía del pie, conservando tamaños y paneles.
+
+Tres pruebas Android finales aprobaron en 11,774 s (`outputs/restored-home-final-0.2.15.txt`): home completa con desplazamiento máximo cero para saldo positivo y negativo, mínimos variables de $564/$731 y ayuda, acceso a guía, pulsación larga, cancelación y bloqueo de duplicados. Capturas revisadas: `outputs/restored-home-dark-0.2.15.png` y `outputs/restored-home-negative-0.2.15.png`. En pantallas menores o con letra ampliada se mantiene el desplazamiento para conservar el diseño y la legibilidad.
+
+48 pruebas JavaScript, ocho JVM, release y lint aprobados; compilación final en 29 s. APK código 33, SHA-256 `a23973c722a83aac3dbe878b60794ebce172501df4bc1678a432c0bad9fc1e03`, misma firma que las versiones anteriores. Se conservan Carga Express y la pantalla de errores. No se hicieron operaciones financieras; la aceptación visual en el teléfono queda pendiente.
+
+## Versión anterior: 0.2.14
 
 Home compacta sin combinaciones de boletos; identificación/saldo/mínimo en un solo panel y símbolo unificado de tarjeta sin contacto, incluido el lanzador Android. Carga Express usa el medio guardado y la ayuda aclara que el mínimo cambia según la cuenta/consulta. Se retiró la referencia a titular habitual. La guía de tarifas permanece aparte.
 

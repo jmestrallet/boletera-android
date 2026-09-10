@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.15-prueba — vuelve la home anterior
+
+- Se recuperan el título por fuera del panel, el saldo grande y el bloque separado de recarga mínima. Las combinaciones de boletos siguen fuera de la home.
+- El pie agrupa su aviso y el acceso a la guía, sin el espacio extra entre ambos.
+- Tarjeta con un ómnibus como icono común, también en el lanzador; se retiran las ondas.
+- Se conservan Carga Express, el mínimo variable de STM, el medio guardado y las pantallas de error de 0.2.14.
+
 ## 0.2.14-prueba — home limpia, Carga Express y errores claros
 
 - Se retiran las combinaciones de boletos del saldo. Identificación, saldo y mínimo vigente se integran en un solo panel; el pie vuelve a entrar en pantalla a tamaño de letra normal.
