@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.2.18-prueba — texto original y pie alineado
+
+- Vuelven el aviso completo de las 72 horas, el nombre Boletos y tarifas y su icono de información.
+- Aviso y acceso siguen uno al lado del otro, alineados arriba. El acceso usa dos renglones y conserva un área táctil de al menos 48 dp.
+
 ## 0.2.17-prueba — ajuste sutil del pie
 
 - Aviso abreviado de viajes pendientes y acceso a Boletos uno al lado del otro.

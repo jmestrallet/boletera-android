@@ -1,6 +1,14 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.17
+## Versión vigente: 0.2.18
+
+Se recuperan el texto original completo de las 72 horas y Boletos y tarifas con icono de información. Los dos grupos se alinean por arriba; el acceso ocupa dos renglones y tiene área táctil mínima de 48 dp. No cambia el resto de la home.
+
+48 pruebas JavaScript, ocho JVM, release/debug/pruebas/lint aprobados; compilación en 48 s. HomeFitTest aprobó en 4,816 s (`outputs/footer-aligned-0.2.18.txt`): pantalla 1080 × 2280 a 420 dpi y letra 1×, saldo positivo/negativo con desplazamiento máximo cero, mínimos variables y apertura de guía. Captura oscura revisada (`outputs/footer-aligned-home-0.2.18.png`): ambas primeras líneas e iconos alineados y todo el pie visible.
+
+APK código 36, SHA-256 `17e30d5617b4ffeea6fdd0ef7195b03b1d8eb8c5ce33c7605137ec534d0a3543`, misma firma. No se modificó el teléfono físico ni se hicieron operaciones financieras.
+
+## Versión anterior: 0.2.17
 
 Ajuste limitado al pie de la home: aviso abreviado de viajes de las últimas 72 horas sin descontar a la izquierda y acceso a Boletos a la derecha. Los tamaños, paneles y separaciones superiores no cambian. Se conserva el icono original.
 

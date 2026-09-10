@@ -79,3 +79,7 @@ Se restaura el rectángulo redondeado con dos líneas del diseño original. El r
 ## Pie en una fila — 0.2.17
 
 Solo cambia el pie: aviso abreviado a la izquierda y botón Boletos con nombre accesible Boletos y tarifas a la derecha. El texto conserva el significado de viajes de las últimas 72 horas pendientes de descontar. No se alteran los tamaños ni separaciones de los paneles superiores; el texto ampliado puede ocupar más líneas sin recortarse.
+
+## Pie alineado — 0.2.18
+
+Se recuperan el texto completo original de las 72 horas y Boletos y tarifas con icono de información. Ambos grupos se alinean arriba, con el acceso en dos renglones y área táctil mínima de 48 dp. No cambia el resto de la home.

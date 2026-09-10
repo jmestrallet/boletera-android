@@ -109,15 +109,17 @@ import java.util.Locale
                     }
                 }
             }
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.Top) {
                 AppGlyph(Glyph.Info,Modifier.size(16.dp),tint=Muted)
-                Text("Puede haber viajes de las últimas 72 h sin descontar.",style=MaterialTheme.typography.bodySmall,color=Muted,modifier=Modifier.weight(1f))
+                Text("Los viajes de las últimas 72 horas pueden estar pendientes de descuento.",style=MaterialTheme.typography.bodySmall,color=Muted,modifier=Modifier.weight(1f))
             }
-            if(onTicketGuide!=null) TextButton(onClick=onTicketGuide,modifier=Modifier.semantics {contentDescription="Boletos y tarifas"}) {
-                AppGlyph(Glyph.Ticket,Modifier.size(18.dp),tint=Muted)
-                Spacer(Modifier.width(6.dp))
-                Text("Boletos",color=Muted,style=MaterialTheme.typography.bodySmall)
+            if(onTicketGuide!=null) Row(
+                Modifier.width(106.dp).heightIn(min=48.dp).clickable(onClickLabel="Abrir guía",role=Role.Button,onClick=onTicketGuide)
+                    .semantics(mergeDescendants=true) {contentDescription="Boletos y tarifas"},
+                horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.Top) {
+                AppGlyph(Glyph.Info,Modifier.size(16.dp),tint=Muted)
+                Text("Boletos y\ntarifas",color=Muted,style=MaterialTheme.typography.bodySmall,modifier=Modifier.weight(1f))
             }
         }
     }
