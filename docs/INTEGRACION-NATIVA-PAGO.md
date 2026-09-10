@@ -61,3 +61,7 @@ La propuesta de aplicar CSS sobre la página original tiene una vía investigabl
 Se compararon tres identificaciones en un WebView Android sin red y dos contra la pantalla pública real, sin operación. La variante alternativa dejó de activar el rechazo inicial por navegador tanto en los predicados locales como en la pantalla pública. El [informe de resultados](PRUEBA-IDENTIDAD-NAVEGADOR.md) delimita la evidencia: no demuestra que se pueda completar una recarga, resolver CAPTCHA ni autorizar el pago.
 
 Tras la investigación, 0.1.8 incorpora Prex dentro de Boletera, con apariencia, perfiles de titular cifrados y conservación de la página al salir y volver. Las pruebas de integración usan datos ficticios. Falta comprobar el formulario con una operación real, Google en el teléfono, CAPTCHA, autorización y acreditación. El objetivo completo sigue pendiente.
+
+## Implementación posterior: formulario nativo 0.2.9
+
+El dueño autorizó incorporar número, vencimiento, CVV y Continuar en la interfaz de la app. La [implementación y sus límites](TARJETA-NATIVA.md) conservan el formulario original como procesador: no son una API/SDK independiente ni prueban aceptación bancaria. El puente se contrastó con el código público actualizado y se probó en WebView con HTML interceptado. Esta implementación reemplaza la situación anterior de mostrar siempre el paso de tarjeta original; autorizaciones, controles desconocidos y consentimientos adicionales siguen apareciendo en la página del proveedor.

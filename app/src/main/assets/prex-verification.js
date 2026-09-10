@@ -10,7 +10,7 @@
     restore,
     present(frame) {
       const root = frame?.closest('angular-recaptcha');
-      if (!root || !root.closest('alta-cliente')) return false;
+      if (!root || !root.closest('alta-cliente,alta-tarjeta')) return false;
       if (component === root && root.isConnected) return true;
       restore();
       component = root;

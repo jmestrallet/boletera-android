@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.9-prueba — tarjeta dentro de la interfaz
+
+- Número, vencimiento y CVV nativos, con teclado numérico, formato, validación y Continuar fijo abajo.
+- Transferencia al formulario original solo al tocar Continuar; sus validaciones, solicitud y verificaciones se conservan. Protección contra envíos duplicados.
+- Datos transitorios: sin guardado en Boletera, CVV borrado del formulario al enviar y campos limpiados al salir o pasar al fondo. Capturas bloqueadas mientras se muestra el pago.
+- Sugerencias de Android para número/vencimiento, sin solicitar guardado ni incluir CVV en el autocompletado. Google en el teléfono sigue pendiente de comprobar.
+- Página original disponible; consentimientos adicionales, formularios desconocidos y autorizaciones se muestran allí. Validado con datos ficticios, sin operación bancaria real.
+
 ## 0.2.8-prueba — respuesta visible y pulso al tocar
 
 - Se elimina la inclinación de la boletera y se incorpora respuesta táctil en el toque normal, además de la pulsación larga.

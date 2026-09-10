@@ -10,17 +10,17 @@ La 0.1.9 corrige la conexión segura de Sistarbanc en Android 11; se reprodujo e
 
 **Objetivo pendiente:** completar y verificar el recorrido real de pago desde Boletera. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. El CAPTCHA, Google en el teléfono, la autorización y la acreditación requieren comprobación real. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
 
-**[Descargar la versión 0.2.8](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.8)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+**[Descargar la versión 0.2.9](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.9)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
-La **0.2.7** incorpora [modo Express](docs/MODO-EXPRESS.md): activación con gesto sostenido y recarga mínima con tus elecciones guardadas. Conserva respuesta al tacto, pulsación larga sobre la boletera y selecciones animadas. El diseño incluye: saldo protagonista, importe en un panel, tipografía Google Sans, iconos Material Symbols, modo claro/oscuro y transiciones nativas. Conserva Configuración y las actualizaciones desde GitHub. [Diseño, referencias y comprobaciones](docs/DISENO.md). El archivo es `outputs/boletera-prueba-0.2.8.apk`.
+La **0.2.7** incorpora [modo Express](docs/MODO-EXPRESS.md): activación con gesto sostenido y recarga mínima con tus elecciones guardadas. Conserva respuesta al tacto, pulsación larga sobre la boletera y selecciones animadas. El diseño incluye: saldo protagonista, importe en un panel, tipografía Google Sans, iconos Material Symbols, modo claro/oscuro y transiciones nativas. Conserva Configuración y las actualizaciones desde GitHub. [Diseño, referencias y comprobaciones](docs/DISENO.md). El archivo es `outputs/boletera-prueba-0.2.9.apk`.
 
 Desde 0.1.15, las próximas versiones publicadas en este repositorio se pueden descargar desde Configuración, sin buscar el archivo a mano. Se incluyen las publicaciones de prueba porque esta app todavía está en prueba. Desde 0.2.4, **Actualizar ahora** descarga, verifica y abre automáticamente la confirmación de instalación de Android. La primera vez puede pedir **Permitir desde esta fuente**: al volver con el permiso habilitado, continúa automáticamente. Si cancelás, queda **Instalar actualización** para reintentar. Para llegar desde una versión anterior a 0.2.4 todavía hay que tocar ese botón después de descargarla. Una actualización conserva los datos guardados. Si tu candidato local es más nuevo que GitHub, no ofrece volver a una versión anterior.
 
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Las versiones anteriores se conservan con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
 
-1. Pasá `outputs/boletera-prueba-0.2.8.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
+1. Pasá `outputs/boletera-prueba-0.2.9.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.
@@ -39,6 +39,8 @@ Desde 0.2.3, la preparación de la recarga es más compacta y la acción princip
 Los avisos, incluido el fallo de desbloqueo, aparecen flotando en la parte inferior sin mover el contenido; se cierran solos o con la cruz.
 
 ## Qué incluye
+
+Desde 0.2.9, el formulario de tarjeta Prex también tiene interfaz nativa: número, vencimiento, CVV y Continuar. Boletera mantiene esos datos solo durante el uso del formulario, borra el CVV al continuar y limpia sus campos al salir o pasar al fondo. El envío sigue a cargo de la página original de Sistarbanc. Si aparecen consentimientos o verificaciones adicionales, se muestra ese paso original. El autocompletado de número/vencimiento depende del servicio de Android y requiere prueba en el teléfono. [Alcance y validación](docs/TARJETA-NATIVA.md).
 
 - Kotlin + Compose, Android WebView local, ingreso por Usuario gub.uy, selección de boletera, saldo, mínimo del sitio, selección de importe, Prex integrado y traspaso de eBROU a Chrome.
 - Adaptador de lectura/navegación independiente de las pantallas, basado en controles y texto observados en STM. Los cambios del sitio pueden requerir una actualización de la APK.

@@ -19,9 +19,11 @@
     if ([...document.querySelectorAll('[role="dialog"],[role="alertdialog"],.swal2-popup,mat-dialog-container')].some(visible)) return {stage:'original'};
     const summary = single('stepper-pago confirmar-pago');
     const client = single('stepper-pago alta-cliente');
-    const root = summary || client;
+    const cardState = window.BoleteraCard?.snapshot();
+    const card = cardState?.available ? single('stepper-pago alta-tarjeta') : null;
+    const root = summary || client || card;
     const original = single('alta-tarjeta,alta-tarjeta-externo,seleccion-tarjeta,finalizar-pago,resultado-pago,pago-redes');
-    const stage = summary ? 'summary' : client ? 'payer' : original ? 'original' : 'loading';
+    const stage = summary ? 'summary' : client ? 'payer' : card ? 'card' : original ? 'original' : 'loading';
     if (sentStep && sentStep !== stage) sentStep = null;
     if (!root) return {stage};
     // Only summary text and explicitly named ordinary payer fields are read.
@@ -32,12 +34,13 @@
     }).filter(row => row.length === 2) : [];
     const names = ['nombreControl','apellidoControl','documentoControl','emailControl','celularControl'];
     const values = client ? names.map(name => client.querySelector(`input[formcontrolname="${name}"]`)?.value || '') : [];
-    const frames = client ? challengeFrames() : [];
+    const frames = client || card ? challengeFrames() : [];
     const challenge = frames.find(e => /\/bframe/.test(e.src)) || frames.find(e => /\/anchor/.test(e.src));
     const expanded = !!challenge && /\/bframe/.test(challenge.src);
     const r = challenge?.getBoundingClientRect();
     const measurable = r && r.width > 0 && r.height > 0;
-    return {stage, rows, values, canContinue: ready(button(root)) && sentStep !== stage,
+    return {stage, rows, values, canContinue: card ? cardState.canContinue : ready(button(root)) && sentStep !== stage,
+      cardBusy:!!card && cardState.busy, cardError:!!card && cardState.error,
       challenge: measurable ? {x:r.x,y:r.y,width:r.width,height:r.height} : null, viewportWidth:innerWidth, expanded:!!measurable && expanded};
   }
   window.BoleteraNative = {

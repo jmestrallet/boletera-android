@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.8
+## Versión vigente: 0.2.9
+
+Formulario nativo de tarjeta Prex con datos temporales y continuación mediante el formulario original de Sistarbanc. [Alcance, protección y límites](TARJETA-NATIVA.md).
+
+Pasaron 44 pruebas JavaScript, ocho JVM, compilación release y lint. En Android pasaron nueve pruebas conjuntas (46,166 s): tres del nuevo formulario, recorrido STM/Prex interceptado, dos de Express, dos de gestos y conservación del WebView. Registro: `outputs/native-card-regression-0.2.9.txt`. Las tres pruebas nuevas también pasaron en 360 × 640 dp (10,450 s) y con texto 2×/animación desactivada (13,044 s), antes del ajuste final que separa vencimiento y CVV en filas con texto grande.
+
+Se verifica un solo envío explícito y exacto de datos ficticios, sin valores de tarjeta en las capturas de estado; limpieza del CVV al continuar y de los campos al salir/pasar al fondo; protección y restauración de la captura de pantalla. Se revisan los modos claro y oscuro con el formulario de producción y datos vacíos. No se utilizó una tarjeta real ni se contactó al proveedor en estos tests. Google en el teléfono, CAPTCHA, autorización y acreditación continúan pendientes.
+
+Después del ajuste de letra grande pasaron nuevamente las tres pruebas del formulario (9,788 s), en 360 × 640 dp, texto 2× y animación desactivada. Registro: `outputs/native-card-final-0.2.9.txt`. Compilación final release/debug/androidTest y lint aprobados (28 s). APK código 27, SHA-256 `5c77085cb6c65d4f9edc187beccacacfad496b0109b1111def63a7ea5e62df74`, firma comprobada igual a 0.2.8.
+
+## Versión anterior: 0.2.8
 
 Tras el feedback del usuario, se elimina la inclinación de la boletera, se agrega pulso al toque normal y se amplían las respuestas visuales de botones e importes. Los cambios claro/oscuro interpolan colores y la entrada de pantalla aumenta su desplazamiento. Configuración incorpora Probar vibración con resultado de aceptación de Android; no afirma una sensación física comprobada.
 

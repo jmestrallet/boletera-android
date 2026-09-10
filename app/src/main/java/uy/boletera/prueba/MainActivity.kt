@@ -258,12 +258,13 @@ class MainActivity : FragmentActivity() {
 }
 
 @Composable internal fun EmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, onClose: () -> Unit) {
+    SecurePaymentWindow()
     var showOriginal by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     LaunchedEffect(payment.nativeStage) { showOriginal = false }
-    val native = payment.nativeStage in listOf("summary", "payer", "loading") && !showOriginal
+    val native = payment.nativeStage in listOf("summary", "payer", "card", "loading") && !showOriginal
     LaunchedEffect(native, payment.nativeStage, payment.expandedChallenge, payment.challenge != null) {
-        if (native && payment.nativeStage == "payer") payment.positionVerification() else payment.restoreVerification()
+        if (native && payment.nativeStage in listOf("payer","card")) payment.positionVerification() else payment.restoreVerification()
     }
     BackHandler(onBack = onClose)
     Surface(color = Paper, modifier = Modifier.fillMaxSize()) {
@@ -291,7 +292,15 @@ class MainActivity : FragmentActivity() {
                     val pixelsPerDp = LocalDensity.current.density
                     val cssPixelsToDp = if (payment.cssViewportWidth > 0f) browserWidth / payment.cssViewportWidth / pixelsPerDp else 1f
                     if (!native) PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.fillMaxSize())
-                    if (native) Column(Modifier.fillMaxSize().background(Paper)) {
+                    if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{showOriginal=true}) {
+                        BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
+                            val cap=payment.challenge
+                            val maxPanelHeight=(browserHeight/pixelsPerDp-160f).coerceAtLeast(140f)
+                            val scale=if(cap==null)1f else minOf(cssPixelsToDp,maxWidth.value/cap.width,maxPanelHeight/cap.height)
+                            PaymentBrowserView(payment,cap==null,cap,browserWidth,browserHeight,if(cap==null)Modifier.size(1.dp) else Modifier.width((cap.width*scale).dp).height((cap.height*scale).dp))
+                        }
+                    }
+                    if (native && payment.nativeStage!="card") Column(Modifier.fillMaxSize().background(Paper)) {
                       Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         if (payment.nativeStage != "payer") PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.fillMaxWidth().height(1.dp))
                         ProgressSteps(if(payment.nativeStage=="payer")1 else 0,listOf("Recarga","Titular","Tarjeta"))
@@ -336,7 +345,7 @@ class MainActivity : FragmentActivity() {
                         }
                       }
                     }
-                    if (!native && payment.nativeStage in listOf("summary", "payer")) TextButton(onClick = { showOriginal = false }, modifier = Modifier.align(Alignment.TopEnd).background(Paper)) { Text(if(payment.nativeStage=="summary")"Ver resumen" else "Ver datos") }
+                    if (!native && payment.nativeStage in listOf("summary", "payer", "card")) TextButton(onClick = { showOriginal = false }, modifier = Modifier.align(Alignment.TopEnd).background(Paper)) { Text(when(payment.nativeStage){"summary"->"Ver resumen";"card"->"Ver formulario";else->"Ver datos"}) }
                 }
             }
         }

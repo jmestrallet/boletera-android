@@ -22,6 +22,10 @@ class EmbeddedPrexPayment(context: Context) {
         private set
     var canContinue by mutableStateOf(false)
         private set
+    var cardBusy by mutableStateOf(false)
+        private set
+    var cardError by mutableStateOf(false)
+        private set
     var challenge by mutableStateOf<CaptchaRect?>(null)
         private set
     var expandedChallenge by mutableStateOf(false)
@@ -64,6 +68,8 @@ class EmbeddedPrexPayment(context: Context) {
                         val values = state.optJSONArray("values")
                         payerValues = if (values == null) emptyList() else (0 until values.length()).map(values::getString)
                         canContinue = state.optBoolean("canContinue")
+                        cardBusy = state.optBoolean("cardBusy")
+                        cardError = state.optBoolean("cardError")
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
                         cssViewportWidth = state.optDouble("viewportWidth", 0.0).toFloat()
@@ -85,6 +91,7 @@ class EmbeddedPrexPayment(context: Context) {
         }
     }
     private val nativeScript = context.assets.open("prex-native.js").bufferedReader().use { it.readText() }
+    private val cardScript = context.assets.open("prex-card.js").bufferedReader().use { it.readText() }
     private val verificationScript = context.assets.open("prex-verification.js").bufferedReader().use { it.readText() }
     private val payerScript = context.assets.open("prex-payer.js").bufferedReader().use { it.readText() }
     val web = WebView(context).apply {
@@ -99,6 +106,9 @@ class EmbeddedPrexPayment(context: Context) {
         settings.builtInZoomControls = true
         settings.displayZoomControls = false
         settings.userAgentString = compatibilityIdentity(settings.userAgentString)
+        @Suppress("DEPRECATION")
+        settings.saveFormData = false
+        isSaveEnabled = false
         // Keep the user's Android autofill provider, including Google; no app card vault.
         importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
@@ -135,7 +145,7 @@ class EmbeddedPrexPayment(context: Context) {
                 if (url == null || url != view.url || !allowedDestination(url)) return
                 busy = false
                 if (PaymentPolicy.gateway(url)) {
-                    view.evaluateJavascript(verificationScript + "\n" + nativeScript + "\n" + payerScript, null)
+                    view.evaluateJavascript(verificationScript + "\n" + cardScript + "\n" + nativeScript + "\n" + payerScript, null)
                     payer?.let { profile ->
                         view.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.use(${profile.json()}); }", null)
                     }
@@ -189,7 +199,17 @@ class EmbeddedPrexPayment(context: Context) {
     }
 
     fun positionVerification() {
-        if (!destroyed && visible && nativeStage == "payer") web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.showVerification()", null)
+        if (!destroyed && visible && nativeStage in listOf("payer","card")) web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.showVerification()", null)
+    }
+
+    fun submitCard(pan: String, expiry: String, cvv: String) {
+        if(destroyed || !visible || nativeStage!="card" || cardBusy || !canContinue)return
+        cardBusy=true;cardError=false;canContinue=false
+        val version=navigationVersion
+        // Literal escaping only; never log this command or retain its arguments in engine state.
+        web.evaluateJavascript("window.BoleteraCard && window.BoleteraCard.submit(${org.json.JSONObject.quote(pan)},${org.json.JSONObject.quote(expiry)},${org.json.JSONObject.quote(cvv)})") { raw ->
+            if(!destroyed && version==navigationVersion && raw!="true") { cardBusy=false;cardError=true }
+        }
     }
 
     fun restoreVerification() {
@@ -219,6 +239,8 @@ class EmbeddedPrexPayment(context: Context) {
         summaryRows = emptyList()
         payerValues = emptyList()
         canContinue = false
+        cardBusy = false
+        cardError = false
         challenge = null
         expandedChallenge = false
         payer = null
