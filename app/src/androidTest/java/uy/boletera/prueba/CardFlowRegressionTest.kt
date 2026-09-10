@@ -199,6 +199,21 @@ class CardFlowRegressionTest {
             compose.waitUntil(15000) { engine.state.stage == "embeddedPrex" && !engine.prexPayment.busy }
             assertEquals("One load per deliberate payment, never per repeated tap", 2, paymentLoads[newLink]?.get())
             assertTrue(chromeLinks.isEmpty())
+            compose.onNodeWithContentDescription("Volver").performClick()
+            compose.waitUntil(15000) { engine.state.stage=="balance" && !engine.state.busy }
+            compose.runOnIdle {
+                assertTrue(engine.configureExpress("1033",firstPayer.id))
+                assertEquals(ExpressChoice("ABCD1234","1033",firstPayer.id),preferences.express)
+                assertEquals(2,paymentLoads[newLink]?.get()) // Activating never starts a payment.
+            }
+            compose.onNodeWithText("Recarga express · $ 564").performScrollTo().performClick()
+            compose.runOnIdle { engine.startExpress() } // Duplicate cannot initiate another submission.
+            compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && !engine.prexPayment.busy }
+            compose.runOnIdle {
+                assertEquals(56400L,engine.state.activePayment?.amount)
+                assertEquals(firstPayer.id,engine.state.activePayment?.payerProfileId)
+                assertEquals(3,paymentLoads[newLink]?.get())
+            }
         } finally {
             instrumentation.removeMonitor(monitor)
             compose.runOnIdle {

@@ -114,6 +114,8 @@ class MainActivity : FragmentActivity() {
         var save by remember { mutableStateOf(false) }
         var showForget by remember { mutableStateOf(false) }
         var showAmount by remember { mutableStateOf(false) }
+        var showExpress by remember { mutableStateOf(false) }
+        var returnToExpress by remember { mutableStateOf(false) }
         var showPayerPicker by remember { mutableStateOf(false) }
         var showPayerEditor by remember { mutableStateOf(false) }
         var editingPayer by remember { mutableStateOf<PayerProfile?>(null) }
@@ -174,7 +176,8 @@ class MainActivity : FragmentActivity() {
                                     Text("App independiente de STM · Versión de prueba",style=MaterialTheme.typography.bodySmall,color=Muted)
                                 }
                             }
-                            "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh)
+                            "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
+                                onExpressSettings={showExpress=true},onExpressCharge=engine::startExpress)
                             "connecting" -> {
                                 LoadingState(if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", "Estamos consultando el sitio. Tu información va a aparecer acá.")
                                 TextButton(onClick=::back) { Text("Cancelar") }
@@ -238,7 +241,12 @@ class MainActivity : FragmentActivity() {
             onChoose={engine.choosePayer(it);showPayerPicker=false},
             onAdd={editingPayer=null;showPayerPicker=false;showPayerEditor=true},
             onClose={showPayerPicker=false})
-        if (showPayerEditor) PayerProfileEditor(editingPayer, onSave = engine::savePayer, onDelete = engine::deletePayer, onClose = { showPayerEditor = false })
+        if(showExpress && state.stage=="balance")ExpressSheet(state,engine.payerProfiles,engine::configureExpress,engine::disableExpress,
+            onAddPayer={showExpress=false;returnToExpress=true;editingPayer=null;showPayerEditor=true},onClose={showExpress=false})
+        if (showPayerEditor) PayerProfileEditor(editingPayer, onSave = engine::savePayer, onDelete = engine::deletePayer, onClose = {
+            showPayerEditor = false
+            if(returnToExpress){returnToExpress=false;showExpress=true}
+        })
         if (showForget) AlertDialog(onDismissRequest = { showForget = false }, title = { Text("¿Olvidar este acceso?") },
             text = { Text("Se eliminan las credenciales cifradas, las preferencias y la sesión local.") },
             confirmButton = { TextButton(onClick = {

@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.6
+## Versión vigente: 0.2.7
+
+Modo Express con activación por pulsación sostenida, respuesta táctil y configuración por cuenta/boletera. El botón de recarga usa el mínimo vigente y evita repetir la selección de importe y medio. La autorización continúa en el proveedor. [Comportamiento y límites](MODO-EXPRESS.md).
+
+Pasaron 40 pruebas del adaptador, siete pruebas JVM, compilación release y lint. En Android pasaron cinco pruebas finales en tamaño habitual (34,946 s): activación y cancelación, aislamiento de preferencias y guardas de Express, dos pruebas de gestos y el recorrido interceptado completo con una tercera recarga Express y control de duplicados. También pasaron tres pruebas en 360 × 640 dp y dos con texto 2× y animación desactivada. Registros: `outputs/express-final-0.2.7.txt`, `outputs/express-small-0.2.7.txt` y `outputs/express-large-text-0.2.7.txt`.
+
+La demostración recorre la interfaz real y activa una preferencia para una cuenta ficticia, sin pulsar el botón de recarga. Se revisó visualmente el anillo durante la pulsación y el estado activado. No se comprobó la vibración física en Xiaomi ni se completó una autorización o acreditación real.
+
+APK código 25, SHA-256 `375B32C8093A94F0F25CD20881CED50E1CD98C10646A87AB060B01B87266D5B1`. La incidencia de ingreso reportada para 0.2.4 dejó de ocurrir según el usuario; su causa no quedó determinada. Se conserva el diagnóstico persistente de 0.2.6.
+
+## Versión anterior: 0.2.6
 
 El usuario reportó un fallo de ingreso en Xiaomi con 0.2.4. La captura sólo muestra la pantalla genérica porque el aviso con la causa desaparecía después de unos segundos. Se corrige ese defecto: la causa de un bloqueo permanece en el contenido y se muestra la referencia de etapas. Los avisos transitorios de acceso conservan su comportamiento flotante.
 

@@ -38,9 +38,21 @@ class JourneyPreferences(context: Context) {
     var payerProfileId: String?
         get() = account?.let { store.getString("$it.payer", null) }
         set(value) { account?.let { store.edit().putString("$it.payer", value).apply() } }
+    val express: ExpressChoice?
+        get() = try { account?.let { key -> store.getString("$key.express",null)?.let { raw ->
+            val item=org.json.JSONObject(raw)
+            ExpressChoice(item.getString("card"),item.getString("provider"),item.optString("payer").takeIf { it.isNotBlank() })
+        } } } catch (_: Exception) { null }
+    fun saveExpress(value: ExpressChoice?): Boolean {
+        val key=account ?: return false
+        val edit=store.edit()
+        if(value==null)edit.remove("$key.express") else edit.putString("$key.express",org.json.JSONObject()
+            .put("card",value.card).put("provider",value.provider).put("payer",value.payerId).toString())
+        return edit.commit()
+    }
     fun forgetAll() {
         val edit = store.edit()
-        store.all.keys.filter { it.endsWith(".card") || it.endsWith(".provider") || it.endsWith(".resume") || it.endsWith(".payer") }.forEach { edit.remove(it) }
+        store.all.keys.filter { it.endsWith(".card") || it.endsWith(".provider") || it.endsWith(".resume") || it.endsWith(".payer") || it.endsWith(".express") }.forEach { edit.remove(it) }
         edit.apply(); account = null
     }
 }

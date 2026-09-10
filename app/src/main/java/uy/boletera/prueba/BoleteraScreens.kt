@@ -59,7 +59,8 @@ import java.util.Locale
 }
 
 @OptIn(ExperimentalFoundationApi::class)
-@Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit) {
+@Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit,
+    onExpressSettings: (() -> Unit)? = null, onExpressCharge: (() -> Unit)? = null) {
     val colors=MaterialTheme.colorScheme
     val touch = remember { MutableInteractionSource() }
     val held by touch.collectIsPressedAsState()
@@ -73,7 +74,7 @@ import java.util.Locale
             }
             IconButton(onClick=onChangeCard,enabled=!state.busy) { AppGlyph(Glyph.Card,label="Cambiar boletera",tint=colors.primary) }
         }
-        Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.graphicsLayer { scaleX=compression; scaleY=compression; rotationZ=tilt }.combinedClickable(
+        Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.graphicsLayer { scaleX=compression; scaleY=compression; rotationZ=tilt; shape=RoundedCornerShape(32.dp);clip=true }.combinedClickable(
             interactionSource=touch, indication=androidx.compose.material3.ripple(), enabled=!state.busy,
             onClickLabel="Cambiar boletera", onLongClickLabel="Elegir boletera", onClick=onChangeCard, onLongClick=onChangeCard
         ).semantics {
@@ -95,7 +96,17 @@ import java.util.Locale
                 }
             }
         }
-            Primary("Recargar boletera",enabled=!state.busy && state.minimum!=null,action=onCharge)
+            val express=state.express?.takeIf { it.card==state.selectedCard && onExpressCharge!=null }
+            if(onExpressSettings!=null)Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(if(express!=null)"EXPRESS · ON" else "Modo Express",style=MaterialTheme.typography.titleMedium,color=colors.primary)
+                    Text(if(express!=null)"Mínimo vigente · ${if(express.provider=="1033")"Prex" else "eBROU"}" else "Tu recarga, con menos pasos",style=MaterialTheme.typography.bodySmall,color=Muted)
+                }
+                TextButton(onClick=onExpressSettings,enabled=!state.busy){Text(if(express!=null)"Ajustar" else "Activar")}
+            }
+            Primary(if(express!=null)"Recarga express · ${Amounts.format(state.minimum)}" else "Recargar boletera",enabled=!state.busy && state.minimum!=null,
+                action=if(express!=null)onExpressCharge!! else onCharge)
+            if(express!=null)TextButton(onClick=onCharge,enabled=!state.busy,modifier=Modifier.align(Alignment.CenterHorizontally)){Text("Elegir otro importe")}
             Surface(color=Panel,shape=RoundedCornerShape(24.dp)) {
                 Row(Modifier.fillMaxWidth().padding(20.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
                     Surface(color=colors.secondaryContainer,shape=RoundedCornerShape(14.dp),modifier=Modifier.size(44.dp)) { Box(contentAlignment=Alignment.Center) { AppGlyph(Glyph.Card,tint=colors.onSecondaryContainer) } }

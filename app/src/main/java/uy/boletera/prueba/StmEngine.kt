@@ -49,6 +49,7 @@ class StmEngine(private val context: Context) {
     private var paymentInFlight = false
     private var providerSubmitted = false
     private var handoffSent = false
+    private var expressRequest: ExpressChoice? = null
     val web = WebView(context)
     val host = CaptchaHost(context, web)
     private val poll = object : Runnable {
@@ -133,6 +134,7 @@ class StmEngine(private val context: Context) {
         if (state.busy) return
         if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
         clearSecrets()
+        expressRequest = null
         prexPayment.reset()
         document = doc; password = pass
         accountVerified = false
@@ -181,6 +183,8 @@ class StmEngine(private val context: Context) {
         payerProfiles = emptyList()
         payerStoreAvailable = true
         choices.forgetAll()
+        expressRequest = null
+        state = state.copy(express = null)
         return true
     }
 
@@ -243,6 +247,7 @@ class StmEngine(private val context: Context) {
     }
 
     private fun clearPaymentSession() {
+        expressRequest = null
         state = state.copy(activePayment = null)
         paymentBrowser.close(); paymentInFlight = false; handoffSent = false
         prexPayment.reset()
@@ -307,11 +312,43 @@ class StmEngine(private val context: Context) {
     }
 
     fun prepare(amount: Long) {
+        expressRequest = null
         if (state.busy || pageStage != "amount") return
         if (!Amounts.valid(amount, state.minimum)) { notice("El monto debe alcanzar el mínimo informado por STM."); return }
         state = state.copy(amount = amount)
         // JS re-reads the minimum immediately before submission. Never selects/submits a payment provider.
         act("amount", amount.toString())
+    }
+
+    fun configureExpress(provider: String, payerId: String?): Boolean {
+        val card=state.selectedCard ?: return false
+        if(!accountVerified || state.busy || state.stage!="balance" || state.activePayment!=null || provider !in PaymentPolicy.supported) return false
+        if(provider=="1033" && payerProfiles.none { it.id==payerId && it.valid() }) return false
+        val choice=ExpressChoice(card,provider,payerId.takeIf { provider=="1033" })
+        if(!choices.saveExpress(choice)){notice("No se pudo guardar Express en este teléfono.");return false}
+        state=state.copy(express=choice)
+        return true
+    }
+
+    fun disableExpress() {
+        if(state.busy)return
+        if(choices.saveExpress(null))state=state.copy(express=null)
+        else notice("No se pudo desactivar Express. Intentá nuevamente.")
+    }
+
+    fun startExpress() {
+        val choice=state.express ?: return
+        val amount=state.minimum ?: return
+        if(!accountVerified || state.busy || state.stage!="balance" || pageStage!="amount" || state.activePayment!=null || expressRequest!=null) return
+        if(choice.card!=state.selectedCard || choice.provider !in PaymentPolicy.supported ||
+            choice.provider=="1033" && payerProfiles.none { it.id==choice.payerId && it.valid() }) {
+            notice("Revisá la configuración de Express antes de continuar.");return
+        }
+        if(!Amounts.valid(amount,state.minimum))return
+        expressRequest=choice
+        state=state.copy(amount=amount)
+        // The existing adapter checks the live minimum before submitting; authorization stays with the provider.
+        act("amount",amount.toString())
     }
 
     fun continueCaptcha() {
@@ -348,6 +385,7 @@ class StmEngine(private val context: Context) {
     }
 
     fun pause() {
+        expressRequest = null // Returning to the app never starts a provider automatically.
         handler.removeCallbacks(poll)
         if (document != null || password != null) interruptedAccess = true
         clearSecrets()
@@ -365,6 +403,7 @@ class StmEngine(private val context: Context) {
 
     private fun clearSecrets() { document = null; password = null; secretsExpireAt = 0L }
     private fun fail(message: String) {
+        expressRequest = null
         if (BuildConfig.DEBUG) captureDebugShape()
         active = false; paymentInFlight = false; handler.removeCallbacks(poll); clearSecrets(); host.crop = null; web.stopLoading()
         state = state.copy(stage = "blocked", busy = false, message = message, captcha = null)
@@ -401,6 +440,7 @@ class StmEngine(private val context: Context) {
             if (active && !destroyed && request == sessionRequest && generation == navigationGeneration && result != "true") {
                 if (paymentInFlight) { fail("El proveedor no aceptó el siguiente paso. Revisá el estado del pago antes de repetirlo."); return@evaluateJavascript }
                 clearSecrets()
+                expressRequest = null
                 state = state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
             }
         }
@@ -475,6 +515,7 @@ class StmEngine(private val context: Context) {
         host.crop = rect
         state = state.copy(captcha = rect)
         if (data.optBoolean("error")) {
+            expressRequest = null
             clearSecrets(); active = false
             state = state.copy(stage = "blocked", busy = false, message = "El sitio no aceptó los datos o la verificación. Podés ingresar otra vez manualmente.")
             return
@@ -505,7 +546,7 @@ class StmEngine(private val context: Context) {
                     catch (_: Exception) { payerProfiles = emptyList(); payerStoreAvailable = false }
                 }
                 accountVerified = true
-                state = state.copy(stage = "cards", cards = list, activePayment = null,
+                state = state.copy(stage = "cards", cards = list, activePayment = null, express=choices.express,
                     payerProfileId = choices.payerProfileId?.takeIf { id -> payerProfiles.any { it.id == id } } ?: payerProfiles.singleOrNull()?.id,
                     message = if (payerStoreAvailable) "" else "No pudimos recuperar los perfiles de Prex guardados. Conservamos sus archivos sin sobrescribirlos.")
                 val preferred = choices.card
@@ -552,6 +593,17 @@ class StmEngine(private val context: Context) {
                 val preferred = choices.provider?.takeIf { id -> list.any { it.id == id } }
                 state = state.copy(stage = "paymentBoundary", busy = false,
                     providers = list, selectedProvider = preferred, message = "")
+                val express=expressRequest
+                expressRequest=null // Consume once, before initiating any provider navigation.
+                if(express!=null) {
+                    val valid=accountVerified && express.card==state.selectedCard && express==state.express &&
+                        list.any { it.id==express.provider } &&
+                        (express.provider!="1033" || payerProfiles.any { it.id==express.payerId && it.valid() })
+                    if(valid) {
+                        state=state.copy(selectedProvider=express.provider,payerProfileId=express.payerId)
+                        beginPayment()
+                    } else notice("Express necesita que revises el medio de pago o los datos del titular.")
+                }
             }
             "signedOut" -> expired()
             "unknown", "verification" -> if (System.currentTimeMillis() - actionStarted > 25000) {

@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.7-prueba — modo Express
+
+- Activación con pulsación sostenida, anillo de energía, pulsos táctiles y confirmación visual. Activar guarda la configuración, sin iniciar una recarga.
+- Recarga express muestra y usa el mínimo vigente, la boletera elegida y Prex/eBROU con el titular configurado.
+- Saltea la elección repetida de importe y medio; conserva la autorización original del proveedor.
+- Configuración por cuenta y boletera, edición/desactivación y recorrido manual para elegir otro importe.
+- Revalidación del medio y titular, protección contra duplicados y cancelación del avance automático al interrumpirse.
+
 ## 0.2.6-prueba — conservar la causa del error
 
 - Cuando un paso se detiene, la explicación permanece visible en la pantalla junto con la referencia del recorrido.
