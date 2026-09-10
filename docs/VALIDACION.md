@@ -1,6 +1,14 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.19
+## Versión vigente: 0.2.20
+
+Cambio visual acotado: se retira el icono junto a Saldo disponible y se reemplaza el de Cambiar boletera por dos flechas horizontales opuestas. El botón conserva la misma acción, estado habilitado y nombre accesible. No cambia la lógica del pago ni el resto de la home.
+
+54 pruebas JavaScript, ocho JVM, release y lint aprobados en 44 s. Debug y pruebas Android compilados en 16 s. Tres pruebas Android existentes aprobadas en 8,048 s (`outputs/home-icons-0.2.20.txt`): home con saldo positivo/negativo, mínimos variables, ayuda, guía y respuesta al tacto. Captura oscura revisada en 1080 × 2280, 420 dpi y letra 1× (`outputs/home-icons-0.2.20.png`): flechas visibles, saldo sin icono y home sin desplazamiento.
+
+APK código 38, SHA-256 `6194c1ef9a8bdffeadf0dfaa8b7ce01cb30601487e8d60103e311768ef553922`, misma firma. No se modificó el teléfono físico ni se realizaron operaciones financieras.
+
+## Versión anterior: 0.2.19
 
 El dueño aportó el 10/9/2026 la primera evidencia de pago real Prex: confirmación, comprobante exitoso, confirmación STM y saldo aumentado. El cierre quedaba en páginas originales dentro del panel. La nueva integración cubre confirmación final, comprobante, resultado STM y vuelta a la home con una consulta nueva. Las capturas privadas y referencias reales no se publican.
 

@@ -87,3 +87,7 @@ Se recuperan el texto completo original de las 72 horas y Boletos y tarifas con 
 ## Cierre de pago · 0.2.19
 
 Confirmación final, comprobante Prex y éxito STM usan la tipografía, superficies y colores de la app. El importe y la acción principal son visibles; los datos extensos del comprobante se despliegan. La acción principal queda fija abajo y el contenido se desplaza con pantalla pequeña o letra ampliada. La home y su pie no cambian.
+
+## Iconos de la home · 0.2.20
+
+El icono de identidad queda en el encabezado. El control junto a Tu boletera usa dos flechas opuestas de intercambio y conserva la acción Cambiar boletera. Se retira el icono decorativo del panel de saldo. No cambia la distribución ni el resto del diseño.

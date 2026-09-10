@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.2.20-prueba — iconos de la home
+
+- Se retira el icono decorativo junto a Saldo disponible.
+- Cambiar boletera usa dos flechas de intercambio; conserva su acción y nombre accesible.
+
 ## 0.2.19-prueba — cierre de Prex y regreso a Boletera
 
 - Confirmación final, comprobante y confirmación STM con pantallas propias; saldo original de STM vuelve automáticamente a la home y consulta los datos de nuevo.

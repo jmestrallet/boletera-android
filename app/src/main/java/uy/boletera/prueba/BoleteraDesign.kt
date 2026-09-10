@@ -110,7 +110,7 @@ internal fun Modifier.pageEntrance(key: String, enabled: Boolean = true): Modifi
     error=themeColor(error),onError=themeColor(onError),errorContainer=themeColor(errorContainer),onErrorContainer=themeColor(onErrorContainer)
 )
 
-internal enum class Glyph { Ticket, Arrow, Back, Close, Settings, Check, Lock, Fingerprint, Card, Refresh, Info, Moon, Sun, Phone, Chevron, Eye, EyeOff, Download, Exit }
+internal enum class Glyph { Ticket, Swap, Arrow, Back, Close, Settings, Check, Lock, Fingerprint, Card, Refresh, Info, Moon, Sun, Phone, Chevron, Eye, EyeOff, Download, Exit }
 
 @Composable internal fun AppGlyph(glyph: Glyph, modifier: Modifier = Modifier.size(24.dp), tint: Color = Ink, label: String? = null) {
     val resource = when(glyph) {
@@ -120,6 +120,7 @@ internal enum class Glyph { Ticket, Arrow, Back, Close, Settings, Check, Lock, F
         Glyph.Info->R.drawable.ic_info; Glyph.Moon->R.drawable.ic_dark_mode; Glyph.Sun->R.drawable.ic_light_mode
         Glyph.Phone->R.drawable.ic_smartphone; Glyph.Chevron->R.drawable.ic_chevron_right; Glyph.Eye->R.drawable.ic_visibility
         Glyph.EyeOff->R.drawable.ic_visibility_off; Glyph.Download->R.drawable.ic_download; Glyph.Exit->R.drawable.ic_logout
+        Glyph.Swap->R.drawable.ic_swap_horiz
         Glyph.Ticket->R.drawable.ic_transit_card
     }
     Icon(painterResource(resource),contentDescription=label,modifier=modifier,tint=tint)
