@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.23
+## Versión vigente: 0.2.24
+
+Dos cambios: se evita exponer el fondo de Sistarbanc al cerrar el CAPTCHA y una actualización descargada espera la revisión de sus novedades antes de abrir Android. El resumen usa exclusivamente la sección «Novedades en la app» de la publicación elegida en GitHub, con un máximo de tres puntos cortos. Ahora no y Atrás conservan la descarga en la sesión; recrear la pantalla no dispara el instalador. El permiso de instalación continúa solo tras aceptar el cartel. El comportamiento nuevo aplica a actualizaciones realizadas desde 0.2.24.
+
+59 pruebas JavaScript y ocho JVM aprobadas; compilación debug/release y lint aprobados en 42 s. En Android se aprobaron los doce casos distintos de esta tanda: recorte/cierre del CAPTCHA en titular y tarjeta, cuatro del formulario de tarjeta, cierre del pago hasta saldo, selección segura de versión, resumen breve, cancelación/recreación/revisión, aceptación en primer plano sin duplicados y regreso del permiso de instalación. La tanda inicial de once tuvo dos fallos de prueba (comprobación de Atrás sin esperar el evento y longitud exacta errónea); se corrigieron las aserciones y los tres casos de actualización se repitieron aprobados en 7,772 s. El permiso aprobó en 3,522 s. Evidencia: `outputs/android-0.2.24.txt`, `outputs/update-review-final-0.2.24.txt` y `outputs/update-permission-0.2.24.txt`.
+
+Capturas del cartel revisadas en 1080 × 2340, 420 dpi, letra 1× y en 720 × 1280, 320 dpi, letra 1,5×. En tamaño pequeño los botones siguen visibles y el cuerpo permite desplazamiento. La prueba de cancelación/revisión también pasó en este tamaño (3,458 s). El caso CAPTCHA fuerza un recorte nativo desactualizado y exige cero píxeles del fondo rojo ficticio; no se contactó al proveedor para resolver desafíos o realizar pagos.
+
+APK código 42, 8.630.019 bytes, SHA-256 `a1857ed09fd86fdfe563896015fcb5fd1f9936042e78497f57bf58bd90214973`, misma firma. Falta la comprobación del cierre del CAPTCHA real en el teléfono. La propuesta posterior de simplificar el autocompletado de Google no está implementada en esta versión.
+
+## Versión anterior: 0.2.23
 
 El pie conserva el aviso completo de las 72 horas y Boletos y tarifas. Ambos textos pasan a 11 sp con interlineado de 14 sp, la guía reserva 90 dp y la separación desde Recarga mínima baja a 12 dp. Se conserva el área táctil de 48 dp. La consulta de pantalla del teléfono dio 1080 × 2340, 420 dpi y letra 1×; no se cambió su configuración.
 

@@ -5,6 +5,7 @@ import android.app.Instrumentation
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
@@ -33,7 +34,43 @@ class AutomaticInstallTest {
         val file = File(activity.cacheDir, "updates/boletera.apk")
         file.parentFile!!.mkdirs()
         File(activity.applicationInfo.sourceDir).copyTo(file, overwrite = true)
-        return ViewModelProvider(activity)[AppUpdates::class.java]
+        val updates = ViewModelProvider(activity)[AppUpdates::class.java]
+        @Suppress("UNCHECKED_CAST")
+        val releaseState = AppUpdates::class.java.getDeclaredField("release\$delegate").apply { isAccessible = true }.get(updates) as MutableState<UpdateRelease?>
+        releaseState.value = UpdateRelease("0.2.24", "", 1, "", listOf("Se evita el destello de la página de fondo al cerrar el CAPTCHA.", "Las actualizaciones muestran sus novedades antes de instalar."))
+        return updates
+    }
+    @Test fun downloadedUpdateNeedsReviewAndCancelKeepsItReady() {
+        val intents = CopyOnWriteArrayList<Intent>()
+        val monitor = monitor(intents)
+        instrumentation.addMonitor(monitor)
+        try {
+            lateinit var updates: AppUpdates
+            compose.runOnIdle { updates = fixture(); updates.downloadReady() }
+            compose.onNodeWithText("Actualización lista").assertIsDisplayed()
+            compose.onNodeWithText("Novedades de la versión 0.2.24").assertIsDisplayed()
+            compose.onNodeWithText("Se evita el destello de la página de fondo al cerrar el CAPTCHA.").assertIsDisplayed()
+            assertTrue(intents.isEmpty())
+            android.os.SystemClock.sleep(400) // Let the Android dialog window finish its entrance before the visual capture.
+            instrumentation.uiAutomation.takeScreenshot().let { bitmap ->
+                File(compose.activity.getExternalFilesDir(null), "update-review.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }; bitmap.recycle()
+            }
+            compose.onNodeWithText("Ahora no").performClick()
+            compose.activityRule.scenario.recreate()
+            compose.waitForIdle()
+            assertTrue(updates.ready)
+            assertTrue(intents.isEmpty())
+            compose.onNodeWithText("Actualización lista").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Configuración").performClick()
+            compose.onNodeWithText("Instalar actualización").performScrollTo().performClick()
+            compose.onNodeWithText("Actualización lista").assertIsDisplayed()
+            instrumentation.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+            compose.waitUntil(5000) { !updates.reviewRequested }
+            compose.waitForIdle()
+            assertFalse(updates.reviewRequested)
+            assertTrue(updates.ready)
+            assertTrue(intents.isEmpty())
+        } finally { instrumentation.removeMonitor(monitor) }
     }
     private fun monitor(intents: MutableList<Intent>) = object : Instrumentation.ActivityMonitor() {
         override fun onStartActivity(intent: Intent?): Instrumentation.ActivityResult? {
@@ -51,7 +88,7 @@ class AutomaticInstallTest {
         try {
             assertTrue(compose.activity.packageManager.canRequestPackageInstalls())
             lateinit var updates: AppUpdates
-            compose.runOnIdle { updates = fixture(); set(updates, "busy", true); set(updates, "ready", true); set(updates, "installRequested", true) }
+            compose.runOnIdle { updates = fixture(); set(updates, "busy", true); updates.downloadReady() }
             compose.waitForIdle()
             assertTrue(intents.isEmpty())
             compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
@@ -59,6 +96,9 @@ class AutomaticInstallTest {
             instrumentation.waitForIdleSync()
             assertTrue(intents.isEmpty())
             compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+            compose.onNodeWithText("Actualización lista").assertIsDisplayed()
+            assertTrue(intents.isEmpty())
+            compose.onNodeWithText("Instalar").performClick()
             compose.waitUntil(5000) { intents.size == 1 }
             assertEquals("application/vnd.android.package-archive", intents.single().type)
             assertEquals("content", intents.single().data?.scheme)
@@ -77,7 +117,8 @@ class AutomaticInstallTest {
         try {
             assertFalse(compose.activity.packageManager.canRequestPackageInstalls())
             lateinit var updates: AppUpdates
-            compose.runOnIdle { updates = fixture(); set(updates, "ready", true); set(updates, "installRequested", true) }
+            compose.runOnIdle { updates = fixture(); updates.downloadReady() }
+            compose.onNodeWithText("Instalar").performClick()
             compose.waitUntil(5000) { intents.size == 1 }
             assertEquals(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, intents.single().action)
             val activity = compose.activity
@@ -87,7 +128,8 @@ class AutomaticInstallTest {
             compose.waitForIdle()
             assertEquals(1, intents.size)
             assertFalse(updates.installRequested)
-            compose.runOnIdle { updates.install(activity) }
+            compose.runOnIdle { updates.requestReview() }
+            compose.onNodeWithText("Instalar").performClick()
             compose.waitUntil(5000) { intents.size == 2 && !activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) }
             permission("allow")
             instrumentation.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)

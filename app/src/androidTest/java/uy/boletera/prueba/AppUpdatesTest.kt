@@ -14,6 +14,18 @@ import java.net.URL
 @RunWith(AndroidJUnit4::class)
 class AppUpdatesTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @Test fun popupUsesOnlyShortAuthoredNotesForSelectedVersion() {
+        val body = "Intro técnica\n## Novedades en la app\n- **Mejora** del CAPTCHA.\n- Leé [las novedades](https://example.com).\n- " + "x".repeat(250) + "\n- Cuarto punto\n## Verificación\n- SHA-256: secreto"
+        val parsed = UpdatePolicy.notes(body)
+        assertEquals(3, parsed.size)
+        assertEquals("Mejora del CAPTCHA.", parsed[0])
+        assertEquals("Leé las novedades.", parsed[1])
+        assertTrue(parsed[2].length <= 180)
+        assertTrue(parsed[2].endsWith("…"))
+        assertTrue(UpdatePolicy.notes("- SHA-256: aaa").isEmpty())
+        val json = org.json.JSONObject(fixture("0.2.25")).put("body", body)
+        assertEquals(parsed, UpdatePolicy.select("[$json]", "0.2.24-prueba")!!.notes)
+    }
     @Test fun installerReceivesOnlyPrivateApkWithReadPermission() {
         val context = compose.activity
         val file = File(context.cacheDir, "updates/installer-test.apk")

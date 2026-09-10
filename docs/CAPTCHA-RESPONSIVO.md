@@ -23,3 +23,9 @@ Se instaló la APK `61D96D03D8B93CC53F1AFAA1E2D95148819310D05FB13CBB9A5933C7A315
 El CAPTCHA real no se resolvió. El desafío expandido real, los demás modelos físicos, el envío del formulario, Google/tarjeta, la autorización y la acreditación siguen pendientes. La matriz demuestra el comportamiento del panel con contenido controlado; no certifica una operación bancaria ni compatibilidad universal.
 
 Observación posterior: el teléfono avanzó al formulario real de tarjeta de la misma solicitud. No se observó directamente la interacción humana con el CAPTCHA. Al enfocar el número de tarjeta, el teclado ofreció tarjetas guardadas. La selección, el llenado, la autenticación y el resultado financiero todavía requieren comprobación; no se eligió una tarjeta desde las herramientas.
+
+## 0.2.24: cierre sin destello de la página de fondo
+
+El dueño describió un destello de Sistarbanc tras aceptar el desafío de imágenes. Se reprodujo con un iframe ficticio que desaparece mientras el recorte nativo conserva su tamaño anterior. Una máscara de presentación se actualiza antes del pintado del WebView y permite ver únicamente los iframes originales del CAPTCHA. El fondo de html/body y del WebView es transparente en este modo; Ver página original retira la máscara y recupera el fondo habitual.
+
+Las pruebas de titular y tarjeta suspenden deliberadamente el observador nativo, pintan de rojo el fondo del proveedor y cierran el desafío. Exigen cero píxeles rojos aun con el recorte desactualizado, conservan los valores y comprueban el regreso al formulario. Ambas pasaron con la versión final. La prueba JavaScript comprueba la retirada reversible de estilos y la identidad del iframe. No se leen contenidos entre orígenes ni se modifican tokens o respuestas. La comprobación visual del caso real queda pendiente del teléfono.

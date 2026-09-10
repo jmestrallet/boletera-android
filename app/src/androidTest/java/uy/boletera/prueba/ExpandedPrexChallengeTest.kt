@@ -88,7 +88,23 @@ class ExpandedPrexChallengeTest {
             assertNotNull(screenshot)
             File(compose.activity.getExternalFilesDir(null),"expanded-challenge-$stage.png").outputStream().use {screenshot.compress(Bitmap.CompressFormat.PNG,100,it)}
             screenshot.recycle()
-            js("document.getElementById('fixture-overlay').remove();true")
+            // Freeze the one-second native observer to reproduce its stale crop after a close.
+            val handler=EmbeddedPrexPayment::class.java.getDeclaredField("handler").apply{isAccessible=true}.get(payment) as android.os.Handler
+            val observer=EmbeddedPrexPayment::class.java.getDeclaredField("profileStatus").apply{isAccessible=true}.get(payment) as Runnable
+            compose.runOnIdle {handler.removeCallbacks(observer)}
+            js("document.body.style.backgroundColor='rgb(255,0,0)';document.getElementById('fixture-overlay').remove();true")
+            android.os.SystemClock.sleep(150)
+            compose.runOnIdle {assertTrue("The old native crop is deliberately still visible",payment.expandedChallenge)}
+            val closedShot=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            var providerPixels=0
+            for(y in 0 until closedShot.height step 3)for(x in 0 until closedShot.width step 3) {
+                val pixel=closedShot.getPixel(x,y)
+                if(android.graphics.Color.red(pixel)>245&&android.graphics.Color.green(pixel)<10&&android.graphics.Color.blue(pixel)<10)providerPixels++
+            }
+            File(compose.activity.getExternalFilesDir(null),"closed-challenge-$stage.png").outputStream().use {closedShot.compress(Bitmap.CompressFormat.PNG,100,it)}
+            closedShot.recycle()
+            assertEquals("Provider red backdrop must never appear behind the closed challenge",0,providerPixels)
+            compose.runOnIdle {handler.post(observer)}
             compose.waitUntil(5000){!payment.expandedChallenge}
             if(stage=="card")compose.onNodeWithText("Número de tarjeta").assertTextContains("4111 1111 1111 1111")
             else compose.onNodeWithText("Continuar a la tarjeta").assertExists()

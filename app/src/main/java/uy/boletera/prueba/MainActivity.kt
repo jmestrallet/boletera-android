@@ -264,8 +264,10 @@ class MainActivity : FragmentActivity() {
                 if(engine.expressAvailable && !state.busy)engine.startExpress()
             })
         if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",state.diagnostic,
-            onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall={updates.install(this@MainActivity)},onClose={showSettings=false},
+            onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall=updates::requestReview,onClose={showSettings=false},
             onTicketGuide={showSettings=false;showTicketGuide=true})
+
+        if(updates.reviewRequested && updates.ready && !updates.busy) UpdateReviewDialog(updates.release,updates::acceptReview,updates::dismissReview)
 
         if (showPayerPicker) PayerPicker(engine.payerProfiles,state.payerProfileId,
             onChoose={engine.choosePayer(it);showPayerPicker=false},
@@ -282,6 +284,20 @@ class MainActivity : FragmentActivity() {
             }) { Text("Olvidar") } },
             dismissButton = { TextButton(onClick = { showForget = false }) { Text("Cancelar") } })
     }
+}
+
+@Composable internal fun UpdateReviewDialog(release: UpdateRelease?, onInstall: () -> Unit, onLater: () -> Unit) {
+    AlertDialog(onDismissRequest=onLater,
+        title={Text("Actualización lista")},
+        text={Column(Modifier.heightIn(max=320.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+            Text("Novedades de la versión ${release?.version ?: "nueva"}",fontWeight=FontWeight.SemiBold)
+            val notes=release?.notes.orEmpty()
+            if(notes.isEmpty())Text("Esta versión no incluye un resumen de novedades.")
+            else notes.forEach { note -> Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {Text("•");Text(note)} }
+            Text("La descarga está lista. ¿Querés instalarla ahora?",color=Muted)
+        }},
+        confirmButton={TextButton(onClick=onInstall){Text("Instalar")}},
+        dismissButton={TextButton(onClick=onLater){Text("Ahora no")}})
 }
 
 @Composable internal fun EmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, onClose: () -> Unit) {
@@ -426,6 +442,7 @@ class MainActivity : FragmentActivity() {
         (payment.web.parent as? android.view.ViewGroup)?.removeView(payment.web)
         PaymentPageHost(it, payment.web)
     }, update = {
+        payment.maskProviderBackground(hidden || crop!=null)
         it.viewportWidth = browserWidth
         // A translated crop cannot reveal pixels clipped by the WebView's own viewport.
         // Keep tall provider challenges fully laid out, then fit their complete rectangle.

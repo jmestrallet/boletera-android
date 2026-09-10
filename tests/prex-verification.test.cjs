@@ -18,3 +18,20 @@ test('positions the existing component without replacing its iframe or provider 
 test('does not install on another site',()=>{
  const dom=new JSDOM('',{url:'https://example.invalid/v2/confirmarPago',runScripts:'outside-only'});try{dom.window.eval(code);assert.equal(dom.window.BoleteraVerification,undefined);}finally{dom.window.close();}
 });
+test('native mask follows closing frames before the next native snapshot and restores the original page',()=>{
+ const dom=new JSDOM('<style>body{background:red}</style><alta-cliente><button>Continuar</button><angular-recaptcha><iframe src="https://www.google.com/recaptcha/api2/anchor?size=normal"></iframe></angular-recaptcha></alta-cliente><div id="overlay"><iframe src="https://www.google.com/recaptcha/api2/bframe"></iframe></div>',{url:'https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago',runScripts:'outside-only'});
+ try {
+  const w=dom.window,d=w.document;let nextFrame=null;w.requestAnimationFrame=fn=>{nextFrame=fn;return 1};w.cancelAnimationFrame=()=>{nextFrame=null};
+  w.getComputedStyle=e=>({display:e.style.display||'block',visibility:'visible',opacity:'1'});
+  w.HTMLElement.prototype.getClientRects=function(){return [{width:100,height:100}]};
+  d.documentElement.getBoundingClientRect=()=>({x:0,y:0});
+  const frames=[...d.querySelectorAll('iframe')];frames[0].getBoundingClientRect=()=>({x:0,y:0,width:304,height:78});frames[1].getBoundingClientRect=()=>({x:20,y:100,width:304,height:680});
+  frames.forEach(f=>Object.defineProperty(f,'contentDocument',{get(){throw Error('Must not inspect challenge contents')}}));
+  const initial=frames[0],button=d.querySelector('button');w.eval(code);const api=w.BoleteraVerification;
+  api.nativeMask(true);let style=d.querySelector('[data-boletera-captcha-mask]');assert.match(style.textContent,/v680/);
+  d.querySelector('#overlay').remove();nextFrame();assert.doesNotMatch(style.textContent,/v680/);assert.match(style.textContent,/v78/);
+  initial.style.display='none';nextFrame();assert.match(style.textContent,/inset\(100%\)/);
+  assert.equal(w.getComputedStyle(button).visibility,'visible');assert.equal(d.querySelector('iframe'),initial);
+  api.nativeMask(false);assert.equal(d.querySelector('[data-boletera-captcha-mask]'),null);assert.equal(nextFrame,null);assert.equal(d.querySelector('button'),button);
+ }finally{dom.window.close()}
+});

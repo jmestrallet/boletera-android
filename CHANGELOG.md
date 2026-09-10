@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.24-prueba — cierre del CAPTCHA y novedades antes de instalar
+
+- Se oculta el fondo de Sistarbanc cuando se cierra el desafío de imágenes, incluso antes de que se actualice el recorte nativo. Se conserva el CAPTCHA original y sus datos.
+- La descarga verificada muestra hasta tres novedades breves de GitHub y espera Instalar o Ahora no. Cancelar conserva la descarga durante la sesión; Instalar actualización vuelve a mostrar el resumen.
+- El retorno del permiso de Android continúa únicamente después de aceptar la instalación. El nuevo cartel aplica a futuras actualizaciones hechas desde esta versión.
+
 ## 0.2.23-prueba — pie de la home y vibración
 
 - Texto de las 72 horas y Boletos y tarifas ligeramente menor, con renglones más compactos y más ancho para el aviso.

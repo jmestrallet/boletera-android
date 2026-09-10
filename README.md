@@ -18,11 +18,13 @@ En **0.2.22**, Siguiente y Continuar llevan al dato de tarjeta faltante, visible
 
 En **0.2.23**, el aviso completo de las 72 horas y Boletos y tarifas usan texto ligeramente menor y un pie más compacto. La vibración usa efectos de toque directos de Android; Probar vibración pide dos pulsos y distingue respuesta táctil apagada, motor no disponible y fallo de petición. Se respeta la preferencia de Android.
 
+En **0.2.24**, el cierre del CAPTCHA deja de exponer la página de Sistarbanc detrás del recorte. Las actualizaciones descargadas muestran un resumen breve de GitHub con **Instalar** y **Ahora no**. Este cartel funciona para las actualizaciones realizadas desde 0.2.24; una app anterior conserva su comportamiento al instalar esta versión.
+
 ## Probar en el celular
 
 **Estado actual:** el dueño reportó tres recargas reales con Prex y señaló esperas sin salida, un aviso transitorio, CVV vacío tras autocompletar y un toque adicional para regresar al saldo. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. La 0.2.19 integra confirmación final, comprobante, resultado STM y regreso a la home. La 0.2.22 aborda esos puntos con pruebas ficticias. El CVV efectivamente entregado por Google depende del proveedor y de los datos guardados; se conserva el ingreso manual visible. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
 
-**[Descargar la versión 0.2.23](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.23)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+**[Descargar la versión 0.2.24](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.24)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
@@ -32,7 +34,7 @@ Desde 0.1.15, las próximas versiones publicadas en este repositorio se pueden d
 
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Las versiones anteriores se conservan con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
 
-1. Pasá `outputs/boletera-prueba-0.2.21.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
+1. Pasá `outputs/boletera-prueba-0.2.24.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.

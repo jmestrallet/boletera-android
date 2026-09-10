@@ -21,11 +21,20 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 
-internal data class UpdateRelease(val version: String, val url: String, val size: Long, val sha256: String)
+internal data class UpdateRelease(val version: String, val url: String, val size: Long, val sha256: String, val notes: List<String> = emptyList())
 
 internal object UpdatePolicy {
     const val API = "https://api.github.com/repos/jmestrallet/boletera-android/releases?per_page=100"
     const val MAX_APK = 100L * 1024 * 1024
+    fun notes(body: String): List<String> {
+        // Only the short, authored app section is displayed; technical release details stay on GitHub.
+        val section = body.take(32_000).substringAfter("## Novedades en la app", "").substringBefore("\n## ")
+        return section.lineSequence().map(String::trim).filter { it.startsWith("- ") }.take(3)
+            .map { it.removePrefix("- ").replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1")
+                .replace(Regex("[*`_]"), "").replace(Regex("\\s+"), " ").trim()
+                .let { text -> if (text.length > 180) text.take(177).trimEnd() + "…" else text } }
+            .filter(String::isNotBlank).toList()
+    }
     fun version(value: String): List<Int>? = Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-prueba)?$")
         .matchEntire(value)?.groupValues?.drop(1)?.map { it.toIntOrNull() ?: return null }
     fun newer(candidate: String, installed: String): Boolean {
@@ -53,7 +62,7 @@ internal object UpdatePolicy {
             val size = asset.optLong("size")
             if (asset.optString("browser_download_url") != url || size !in 1..MAX_APK ||
                 !Regex("sha256:[a-fA-F0-9]{64}").matches(digest)) return@mapNotNull null
-            UpdateRelease(v, url, size, digest.substringAfter(':').lowercase())
+            UpdateRelease(v, url, size, digest.substringAfter(':').lowercase(), notes(release.optString("body")))
         }
         return candidates.reduceOrNull { best, next -> if (newer(next.version, best.version)) next else best }
     }
@@ -147,6 +156,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     internal var release by mutableStateOf<UpdateRelease?>(null); private set
     var ready by mutableStateOf(false); private set
     var installRequested by mutableStateOf(false); private set
+    var reviewRequested by mutableStateOf(false); private set
     private var awaitingInstallPermission = false
     private val worker = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
@@ -163,7 +173,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     }
     fun check() {
         if (busy) return
-        installRequested = false; awaitingInstallPermission = false
+        installRequested = false; awaitingInstallPermission = false; reviewRequested = false
         ready = false; release = null; message = "Buscando actualizaciones…"
         work {
             val connection = UpdateFiles.open(UpdatePolicy.API)
@@ -182,7 +192,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     fun download() {
         val selected = release ?: return
         if (busy) return
-        installRequested = false; awaitingInstallPermission = false
+        installRequested = false; awaitingInstallPermission = false; reviewRequested = false
         ready = false; message = "Descargando…"
         work {
             apk.parentFile!!.mkdirs()
@@ -191,9 +201,24 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                 UpdateFiles.download(selected, partial) { percent -> publish { message = "Descargando… $percent %" } }
                 UpdateFiles.verify(getApplication(), partial, selected.version)
                 check(partial.renameTo(apk)) { "No se pudo guardar la descarga." }
-                publish { ready = true; installRequested = true; message = "Descarga verificada. Abriendo el instalador…" }
+                publish { downloadReady() }
             } finally { partial.delete() }
         }
+    }
+    internal fun downloadReady() {
+        ready = true; installRequested = false; reviewRequested = true
+        message = "Descarga lista. Revisá las novedades antes de instalar."
+    }
+    fun requestReview() {
+        if (ready && !busy) reviewRequested = true
+    }
+    fun dismissReview() {
+        reviewRequested = false; installRequested = false
+        message = "Descarga lista. Podés instalarla desde Ajustes cuando quieras."
+    }
+    fun acceptReview() {
+        if (!ready || busy || !reviewRequested) return
+        reviewRequested = false; installRequested = true
     }
     fun onForeground(context: Context) {
         if (!awaitingInstallPermission) return
@@ -202,7 +227,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         else message = "Falta habilitar la instalación desde Boletera. Podés volver a intentarlo."
     }
     fun install(context: Context) {
-        if (!ready || busy) return
+        if (!ready || busy || !installRequested) return
         installRequested = false
         try {
             if (!context.packageManager.canRequestPackageInstalls()) {

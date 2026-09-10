@@ -68,6 +68,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     private var payer: PayerProfile? = null
     private var visible = false
     private var navigationVersion = 0
+    private var nativeMask = true
     private var expressAmount: Long? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val profileStatus: Runnable = object : Runnable {
@@ -130,6 +131,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     private val payerScript = context.assets.open("prex-payer.js").bufferedReader().use { it.readText() }
     val web: WebView = WebView(context).apply {
         alpha = 0f
+        setBackgroundColor(android.graphics.Color.TRANSPARENT)
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.allowFileAccess = false
@@ -181,6 +183,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                 busy = false
                 if (PaymentPolicy.gateway(url)) {
                     view.evaluateJavascript(verificationScript + "\n" + cardScript + "\n" + nativeScript + "\n" + completionScript + "\n" + payerScript + "\n" + expressScript, null)
+                    view.evaluateJavascript("window.BoleteraVerification?.nativeMask($nativeMask)",null)
                     view.evaluateJavascript("window.BoleteraCompletion?.configure(${expectedAmount ?: "null"},$finalSubmitted)",null)
                     payer?.let { profile ->
                         view.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.use(${profile.json()}); }", null)
@@ -299,6 +302,12 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         if(pendingFailure==null) {failureSince=clock();failureStage=nativeStage}
         pendingFailure=text
     }
+    fun maskProviderBackground(enabled:Boolean) {
+        if(destroyed || nativeMask==enabled)return
+        nativeMask=enabled
+        web.setBackgroundColor(if(enabled)android.graphics.Color.TRANSPARENT else android.graphics.Color.WHITE)
+        web.evaluateJavascript("window.BoleteraVerification?.nativeMask($enabled)",null)
+    }
     private fun checkProgress() {
         if(pendingFailure!=null && clock()-failureSince>=2000) {
             val failure=pendingFailure!!;pendingFailure=null;transientFailureShown=true;fail(failure)
@@ -318,6 +327,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         web.clearHistory()
         originalLink = null
         nativeStage = "loading"
+        nativeMask=true;web.setBackgroundColor(android.graphics.Color.TRANSPARENT)
         summaryRows = emptyList()
         expectedAmount = null
         finalSubmitted = false
