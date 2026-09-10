@@ -2,6 +2,8 @@ package uy.boletera.prueba
 
 import android.webkit.*
 import androidx.activity.compose.setContent
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -49,6 +51,11 @@ class PrexLoadingTest {
                 } finally {bitmap.recycle()}
             }
             compose.waitUntil(8000) {payment.nativeStage=="summary"}
+            compose.onNodeWithText("Continuar a los datos").assertIsDisplayed()
+            android.os.SystemClock.sleep(500)
+            val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            java.io.File(compose.activity.getExternalFilesDir(null),"prex-summary-compact.png").outputStream().use { screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+            screenshot.recycle()
         } finally {compose.runOnIdle {payment.destroy()}}
     }
 }

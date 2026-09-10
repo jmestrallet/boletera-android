@@ -1,6 +1,14 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.2
+## Versión vigente: 0.2.3
+
+Revisión de la preparación de recarga y las pantallas de pago: contenido compacto, acción principal fija, alta directa sin titulares, selección automática del único titular y lista aparte si hay varios. Se corrigen los textos que confundían perfiles con tarjetas, uso habitual y confirmación de pago. Formulario con nombre opcional, validación visible y guardado fijo. [Hallazgos y alcance](AUDITORIA-PAGOS-UX.md).
+
+Pasaron siete comprobaciones Android en 360 × 640 dp: cuatro escenarios de interfaz, recorrido STM/Prex interceptado, carga demorada y conservación de la página. Cinco comprobaciones adicionales pasaron en oscuro y cuatro en 411 × 868 dp con texto 2×. En tamaño habitual la pantalla con un titular cabe completa; con texto grande puede desplazarse el contenido, mientras la acción queda visible. También pasaron siete pruebas JVM, compilación release y lint.
+
+APK 0.2.3-prueba, código 21, SHA-256 `FED549641A414A568627795312F9A7D4D5BF2D28BECD5B32A9CD689AFA36CF24`. Se entrega en GitHub para actualizar desde la app. Las comprobaciones usaron datos ficticios; no se instaló esta entrega en el teléfono ni se realizó un pago real.
+
+## Versión anterior: 0.2.2
 
 Al abrir una instancia nueva de la app con acceso guardado, se solicita el desbloqueo al alcanzar el estado activo de Android. La misma función atiende el botón manual. El intento automático queda consumido aunque falle o se cancele, no se repite al cerrar sesión o volver de otra app, y ese estado sobrevive a la recreación de la pantalla. El cifrado y la autorización biométrica de AccessVault no se modificaron.
 

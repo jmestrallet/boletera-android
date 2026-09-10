@@ -210,8 +210,9 @@ class StmEngine(private val context: Context) {
             val updated = payerProfiles.filterNot { it.id == id }
             if (!payerStore.write(updated)) false else {
                 payerProfiles = updated
-                if (choices.payerProfileId == id) choices.payerProfileId = null
-                state = state.copy(payerProfileId = choices.payerProfileId)
+                val selected = state.payerProfileId?.takeIf { candidate -> updated.any { it.id == candidate } } ?: updated.singleOrNull()?.id
+                choices.payerProfileId = selected
+                state = state.copy(payerProfileId = selected)
                 true
             }
         } catch (_: Exception) { false }
@@ -505,7 +506,7 @@ class StmEngine(private val context: Context) {
                 }
                 accountVerified = true
                 state = state.copy(stage = "cards", cards = list, activePayment = null,
-                    payerProfileId = choices.payerProfileId?.takeIf { id -> payerProfiles.any { it.id == id } },
+                    payerProfileId = choices.payerProfileId?.takeIf { id -> payerProfiles.any { it.id == id } } ?: payerProfiles.singleOrNull()?.id,
                     message = if (payerStoreAvailable) "" else "No pudimos recuperar los perfiles de Prex guardados. Conservamos sus archivos sin sobrescribirlos.")
                 val preferred = choices.card
                 if (!choosingCard && !state.busy && lastAction != "card" && preferred != null) {

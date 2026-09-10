@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.3-prueba — pago más claro y acción siempre visible
+
+- Preparación de recarga compacta con importe, selección directa de Prex/eBROU y acción fija al pie.
+- Primera vez: Agregar datos abre directamente el formulario. Un solo titular se selecciona automáticamente; varios se eligen en una lista aparte.
+- Se distingue titular de tarjeta. Se retiran textos que asumían uso habitual o una segunda Prex.
+- Formulario con nombre para guardar opcional, validación visible y Guardar datos fijo. Guardar no inicia una operación.
+- Continuar también queda fijo en las pantallas nativas de Prex. Se corrigen textos obsoletos sobre pagos pendientes y se distingue verificación de identidad.
+
 ## 0.2.2-prueba — huella al abrir
 
 - Con acceso guardado, se solicita automáticamente la huella al abrir la app, cuando la pantalla ya está activa.

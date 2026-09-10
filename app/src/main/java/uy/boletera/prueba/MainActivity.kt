@@ -102,7 +102,6 @@ class MainActivity : FragmentActivity() {
         var save by remember { mutableStateOf(false) }
         var showForget by remember { mutableStateOf(false) }
         var showAmount by remember { mutableStateOf(false) }
-        var changeProvider by remember(state.stage) { mutableStateOf(false) }
         var showPayerPicker by remember { mutableStateOf(false) }
         var showPayerEditor by remember { mutableStateOf(false) }
         var editingPayer by remember { mutableStateOf<PayerProfile?>(null) }
@@ -183,49 +182,10 @@ class MainActivity : FragmentActivity() {
                                 if(state.cards.isEmpty())Notice("Todavía no pudimos leer las boleteras.")
                             }
                             "captcha" -> { Title("Una verificación\ny seguimos.");Text("Completá el desafío de abajo para continuar.",color=Muted) }
-                            "paymentBoundary" -> {
-                                ProgressSteps(1)
-                                Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                                    Text("Vas a recargar",style=MaterialTheme.typography.bodyLarge,color=Muted)
-                                    Text(Amounts.format(state.amount),style=MaterialTheme.typography.displayMedium,color=Ink)
-                                    Text("STM · ${state.selectedCard?.takeLast(4).orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=Muted)
-                                }
-                                WhiteCard {
-                                    Text("Medio de pago",style=MaterialTheme.typography.titleLarge)
-                                    val preferred=state.providers.find{it.id==state.selectedProvider}
-                                    if(preferred!=null&&!changeProvider) {
-                                        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
-                                            AppGlyph(Glyph.Card,tint=MaterialTheme.colorScheme.primary)
-                                            Column(Modifier.weight(1f)) { Text(if(preferred.id=="1033")"Prex" else "eBROU",style=MaterialTheme.typography.titleMedium);Text("Tu medio habitual",style=MaterialTheme.typography.bodySmall,color=Muted) }
-                                            AppGlyph(Glyph.Check,tint=MaterialTheme.colorScheme.primary)
-                                        }
-                                        TextButton(onClick={changeProvider=true}){Text("Cambiar medio de pago")}
-                                    } else {
-                                        state.providers.filter{it.id in PaymentPolicy.supported}.sortedBy{if(it.id=="1033")0 else 1}.forEach{provider ->
-                                            OutlinedButton(onClick={engine.chooseProvider(provider.id);changeProvider=false},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {
-                                                Text(if(provider.id=="1033")"Prex" else "eBROU",modifier=Modifier.weight(1f));AppGlyph(Glyph.Chevron,tint=LocalContentColor.current)
-                                            }
-                                        }
-                                        if(state.providers.isEmpty())Text("No pudimos leer los medios disponibles. Volvé al saldo para consultar de nuevo.",color=Muted)
-                                    }
-                                }
-                                if(state.selectedProvider=="1033") {
-                                    val payer=engine.payerProfiles.find{it.id==state.payerProfileId}
-                                    WhiteCard {
-                                        Text("Titular de la Prex",style=MaterialTheme.typography.titleMedium)
-                                        if(payer==null) { Text("Elegí los datos para esta tarjeta.",color=Muted);Primary("Elegir titular"){showPayerPicker=true} }
-                                        else {
-                                            Text("${payer.givenName} ${payer.familyName}",style=MaterialTheme.typography.bodyLarge)
-                                            Text(payer.label,style=MaterialTheme.typography.bodySmall,color=Muted)
-                                            TextButton(onClick={showPayerPicker=true}){Text("Elegir otra Prex o editar datos")}
-                                        }
-                                    }
-                                }
-                                Text(if(state.selectedProvider=="1033")"La confirmación sigue con Prex dentro de Boletera." else "La confirmación de eBROU se abre en Chrome.",style=MaterialTheme.typography.bodyMedium,color=Muted)
-                                Primary("Pagar ${Amounts.format(state.amount)}",enabled=!state.busy&&state.selectedProvider in PaymentPolicy.supported&&state.activePayment==null&&
-                                    (state.selectedProvider!="1033"||engine.payerProfiles.any{it.id==state.payerProfileId})){engine.beginPayment()}
-                                TextButton(onClick=engine::refresh,modifier=Modifier.align(Alignment.CenterHorizontally)){Text("Volver al saldo")}
-                            }
+                            "paymentBoundary" -> PaymentSetupContent(state,engine.payerProfiles,engine::chooseProvider,
+                                onAddPayer={editingPayer=null;showPayerEditor=true},
+                                onChoosePayer={showPayerPicker=true},
+                                onEditPayer={editingPayer=it;showPayerEditor=true})
                             "externalPayment" -> {
                                 Title("Pago abierto en eBROU")
                                 Text("Al volver del banco se actualizará el saldo.",color=Muted)
@@ -250,23 +210,21 @@ class MainActivity : FragmentActivity() {
                     SnackbarHost(hostState=snackbar,modifier=Modifier.align(Alignment.BottomCenter).padding(16.dp))
                     if(stage=="balance")PullToRefreshDefaults.Indicator(state=pullState,isRefreshing=state.busy,modifier=Modifier.align(Alignment.TopCenter),containerColor=Lime,color=MaterialTheme.colorScheme.onPrimaryContainer)
                 }
+                if(stage=="paymentBoundary")Box(Modifier.widthIn(max=600.dp).fillMaxWidth()) {
+                    PaymentSetupFooter(state,engine.payerProfiles,
+                        onAddPayer={editingPayer=null;showPayerEditor=true},
+                        onChoosePayer={showPayerPicker=true},onContinue=engine::beginPayment)
+                }
             }
         }
         if(showAmount)AmountSheet(state,{showAmount=false}){amount->showAmount=false;engine.prepare(amount)}
         if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",state.diagnostic,
             onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall={updates.install(this@MainActivity)},onClose={showSettings=false})
 
-        if (showPayerPicker) AlertDialog(onDismissRequest = { showPayerPicker = false }, title = { Text("¿Qué Prex vas a usar?") },
-            text = {
-                Column(Modifier.heightIn(max = 350.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Cada perfil conserva los datos de su titular. El número y el código de la tarjeta no se guardan acá.")
-                    engine.payerProfiles.forEach { payer ->
-                        OutlinedButton(onClick = { engine.choosePayer(payer.id); showPayerPicker = false }, modifier = Modifier.fillMaxWidth()) { Text(payer.label) }
-                        TextButton(onClick = { editingPayer = payer; showPayerPicker = false; showPayerEditor = true }) { Text("Editar ${payer.label}") }
-                    }
-                }
-            }, confirmButton = { TextButton(onClick = { editingPayer = null; showPayerPicker = false; showPayerEditor = true }) { Text("Agregar otra Prex") } },
-            dismissButton = { TextButton(onClick = { showPayerPicker = false }) { Text("Volver") } })
+        if (showPayerPicker) PayerPicker(engine.payerProfiles,state.payerProfileId,
+            onChoose={engine.choosePayer(it);showPayerPicker=false},
+            onAdd={editingPayer=null;showPayerPicker=false;showPayerEditor=true},
+            onClose={showPayerPicker=false})
         if (showPayerEditor) PayerProfileEditor(editingPayer, onSave = engine::savePayer, onDelete = engine::deletePayer, onClose = { showPayerEditor = false })
         if (showForget) AlertDialog(onDismissRequest = { showForget = false }, title = { Text("¿Olvidar este acceso?") },
             text = { Text("Se eliminan las credenciales cifradas, las preferencias y la sesión local.") },
@@ -296,13 +254,13 @@ class MainActivity : FragmentActivity() {
             }
             if (payment.payerNotice.isNotBlank()) {
                 Text(payment.payerNotice, color = Ink, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
-                if (payment.payerConflict) TextButton(onClick = payment::applyChosenPayer, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Usar los datos del perfil elegido") }
+                if (payment.payerConflict) TextButton(onClick = payment::applyChosenPayer, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Usar el titular seleccionado") }
             }
             if (payment.busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             if (payment.message.isNotBlank()) {
                 Column(Modifier.weight(1f).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     Notice(payment.message)
-                    Text("Volver conserva la solicitud pendiente. No se vuelve a enviar el pago.", color = Muted)
+                    Text("Volvé al saldo para consultar tu boletera.", color = Muted)
                     Primary("Volver a Boletera", action = onClose)
                 }
             } else {
@@ -312,7 +270,8 @@ class MainActivity : FragmentActivity() {
                     val pixelsPerDp = LocalDensity.current.density
                     val cssPixelsToDp = if (payment.cssViewportWidth > 0f) browserWidth / payment.cssViewportWidth / pixelsPerDp else 1f
                     if (!native) PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.fillMaxSize())
-                    if (native) Column(Modifier.fillMaxSize().background(Paper).verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    if (native) Column(Modifier.fillMaxSize().background(Paper)) {
+                      Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         if (payment.nativeStage != "payer") PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.fillMaxWidth().height(1.dp))
                         ProgressSteps(if(payment.nativeStage=="payer")1 else 0,listOf("Recarga","Titular","Tarjeta"))
                         Text(if (payment.nativeStage == "payer") "Datos del titular" else "Revisá tu recarga",style=MaterialTheme.typography.headlineMedium,color=Ink)
@@ -327,7 +286,6 @@ class MainActivity : FragmentActivity() {
                                     }
                                 }
                             }
-                            Primary("Continuar", payment.canContinue, payment::advance)
                         } else {
                             if (!payment.expandedChallenge) Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(28.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -338,19 +296,26 @@ class MainActivity : FragmentActivity() {
                                     }
                                 }
                             }
-                            Text("Sistarbanc necesita verificar que sos vos antes de pasar a la tarjeta.", color = Muted)
+                            Text(if(payment.challenge!=null)"Completá la verificación para continuar." else "Revisá los datos antes de seguir.", color = Muted)
                             BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 val cap = payment.challenge
                                 val maxPanelHeight = (browserHeight / pixelsPerDp - 140f).coerceAtLeast(140f)
                                 val scale = if (cap == null) 1f else minOf(cssPixelsToDp, maxWidth.value / cap.width, maxPanelHeight / cap.height)
                                 PaymentBrowserView(payment, cap == null, cap, browserWidth, browserHeight, if (cap == null) Modifier.size(1.dp) else Modifier.width((cap.width * scale).dp).height((cap.height * scale).dp))
                             }
-                            Primary("Continuar a la tarjeta", payment.canContinue, payment::advance)
-                            TextButton(onClick = { editing = true }, enabled = payment.chosenPayer != null) { Text("Editar datos para este pago") }
                         }
-                        TextButton(onClick = { showOriginal = true }) { Text("Ver pantalla de Sistarbanc") }
+                      }
+                      if(payment.nativeStage in listOf("summary","payer")) Surface(color=Paper,shadowElevation=6.dp) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                            Primary(if(payment.nativeStage=="payer")"Continuar a la tarjeta" else "Continuar a los datos",payment.canContinue,payment::advance)
+                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                                if(payment.nativeStage=="payer")TextButton(onClick={editing=true},enabled=payment.chosenPayer!=null){Text("Editar datos")}
+                                TextButton(onClick={showOriginal=true}){Text("Ver página original")}
+                            }
+                        }
+                      }
                     }
-                    if (!native && payment.nativeStage in listOf("summary", "payer")) TextButton(onClick = { showOriginal = false }, modifier = Modifier.align(Alignment.TopEnd).background(Paper)) { Text("Volver a mis datos") }
+                    if (!native && payment.nativeStage in listOf("summary", "payer")) TextButton(onClick = { showOriginal = false }, modifier = Modifier.align(Alignment.TopEnd).background(Paper)) { Text(if(payment.nativeStage=="summary")"Ver resumen" else "Ver datos") }
                 }
             }
         }
@@ -405,44 +370,6 @@ internal class PaymentPageHost(context: android.content.Context, private val bro
         val x = ((rect?.x ?: 0f) * density * scale).toInt()
         val y = ((rect?.y ?: 0f) * density * scale).toInt()
         browser.layout(-x, -y, browser.measuredWidth-x, browser.measuredHeight-y)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun PayerProfileEditor(existing: PayerProfile?, onSave: (PayerProfile) -> Boolean, onDelete: (String) -> Boolean, onClose: () -> Unit, paymentOnly: Boolean = false) {
-    val id = remember(existing?.id) { existing?.id ?: java.util.UUID.randomUUID().toString() }
-    var label by remember(id) { mutableStateOf(existing?.label.orEmpty()) }
-    var given by remember(id) { mutableStateOf(existing?.givenName.orEmpty()) }
-    var family by remember(id) { mutableStateOf(existing?.familyName.orEmpty()) }
-    var document by remember(id) { mutableStateOf(existing?.document.orEmpty()) }
-    var documentType by remember(id) { mutableStateOf(existing?.documentType ?: "CI") }
-    var email by remember(id) { mutableStateOf(existing?.email.orEmpty()) }
-    var phone by remember(id) { mutableStateOf(existing?.phone.orEmpty()) }
-    var error by remember(id) { mutableStateOf("") }
-    val profile = PayerProfile(id, label.trim(), given.trim(), family.trim(), document.trim(), email.trim(), phone, documentType)
-    ModalBottomSheet(onDismissRequest=onClose,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=Paper) {
-        Column(Modifier.fillMaxWidth().widthIn(max=560.dp).align(Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).imePadding().padding(horizontal=24.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            Text(if(existing==null)"Nueva Prex" else "Datos del titular",style=MaterialTheme.typography.headlineMedium,color=Ink)
-            Text(if(paymentOnly)"Los cambios se usan solo en esta recarga." else "Guardamos estos datos cifrados en tu teléfono. No guardamos el número ni el código de la tarjeta.",style=MaterialTheme.typography.bodyMedium,color=Muted)
-            OutlinedTextField(label,{label=it.take(80)},label={Text("Nombre del perfil")},placeholder={Text("Por ejemplo, Mi Prex")},singleLine=true,modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(given,{given=it.take(80)},label={Text("Nombre del titular")},singleLine=true,modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(family,{family=it.take(80)},label={Text("Apellido del titular")},singleLine=true,modifier=Modifier.fillMaxWidth())
-            Text("Tipo de documento",style=MaterialTheme.typography.titleMedium,color=Ink)
-            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                listOf("CI" to "Cédula uruguaya","PAS" to "Pasaporte").forEach { (type,title) ->
-                    FilterChip(selected=documentType==type,onClick={documentType=type},label={Text(title)},modifier=Modifier.weight(1f).heightIn(min=48.dp))
-                }
-            }
-            OutlinedTextField(document,{document=if(documentType=="CI")it.filter(Char::isDigit).take(8) else it.take(40)},label={Text(if(documentType=="CI")"Cédula uruguaya, sin puntos ni guion" else "Número de pasaporte")},singleLine=true,modifier=Modifier.fillMaxWidth(),keyboardOptions=KeyboardOptions(keyboardType=if(documentType=="CI")KeyboardType.Number else KeyboardType.Text))
-            OutlinedTextField(email,{email=it.take(120)},label={Text("Correo electrónico")},singleLine=true,modifier=Modifier.fillMaxWidth(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email))
-            OutlinedTextField(phone,{phone=it.filter(Char::isDigit).take(15)},label={Text("Celular")},singleLine=true,modifier=Modifier.fillMaxWidth(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Phone))
-            if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error)
-            Primary(if(paymentOnly)"Usar en este pago" else "Guardar y usar",enabled=profile.valid()) {
-                if(onSave(profile))onClose() else error="No se pudieron guardar los datos. Revisá si hay un pago pendiente."
-            }
-            if(existing!=null&&!paymentOnly)TextButton(onClick={if(onDelete(existing.id))onClose() else error="No se pudo borrar. Revisá si tiene un pago pendiente."}){Text("Eliminar este perfil")}
-            TextButton(onClick=onClose,modifier=Modifier.align(Alignment.CenterHorizontally)){Text("Cancelar")}
-        }
     }
 }
 

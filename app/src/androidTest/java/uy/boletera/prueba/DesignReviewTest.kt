@@ -93,6 +93,6 @@ class DesignReviewTest {
             state.value=UiState(stage="paymentBoundary",selectedCard="DEMO1234",amount=50000,providers=listOf(ProviderInfo("1033","Prex"),ProviderInfo("1002","eBROU")),selectedProvider="1033")
         }
         capture("payment")
-        compose.onNodeWithText("Pagar $ 500").assertIsNotEnabled()
+        compose.onNodeWithText("Agregar datos").assertIsEnabled().assertIsDisplayed()
     }
 }

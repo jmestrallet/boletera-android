@@ -75,8 +75,8 @@ class EmbeddedPrexPayment(context: Context) {
                     val status = try { org.json.JSONTokener(raw).nextValue() as? String } catch (_: Exception) { null }
                     payerConflict = status == "conflict"
                     payerNotice = when (status) {
-                        "conflict" -> "La página trae datos distintos del perfil elegido. No los reemplazamos automáticamente."
-                        "foreign-document" -> "Este perfil usa cédula uruguaya, pero la página indica otro tipo de documento. Revisá esa elección."
+                        "conflict" -> "Prex muestra datos distintos de los que elegiste. Podés conservarlos o usar los que seleccionaste."
+                        "foreign-document" -> "Los datos guardados usan cédula, pero Prex muestra otro tipo de documento. Revisá esa elección."
                         else -> ""
                     }
                 }
