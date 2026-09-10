@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.6-prueba — conservar la causa del error
+
+- Cuando un paso se detiene, la explicación permanece visible en la pantalla junto con la referencia del recorrido.
+- Los avisos transitorios, como una huella cancelada, siguen desapareciendo sin desplazar el contenido.
+- Corrige la pérdida de información de diagnóstico; no se atribuye todavía una causa al fallo de ingreso reportado en Xiaomi.
+
 ## 0.2.5-prueba — respuesta al tacto y movimiento
 
 - Botones con compresión, resorte de retorno, cambio de forma y desplazamiento de la flecha. Un pulso breve acompaña cada activación; mantener presionado no repite la acción.

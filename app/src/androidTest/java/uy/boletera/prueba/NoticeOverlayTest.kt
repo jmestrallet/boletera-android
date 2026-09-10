@@ -9,6 +9,22 @@ import org.junit.Test
 class NoticeOverlayTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
+    @Test fun blockingFailureRemainsVisibleAfterTransientNoticeTimeout() {
+        lateinit var engine: StmEngine
+        val reason="El sitio no aceptó los datos o la verificación. Podés ingresar otra vez manualmente."
+        compose.runOnIdle {
+            engine=MainActivity::class.java.getDeclaredField("engine").apply { isAccessible=true }.get(compose.activity) as StmEngine
+            StmEngine::class.java.getDeclaredMethod("applySnapshot",org.json.JSONObject::class.java).apply { isAccessible=true }.invoke(engine,org.json.JSONObject("""{"stage":"password","error":true}"""))
+        }
+        compose.onNodeWithText(reason).assertIsDisplayed()
+        compose.onNodeWithText("Referencia: password").assertIsDisplayed()
+        android.os.SystemClock.sleep(5500)
+        compose.onNodeWithText(reason).assertIsDisplayed()
+        compose.runOnIdle { assertEquals(reason,engine.state.message) }
+        compose.onNodeWithText("Volver al inicio").performClick()
+        compose.onNodeWithText(reason).assertDoesNotExist()
+    }
+
     @Test fun noticeDoesNotMoveWelcomeAndCanAppearAgainAfterDismissal() {
         lateinit var engine: StmEngine
         compose.runOnIdle {

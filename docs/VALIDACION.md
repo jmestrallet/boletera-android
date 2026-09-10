@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.5
+## Versión vigente: 0.2.6
+
+El usuario reportó un fallo de ingreso en Xiaomi con 0.2.4. La captura sólo muestra la pantalla genérica porque el aviso con la causa desaparecía después de unos segundos. Se corrige ese defecto: la causa de un bloqueo permanece en el contenido y se muestra la referencia de etapas. Los avisos transitorios de acceso conservan su comportamiento flotante.
+
+Tres pruebas Android aprobadas (39,14 s): error persistente más allá del tiempo del aviso y regreso al inicio; aviso de huella flotante que desaparece y puede repetirse; recorrido de ingreso y recarga interceptado. Compilación release y lint aprobados. Registro: `outputs/login-diagnostic-0.2.6.txt`.
+
+La página pública inicial de STM respondió HTTP 200 desde esta PC. Esto no verifica el ingreso del usuario. La comparación entre 0.2.3 y 0.2.4 no muestra cambios en StmEngine, stm-adapter ni AccessVault; no permite descartar otros problemas. Sigue pendiente recibir la referencia del teléfono y reproducir la causa del fallo real. Esta versión mejora el diagnóstico y no se presenta como reparación comprobada del login.
+
+APK código 24, SHA-256 `C0B9083EFD324BD0E99066BBF88A8E7CB3F095B20E7318E0CD95FFC7535470EA`. No se ingresaron credenciales reales, no se inició ningún pago ni se instaló esta entrega en un teléfono físico.
+
+## Versión anterior: 0.2.5
 
 Respuesta al tacto: botones con compresión y retorno, pulsación larga de la boletera y selección animada de importes. Ocho pruebas Android aprobadas en tamaño habitual: dos de gestos y emisión de pulsos, cinco de interfaz y una del recorrido STM/Prex interceptado. Otras siete aprobadas en 360 × 640 dp y con animación desactivada. La pulsación larga selecciona una sola vez, deslizar no selecciona, cancelar no activa y los controles deshabilitados no ejecutan acciones. Compilación release y lint aprobados.
 

@@ -101,8 +101,8 @@ class MainActivity : FragmentActivity() {
             return
         }
         val snackbar = remember { SnackbarHostState() }
-        LaunchedEffect(state.message) {
-            if (state.message.isNotBlank()) {
+        LaunchedEffect(state.message, state.stage) {
+            if (state.message.isNotBlank() && state.stage != "blocked") {
                 snackbar.showSnackbar(state.message, withDismissAction = true, duration = SnackbarDuration.Short)
                 engine.dismissNotice(state.message)
             }
@@ -205,7 +205,8 @@ class MainActivity : FragmentActivity() {
                             }
                             "blocked" -> {
                                 Title("No pudimos seguir")
-                                Text("Podés volver a intentar.",color=Muted)
+                                Text(state.message.ifBlank { "No se pudo completar este paso. Volvé al inicio para intentar nuevamente." },color=Muted)
+                                if(state.diagnostic.isNotBlank())Text("Referencia: ${state.diagnostic}",style=MaterialTheme.typography.bodySmall,color=Muted)
                                 if(state.activePayment!=null)Primary("Volver al saldo",action=engine::refresh)
                                 TextButton(onClick=engine::cancel){Text("Volver al inicio")}
                             }
