@@ -1,6 +1,18 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.11
+## Versión vigente: 0.2.12
+
+Corrección de la superposición del ancla reCAPTCHA: su índice de apilamiento elevado podía cubrir la consigna del iframe de desafío. Ahora queda debajo. El desafío expandido dispone del panel, cierra el teclado y usa un viewport de navegador con alto suficiente antes de ajustar el rectángulo completo. Los controles nativos se ocultan temporalmente y los campos de tarjeta permanecen en memoria para volver. En la vista original el botón de regreso queda fuera del navegador. Se permite capturar durante todo el pago, a pedido del usuario.
+
+48 pruebas JavaScript, ocho JVM, release y lint aprobados. Seis pruebas Android aprobaron en 33,043 s con pantalla 360 × 640 dp, letra 2× y animación desactivada (`outputs/challenge-tests-0.2.12.txt`): desafío en titular/tarjeta, adaptación del widget retenido y tres del formulario nativo. Se comprueban consigna y pie alcanzables por toques, capturas permitidas, un solo iframe de cada tipo, conservación de campos al cerrar el desafío y limpieza habitual al enviar/salir.
+
+Se amplió la prueba a un desafío ficticio centrado de 680 px de alto. La primera ejecución tocaba antes de que el recorte reflejara el nuevo viewport; se corrigió la sincronización del test para esperar coincidencia de geometría. Ambos casos centrados aprobaron en 13,948 s en pantalla chica (`outputs/challenge-centered-small-0.2.12.txt`). Todas las páginas e iframes de estas pruebas se sirven localmente: no se resuelve un CAPTCHA de Google real ni se realiza una operación financiera.
+
+Tres pruebas finales también aprobaron con tamaño habitual y animación habilitada (61,593 s, `outputs/challenge-final-0.2.12.txt`): ambos desafíos centrados y el recorrido completo de acceso, selección, recarga común y Express. Las capturas revisadas muestran consigna y pie completos.
+
+Compilación final release/debug/pruebas/lint: 32 s. APK código 30, SHA-256 `d2afb4176c2b8bd9c0800acd2c2b7d5876217112e50eb710440ec48fa7c33a96`, firma idéntica a la versión anterior. El caso del teléfono reportado por el usuario queda pendiente de comprobar con la actualización.
+
+## Versión anterior: 0.2.11
 
 Ayuda previa de Express con aceptación explícita y preferencia de no mostrar; guía de boletos local accesible desde saldo y Configuración, con fuentes públicas verificadas el 10/9/2026. [Contenido y fuentes](BOLETOS-Y-TARIFAS.md).
 

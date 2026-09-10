@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.12-prueba — CAPTCHA completo y capturas habilitadas
+
+- La casilla inicial de reCAPTCHA deja de superponerse a la consigna del desafío de imágenes.
+- El desafío ampliado ocupa el panel; se ocultan temporalmente los campos y acciones ordinarias, se cierra el teclado y se ajusta el navegador para dibujar el rectángulo completo antes de escalarlo.
+- Se conserva el iframe original y los campos temporales de tarjeta al volver. La página original sigue accesible.
+- Capturas habilitadas también durante el pago, a pedido del usuario. Se retira el bloqueo de pantalla incorporado en 0.2.9.
+
 ## 0.2.11-prueba — ayuda de Express y guía de boletos
 
 - Express muestra una explicación antes del primer uso, con Aceptar y continuar, Ahora no y No volver a mostrar. La preferencia se guarda solo al aceptar. El toque corto vuelve a abrir la ayuda.

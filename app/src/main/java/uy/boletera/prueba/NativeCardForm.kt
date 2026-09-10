@@ -1,7 +1,5 @@
 package uy.boletera.prueba
 
-import android.view.WindowManager
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -15,7 +13,6 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalAutofillManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -47,19 +44,6 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     }
 }
 
-/** Scoped to the payment panel; restore the owner's existing capture policy afterward. */
-@Composable internal fun SecurePaymentWindow() {
-    val context=LocalContext.current
-    DisposableEffect(context) {
-        var current: android.content.Context = context
-        while(current is android.content.ContextWrapper && current !is ComponentActivity) current=current.baseContext
-        val window=(current as? ComponentActivity)?.window
-        val alreadySecure=window?.attributes?.flags?.and(WindowManager.LayoutParams.FLAG_SECURE)!=0
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose { if(!alreadySecure) window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
-    }
-}
-
 /** Deliberately not saveable or hoisted into engine/persistence. Only explicit Continue transfers values. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun NativeCardForm(busy: Boolean, canContinue: Boolean, providerError: Boolean,
@@ -76,11 +60,19 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     val lifecycle=LocalLifecycleOwner.current.lifecycle
     val numberFocus=remember { FocusRequester() }
     LaunchedEffect(focusCard,expandedChallenge) { if(focusCard&&!expandedChallenge) { numberFocus.requestFocus();keyboard?.show() } }
+    LaunchedEffect(expandedChallenge) { if(expandedChallenge) {focus.clearFocus();keyboard?.hide()} }
     DisposableEffect(lifecycle,autofill) {
         fun clear() { autofill?.cancel();pan="";expiry="";cvv="";attempted=false;focus.clearFocus() }
         val observer=LifecycleEventObserver { _, event -> if(event==Lifecycle.Event.ON_STOP) clear() }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer);clear() }
+    }
+    if(expandedChallenge) {
+        Column(Modifier.fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxWidth().padding(12.dp)) {verification()}
+            TextButton(onClick=onOriginal,modifier=Modifier.fillMaxWidth()) {Text("Ver página original")}
+        }
+        return
     }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {

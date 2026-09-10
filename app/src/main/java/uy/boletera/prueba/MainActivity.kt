@@ -271,7 +271,6 @@ class MainActivity : FragmentActivity() {
 }
 
 @Composable internal fun EmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, onClose: () -> Unit) {
-    SecurePaymentWindow()
     var showOriginal by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     val expressAdvancing=payment.expressPhase=="advancing"
@@ -306,16 +305,26 @@ class MainActivity : FragmentActivity() {
                     val browserHeight = constraints.maxHeight
                     val pixelsPerDp = LocalDensity.current.density
                     val cssPixelsToDp = if (payment.cssViewportWidth > 0f) browserWidth / payment.cssViewportWidth / pixelsPerDp else 1f
-                    if (!native) PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.fillMaxSize())
+                    if (!native) Column(Modifier.fillMaxSize()) {
+                        if(payment.nativeStage in listOf("summary","payer","card"))TextButton(onClick={showOriginal=false},modifier=Modifier.align(Alignment.End)) {
+                            Text(when(payment.nativeStage){"summary"->"Ver resumen";"card"->"Ver formulario";else->"Ver datos"})
+                        }
+                        PaymentBrowserView(payment,false,null,browserWidth,browserHeight,Modifier.weight(1f).fillMaxWidth())
+                    }
                     if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{payment.stopExpress();showOriginal=true},focusCard=payment.expressPhase=="done") {
-                        BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
+                        if(payment.expandedChallenge) ExpandedPaymentChallenge(payment,browserWidth,browserHeight,Modifier.fillMaxSize())
+                        else BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
                             val cap=payment.challenge
                             val maxPanelHeight=(browserHeight/pixelsPerDp-160f).coerceAtLeast(140f)
                             val scale=if(cap==null)1f else minOf(cssPixelsToDp,maxWidth.value/cap.width,maxPanelHeight/cap.height)
                             PaymentBrowserView(payment,cap==null,cap,browserWidth,browserHeight,if(cap==null)Modifier.size(1.dp) else Modifier.width((cap.width*scale).dp).height((cap.height*scale).dp))
                         }
                     }
-                    if (native && payment.nativeStage!="card") Column(Modifier.fillMaxSize().background(Paper)) {
+                    if(native && payment.nativeStage!="card" && payment.expandedChallenge)Column(Modifier.fillMaxSize()) {
+                        ExpandedPaymentChallenge(payment,browserWidth,browserHeight,Modifier.weight(1f).fillMaxWidth().padding(12.dp))
+                        TextButton(onClick={payment.stopExpress();showOriginal=true},modifier=Modifier.fillMaxWidth()){Text("Ver página original")}
+                    }
+                    if (native && payment.nativeStage!="card" && !payment.expandedChallenge) Column(Modifier.fillMaxSize().background(Paper)) {
                       Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         if (payment.nativeStage != "payer" || expressAdvancing) PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.fillMaxWidth().height(1.dp))
                         if(expressAdvancing) LoadingState("Preparando Prex", "Usando el mínimo y tus datos guardados.") else {
@@ -362,7 +371,6 @@ class MainActivity : FragmentActivity() {
                         }
                       }
                     }
-                    if (!native && payment.nativeStage in listOf("summary", "payer", "card")) TextButton(onClick = { showOriginal = false }, modifier = Modifier.align(Alignment.TopEnd).background(Paper)) { Text(when(payment.nativeStage){"summary"->"Ver resumen";"card"->"Ver formulario";else->"Ver datos"}) }
                 }
             }
         }
@@ -375,12 +383,28 @@ class MainActivity : FragmentActivity() {
 }
 
 /** Keep the real page laid out while native content owns display and accessibility. */
+@Composable internal fun ExpandedPaymentChallenge(payment: EmbeddedPrexPayment, browserWidth: Int, browserHeight: Int, modifier: Modifier) {
+    val keyboard=androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {keyboard?.hide()}
+    BoxWithConstraints(modifier,contentAlignment=Alignment.Center) {
+        val cap=payment.challenge
+        val cssScale=if(payment.cssViewportWidth>0f)browserWidth/payment.cssViewportWidth/LocalDensity.current.density else 1f
+        val scale=if(cap==null)1f else minOf(cssScale,maxWidth.value/cap.width,maxHeight.value/cap.height)
+        PaymentBrowserView(payment,cap==null,cap,browserWidth,browserHeight,
+            if(cap==null)Modifier.size(1.dp) else Modifier.width((cap.width*scale).dp).height((cap.height*scale).dp))
+    }
+}
+
 @Composable internal fun PaymentBrowserView(payment: EmbeddedPrexPayment, hidden: Boolean, crop: CaptchaRect?, browserWidth: Int, browserHeight: Int, modifier: Modifier) {
     AndroidView(factory = {
         (payment.web.parent as? android.view.ViewGroup)?.removeView(payment.web)
         PaymentPageHost(it, payment.web)
     }, update = {
-        it.viewportWidth = browserWidth; it.viewportHeight = browserHeight
+        it.viewportWidth = browserWidth
+        // A translated crop cannot reveal pixels clipped by the WebView's own viewport.
+        // Keep tall provider challenges fully laid out, then fit their complete rectangle.
+        val cssScale=if(payment.cssViewportWidth>0f)browserWidth/payment.cssViewportWidth else it.resources.displayMetrics.density
+        it.viewportHeight = maxOf(browserHeight,if(crop!=null)kotlin.math.ceil((crop.height+32f)*cssScale).toInt() else browserHeight)
         it.cssViewportWidth = payment.cssViewportWidth
         it.nativeHidden = hidden; it.crop = crop
     }, modifier = modifier.clip(RoundedCornerShape(4.dp)))

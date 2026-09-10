@@ -26,12 +26,10 @@ import java.util.concurrent.atomic.AtomicReference
 @RunWith(AndroidJUnit4::class)
 class NativeCardFormTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
-    @Test fun validationClearingAndSecureWindow() {
+    @Test fun validationClearingAndScreenshotsAllowed() {
         var submits=0
         var visible by mutableStateOf(true)
-        var secure by mutableStateOf(true)
         compose.activity.setContent { BoleteraTheme {
-            if(secure) SecurePaymentWindow()
             Surface { if(visible) NativeCardForm(false,true,false,false,{pan,expiry,cvv->
                 assertEquals("4111111111111111",pan);assertEquals("12/39",expiry);assertEquals("123",cvv);submits++
             },{}) }
@@ -44,7 +42,7 @@ class NativeCardFormTest {
         compose.onNodeWithText("Continuar").performClick()
         assertEquals(1,submits)
         compose.onNodeWithText("CVV").assertTextEquals("CVV","")
-        compose.runOnIdle { assertTrue(compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0);visible=false;secure=false }
+        compose.runOnIdle { assertEquals(0,compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE);visible=false }
         compose.waitForIdle()
         compose.runOnIdle { assertEquals(0,compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE);visible=true }
         compose.onNodeWithText("Número de tarjeta").assertTextEquals("Número de tarjeta","")
