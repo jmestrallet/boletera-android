@@ -11,9 +11,9 @@ La APK release 0.1.7 protege la revisión de pagos hasta completar el ingreso y 
 | Compilación desde clon público limpio de GitHub (`a6724d5`) | APK debug, 3 pruebas JVM, lint y 11 pruebas JS aprobados. Sin `local.properties` ni claves del proyecto; se usaron JDK/SDK instalados y caché de dependencias de la PC |
 | Emulador Android 16: arranque nativo, fixture en WebView, ausencia de guardado plano sin biometría, capturas habilitadas y recorrido offline usando StmEngine con login en URL protegida y tabla demorada hasta saldo/mínimo | 10 pruebas locales aprobadas; también preferencias por cuenta, guardia pendiente, traspaso eBROU y recuperación cifrada de Prex |
 | Entrada pública real de STM desde WebView | Aprobada en Android 16 tras corregir la cadena TLS incompleta y reconocer la descripción incluida en el botón de identidad. Solo navegación pública; sin enviar documento ni contraseña |
-| Login real con credenciales del usuario en la APK | Comprobado en emulador Android 16 con credenciales autorizadas: la APK release 0.1.5 ingresó, recordó la boletera operativa y llegó automáticamente al saldo y mínimo. Pendiente de confirmación en teléfono físico |
+| Login real con credenciales del usuario en la APK | Comprobado en emulador Android 16 con 0.1.5. Las capturas aportadas por el usuario de 0.1.6 muestran saldo, mínimo, confirmación y avance al resumen y formulario del cliente de Prex en su teléfono; no muestran el ingreso completo ni un pago autorizado |
 | CAPTCHA real completo dentro del recorte | No validado |
-| Guardar y descifrar con huella física | Implementado; pendiente de dispositivo con biometría configurada |
+| Guardar y descifrar con biometría | Cifrado, recuperación tras recrear la actividad, cancelación y eliminación aprobados con el sensor simulado del emulador Android 16 y Android Keystore. Huella física pendiente |
 | Tarjeta guardada de Google y huella en pago | No validado. Solo hay una prueba local de autocompletado |
 | Inicio real Prex y eBROU | Comprobado con la APK release 0.1.5: Prex hasta resumen oficial con el importe elegido y eBROU hasta ingreso oficial del banco. Sin datos bancarios ni autorización |
 | Regreso y preferencias reales | Consultar saldo sin reingreso, aviso pendiente persistente, cambio de boletera y medio recordado comprobados |
@@ -49,6 +49,22 @@ Se reprodujo que un ingreso sin verificar podía eliminar el aviso pendiente; la
 Otra regresión Android reprodujo un iframe fuera del área visible del WebView. Se agregó una orden que desplaza la página original antes del recorte, sin leer ni modificar el contenido del desafío. Con un iframe completamente ficticio, servido localmente bajo URLs interceptadas, se verificaron el panel chico, el expandido y los toques a través del contenedor nativo. Se esperó la entrega asíncrona del evento; la comprobación de posición admite un píxel CSS de redondeo. Se inspeccionó la captura del panel expandido: texto y controles sin recortes.
 
 Resultado final: 22 pruebas JavaScript, 6 JVM, lint y 11 Android aprobadas. No se contactó Google para resolver un CAPTCHA ni se validó uno real; tampoco se autorizó un pago. El único sondeo de red de la suite es la entrada pública de STM.
+
+## Prueba adicional de biometría sobre 0.1.7
+
+`BiometricVaultTest.encryptedRoundTripCancellationAndForget` aprobó en Android 16 en 53,624 segundos. Usa `AccessVault` sin sustituir el diálogo biométrico, el cifrado ni Android Keystore. Se enroló una huella simulada en los ajustes del emulador y se autentificaron dos operaciones con el sensor del emulador: guardar y descifrar. Entre ambas se recreó la actividad. El test comprobó los datos ficticios recuperados y que las preferencias persistidas contienen únicamente IV y texto cifrado. Esto no prueba un reinicio completo del proceso o del teléfono.
+
+En un tercer diálogo se pulsó **Cancelar**: el callback no devolvió credenciales y conservó el acceso guardado. Después se eliminó el acceso y un intento de descifrado devolvió datos nulos. El test no llama a STM ni usa credenciales del usuario. Se quitó el PIN temporal al finalizar y se verificó que el emulador quedó sin huellas enroladas. No hubo cambios al código de la app ni a la APK publicada.
+
+Es una prueba optativa que necesita interacción con un emulador preparado; no se presenta como un test automático aprobado por omisión. Con los APK debug y androidTest instalados, ejecutar:
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -r -e class uy.boletera.prueba.BiometricVaultTest -e biometricProbe true uy.boletera.prueba.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Esperar el diálogo y la fase `SAVE_TOUCH`, simular la huella enrolada; repetir en `UNLOCK_TOUCH`; en `CANCEL_PROMPT`, pulsar **Cancelar**. El resultado debe terminar en `OK (1 test)` y fase `COMPLETE`. Sin el argumento `biometricProbe`, se omite. Preparación y comandos del sensor: [documentación oficial del emulador Android](https://developer.android.com/studio/run/emulator-console).
+
+Siguen pendientes la biometría física, el CAPTCHA real, el autocompletado de Google en el formulario bancario, la recuperación de un enlace real de Prex y la autorización/acreditación del pago. Las capturas recibidas de 0.1.6 confirman avance hasta el formulario de cliente; no prueban esas etapas restantes y no se publican.
 
 ## Evidencia local
 
