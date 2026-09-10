@@ -1,6 +1,14 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.27
+## Versión vigente: 0.2.28
+
+Ajuste visual pedido: se retira el título Tu boletera y Cambiar boletera queda dentro del panel de saldo, en su extremo superior derecho, junto a Saldo disponible. Se mantiene STM y los últimos cuatro caracteres de la boletera por encima del panel. El botón usa el color de contenido del panel para conservar contraste.
+
+Debug/release y lint aprobados en 11 s. Dos pruebas Android existentes aprobadas en 10,775 s (`outputs/home-final-0.2.28.txt`): home completa sin desplazamiento, con Express, mínimo variable y saldo negativo; solo el icono cambia la boletera, con respuesta táctil y sin acción mientras está deshabilitado. Captura revisada: `outputs/home-0.2.28.png`, en 1080 × 2340, 420 dpi y letra 1×. El primer intento de instalación encontró el emulador aún arrancando; se instaló de nuevo tras completar el inicio y se verificó versionName 0.2.28 antes de acreditar las pruebas finales.
+
+APK código 46, 8.630.443 bytes, SHA-256 `809d350043f34e54574d4bbd10fa09e118fbcb8dfe7b109d3dcc7588e83d0ad3`, misma firma. No cambió el recorrido de acceso o pago. No hubo instalación en el teléfono físico ni operaciones financieras.
+
+## Versión anterior: 0.2.27
 
 El dueño confirmó que el caso reportado era una autorización inicial para vincular STM y Usuario gub.uy. El rastro password → unknown era compatible con ese paso; la app no dispone todavía de un adaptador verificado para presentar ese consentimiento de forma nativa. Se implementó la alternativa autorizada: informar y guiar al navegador, sin aceptar por la persona.
 

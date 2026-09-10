@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.2.28-prueba — encabezado de la boletera
+
+- Se elimina Tu boletera, que repetía la marca del encabezado.
+- Cambiar boletera se mueve al extremo superior derecho del panel de saldo, con contraste adecuado al fondo. Se conservan la identificación STM, el área táctil y la acción del botón.
+
 ## 0.2.27-prueba — primer acceso y autorización de STM
 
 - Se agrega ¿Es tu primer ingreso a STM? antes de ingresar, con instrucciones y acceso al sitio público de STM.

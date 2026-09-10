@@ -61,19 +61,14 @@ import java.util.Locale
     val haptic=LocalHapticFeedback.current
     fun chooseCard() { haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onChangeCard() }
     Column(verticalArrangement=Arrangement.spacedBy(24.dp)) {
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Tu boletera",style=MaterialTheme.typography.headlineLarge,color=Ink)
-                Text("STM · ${state.selectedCard?.takeLast(4).orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=Muted)
-            }
-            IconButton(onClick=::chooseCard,enabled=!state.busy) { AppGlyph(Glyph.Swap,label="Cambiar boletera",tint=colors.primary) }
-        }
+        Text("STM · ${state.selectedCard?.takeLast(4).orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=Muted)
         Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.semantics {
             customActions=listOf(CustomAccessibilityAction("Actualizar saldo") { if (!state.busy) { onRefresh(); true } else false })
         }) {
             Column(Modifier.fillMaxWidth().padding(28.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Text("Saldo disponible",style=MaterialTheme.typography.titleMedium,color=colors.onPrimaryContainer,modifier=Modifier.weight(1f))
+                    IconButton(onClick=::chooseCard,enabled=!state.busy) { AppGlyph(Glyph.Swap,label="Cambiar boletera",tint=colors.onPrimaryContainer) }
                 }
                 Text(Amounts.format(state.balance),style=if(Amounts.format(state.balance).length>10)MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge,
                     color=colors.onPrimaryContainer,modifier=Modifier.fillMaxWidth())
