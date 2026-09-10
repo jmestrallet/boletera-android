@@ -1,5 +1,17 @@
 # Cambios
 
+## 0.1.8-prueba
+
+- Abre Prex dentro de Boletera con una identificación de navegador comprobada contra la pantalla pública de Sistarbanc. eBROU conserva el traspaso a Chrome.
+- Agrega perfiles cifrados de titular: nombre, apellido, cédula, correo y celular. Elegir otra Prex permite crear un perfil vacío; la preferencia se recuerda por cuenta.
+- Vincula el perfil a la solicitud pendiente. Cambiar el favorito no cambia una solicitud existente; no se permite editar o borrar su perfil mientras esté pendiente.
+- Completa los datos ordinarios en los dos formatos identificados del formulario. No lee ni guarda número de tarjeta, vencimiento o CVV, ni cambia el servicio de autocompletado de Android.
+- Conserva la página al salir y volver: no recarga el formulario ni repite un envío. Después de reiniciar conserva el enlace original cifrado.
+- Advierte si la página ya trae datos distintos del perfil elegido y pide una acción explícita antes de reemplazarlos. Conserva las correcciones manuales posteriores.
+- Integra la apariencia de pago y mantiene el CAPTCHA y las confirmaciones originales. No resuelve ni pulsa automáticamente la autorización.
+
+La prueba pública sin operación acredita que el detector inicial no rechaza la variante. El recorrido completo con datos ficticios y la pantalla dibujada se comprobaron en Android. El formulario real con operación, Google en el teléfono, CAPTCHA, autorización y acreditación siguen pendientes: esta versión no acredita un pago completo.
+
 ## 0.1.7-prueba
 
 - Exige completar el ingreso antes de mostrar o permitir reconocer un pago pendiente. Un intento de acceso sin verificar ya no puede eliminar ese aviso.

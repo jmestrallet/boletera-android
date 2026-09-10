@@ -1,5 +1,17 @@
 # Perfiles para Prex: viabilidad y decisión del usuario
 
+## Estado implementado en 0.1.8 — 10 de septiembre de 2026
+
+La versión incorpora perfiles ordinarios de titular dentro de Boletera, sin instalar ni elegir un `AutofillService` propio. Conserva el servicio Android que use el usuario, incluido Google; su funcionamiento efectivo con la tarjeta en el WebView requiere prueba física.
+
+Los perfiles se guardan cifrados con una clave de Android Keystore y se identifican por un nombre elegido por el usuario. Incluyen nombre, apellido, cédula uruguaya, email y celular; no guardan tarjeta, vencimiento ni CVV. Los perfiles pertenecen al dispositivo; la elección habitual se recuerda por cuenta STM y cada solicitud conserva el perfil elegido al iniciarse. El perfil no acredita titularidad de una tarjeta.
+
+Agregar otra Prex presenta campos vacíos. No se permite modificar ni borrar un perfil vinculado a un pago pendiente. Los datos se aplican solo a los formatos de formulario reconocidos en el origen exacto de Sistarbanc. Si ya hay datos distintos, se advierte y hace falta pulsar «Usar los datos del perfil elegido» para reemplazarlos; las correcciones manuales posteriores se conservan. Olvidar el acceso también borra los perfiles locales.
+
+La selección, cifrado, vínculo al pago y llenado se probaron con datos ficticios en Android. Falta verificar el formulario real con operación y el recorrido completo de autorización. La investigación de servicio opcional que sigue es histórica y no describe la implementación actual.
+
+## Investigación anterior
+
 Fecha: 9 de septiembre de 2026. Investigación realizada sobre 0.1.5. El usuario eligió **conservar Google**; el servicio propio no se incorpora a 0.1.6.
 
 **Aclaración posterior:** conservar Google no equivale a aceptar que el usuario complete la página. El objetivo vigente es realizar la recarga desde la interfaz propia. Hay un hallazgo nuevo sobre asociación y tarjetas guardadas en el proveedor, todavía sin habilitación comprobada para STM/Prex: [investigación nativa](INTEGRACION-NATIVA-PAGO.md).
@@ -10,7 +22,7 @@ Recordar los datos del titular para una próxima recarga, distinguiendo cada per
 
 En la investigación previa se observaron datos de documento, titular, correo, teléfono y CAPTCHA. No se completó la autorización posterior y no se afirma que esa lista cubra todo el pago. No se incluyen datos reales del usuario en esta documentación, los fixtures ni el código.
 
-## Ruta actual
+## Ruta anterior: 0.1.5 a 0.1.7
 
 La APK abre el pago en una Custom Tab de Chrome. Ese mecanismo no permite a Boletera inyectar JavaScript, acceder libremente al documento o trasladar solamente su CAPTCHA a la interfaz propia. Prex rechazó el WebView en las pruebas anteriores.
 

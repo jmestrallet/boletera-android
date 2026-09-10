@@ -7,7 +7,7 @@ import java.util.Locale
 
 data class CardInfo(val id: String, val active: Boolean, val status: String)
 data class ProviderInfo(val id: String, val name: String)
-data class PendingPayment(val card: String, val provider: String, val amount: Long, val createdAt: Long)
+data class PendingPayment(val card: String, val provider: String, val amount: Long, val createdAt: Long, val payerProfileId: String? = null)
 data class CaptchaRect(val x: Float, val y: Float, val width: Float, val height: Float)
 data class UiState(
     val stage: String = "welcome", val busy: Boolean = false, val message: String = "",
@@ -18,6 +18,7 @@ data class UiState(
     val providers: List<ProviderInfo> = emptyList(), val selectedProvider: String? = null,
     val pendingPayment: PendingPayment? = null,
     val canReopenPrex: Boolean = false,
+    val payerProfileId: String? = null,
     val diagnostic: String = ""
 )
 

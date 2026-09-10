@@ -38,9 +38,14 @@ class StmEngine(private val context: Context) {
     private var accountVerified = false
     private var debugDestination = ""
     private val choices = JourneyPreferences(context)
+    private val payerStore = PayerProfiles(context)
+    var payerProfiles by mutableStateOf<List<PayerProfile>>(emptyList())
+        private set
+    private var payerStoreAvailable = true
     private var choosingCard = false
     private var awaitingNavigation = false
     private val paymentBrowser = PaymentBrowser(context)
+    val prexPayment = EmbeddedPrexPayment(context)
     private var paymentInFlight = false
     private var providerSubmitted = false
     private var handoffSent = false
@@ -127,6 +132,7 @@ class StmEngine(private val context: Context) {
         if (state.busy) return
         if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
         clearSecrets()
+        prexPayment.reset()
         document = doc; password = pass
         accountVerified = false
         choices.useAccount(doc)
@@ -169,7 +175,47 @@ class StmEngine(private val context: Context) {
         handler.removeCallbacks(poll); handler.post(poll)
     }
 
-    fun forgetChoices() = choices.forgetAll()
+    fun forgetChoices(): Boolean {
+        if (!payerStore.forget()) { notice("No pudimos borrar los datos de titular guardados. No se confirmó su eliminación."); return false }
+        payerProfiles = emptyList()
+        payerStoreAvailable = true
+        choices.forgetAll()
+        return true
+    }
+
+    fun choosePayer(id: String) {
+        if (!accountVerified || state.busy || state.pendingPayment != null || state.stage != "paymentBoundary") return
+        if (payerProfiles.none { it.id == id }) return
+        choices.payerProfileId = id
+        state = state.copy(payerProfileId = id, message = "")
+    }
+
+    fun savePayer(profile: PayerProfile): Boolean {
+        if (!accountVerified || state.busy || state.pendingPayment != null || !payerStoreAvailable || !profile.valid()) return false
+        if (choices.payerInPending(profile.id)) { notice("Ese perfil está vinculado a un pago pendiente. Conservamos sus datos hasta que revises el resultado."); return false }
+        val updated = payerProfiles.filterNot { it.id == profile.id } + profile
+        return try {
+            if (!payerStore.write(updated)) false else {
+                payerProfiles = updated
+                choices.payerProfileId = profile.id
+                state = state.copy(payerProfileId = profile.id, message = "")
+                true
+            }
+        } catch (_: Exception) { notice("No se pudieron guardar los datos del titular en este celular."); false }
+    }
+
+    fun deletePayer(id: String): Boolean {
+        if (!accountVerified || state.busy || !payerStoreAvailable || choices.payerInPending(id)) return false
+        return try {
+            val updated = payerProfiles.filterNot { it.id == id }
+            if (!payerStore.write(updated)) false else {
+                payerProfiles = updated
+                if (choices.payerProfileId == id) choices.payerProfileId = null
+                state = state.copy(payerProfileId = choices.payerProfileId)
+                true
+            }
+        } catch (_: Exception) { false }
+    }
 
     fun chooseProvider(id: String) {
         if (state.busy || state.providers.none { it.id == id }) return
@@ -182,8 +228,12 @@ class StmEngine(private val context: Context) {
         val amount = state.amount ?: return
         val card = state.selectedCard ?: return
         if (state.stage != "paymentBoundary" || state.busy || provider !in PaymentPolicy.supported || !Amounts.valid(amount, state.minimum)) return
-        if (!paymentBrowser.available()) { notice("Para pagar necesitás Chrome instalado y habilitado."); return }
-        val pending = PendingPayment(card, provider, amount, System.currentTimeMillis())
+        if (provider == "1033" && payerProfiles.none { it.id == state.payerProfileId }) {
+            notice("Elegí o guardá los datos para esta Prex antes de seguir.")
+            return
+        }
+        if (provider == "1002" && !paymentBrowser.available()) { notice("Para pagar con eBROU necesitás Chrome instalado y habilitado."); return }
+        val pending = PendingPayment(card, provider, amount, System.currentTimeMillis(), state.payerProfileId.takeIf { provider == "1033" })
         if (!choices.beginPayment(pending)) {
             state = state.copy(pendingPayment = choices.pending)
             notice("Revisá el pago anterior antes de iniciar otra carga. Si no hay uno, volvé a ingresar para recuperar las preferencias."); return
@@ -200,6 +250,7 @@ class StmEngine(private val context: Context) {
         if (!choices.acknowledgePayment()) { notice("No se pudo actualizar el registro local. No se inició otra carga."); return }
         state = state.copy(pendingPayment = null, canReopenPrex = false, message = "")
         paymentBrowser.close(); paymentInFlight = false; handoffSent = false
+        prexPayment.reset()
         refresh()
     }
 
@@ -213,10 +264,15 @@ class StmEngine(private val context: Context) {
 
     private fun openPrexPayment(url: String) {
         if (handoffSent || !paymentInFlight || state.selectedProvider != "1033") return
-        choices.rememberPrexLink(url)
+        if (!choices.rememberPrexLink(url)) {
+            fail("No pudimos conservar el enlace de esta solicitud. Revisá su estado antes de iniciar otra carga.")
+            return
+        }
         state = state.copy(canReopenPrex = choices.pendingPrexLink != null)
-        if (paymentBrowser.openPrex(url)) paymentOpened()
-        else fail("No se pudo abrir el pago en Chrome. No se volvió a enviar la solicitud.")
+        if (prexPayment.open(url, payerProfiles.find { it.id == choices.pending?.payerProfileId })) {
+            paymentOpened()
+            state = state.copy(stage = "embeddedPrex")
+        } else fail("No se pudo abrir esta solicitud de Prex. No se volvió a enviar la recarga.")
     }
 
     fun reopenPrexPayment() {
@@ -228,10 +284,18 @@ class StmEngine(private val context: Context) {
             notice("No está disponible el enlace anterior. Revisá el resultado en Prex antes de iniciar otra carga.")
             return
         }
-        if (paymentBrowser.openPrex(link)) {
+        if (prexPayment.open(link, payerProfiles.find { it.id == payment.payerProfileId })) {
             state = state.copy(pendingPayment = payment, canReopenPrex = true)
             paymentOpened()
-        } else notice("No se pudo abrir Chrome. La solicitud anterior sigue por revisar; no se creó otra.")
+            state = state.copy(stage = "embeddedPrex")
+        } else notice("No se pudo abrir Prex. La solicitud anterior sigue por revisar; no se creó otra.")
+    }
+
+    fun leavePrexPayment() {
+        if (state.stage == "embeddedPrex") {
+            prexPayment.hide()
+            state = state.copy(stage = "paymentReview", busy = false)
+        }
     }
 
     private fun inspectPaymentPage() {
@@ -293,6 +357,7 @@ class StmEngine(private val context: Context) {
         sessionRequest++
         clearSecrets(); active = false; accountVerified = false; paymentInFlight = false; handler.removeCallbacks(poll)
         web.stopLoading(); web.loadUrl("about:blank"); host.crop = null
+        prexPayment.reset()
         state = UiState(hasSavedAccess = state.hasSavedAccess)
     }
 
@@ -322,6 +387,7 @@ class StmEngine(private val context: Context) {
         destroyed = true; active = false; handler.removeCallbacksAndMessages(null); clearSecrets()
         (web.parent as? ViewGroup)?.removeView(web); web.destroy()
         paymentBrowser.close()
+        prexPayment.destroy()
     }
 
     private fun clearSecrets() { document = null; password = null; secretsExpireAt = 0L }
@@ -461,9 +527,15 @@ class StmEngine(private val context: Context) {
                 val list = (0 until cards.length()).map { cards.getJSONObject(it) }.map { CardInfo(it.getString("id"), it.getBoolean("active"), it.getString("status")) }
                 if (list.isEmpty()) return // Never treat an unparsed/unfinished page as a completed login.
                 clearSecrets()
+                if (!accountVerified) {
+                    try { payerProfiles = payerStore.read(); payerStoreAvailable = true }
+                    catch (_: Exception) { payerProfiles = emptyList(); payerStoreAvailable = false }
+                }
                 accountVerified = true
                 state = state.copy(stage = "cards", cards = list, pendingPayment = choices.pending,
-                    canReopenPrex = choices.pendingPrexLink != null, message = "")
+                    canReopenPrex = choices.pendingPrexLink != null,
+                    payerProfileId = choices.payerProfileId?.takeIf { id -> payerProfiles.any { it.id == id } },
+                    message = if (payerStoreAvailable) "" else "No pudimos recuperar los perfiles de Prex guardados. Conservamos sus archivos sin sobrescribirlos.")
                 val preferred = choices.card
                 if (!choosingCard && !state.busy && lastAction != "card" && preferred != null) {
                     if (list.any { it.id == preferred && it.active }) chooseCard(preferred)

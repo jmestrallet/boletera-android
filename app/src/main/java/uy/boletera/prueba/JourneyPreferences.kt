@@ -33,19 +33,26 @@ class JourneyPreferences(context: Context) {
     var provider: String?
         get() = account?.let { store.getString("$it.provider", null) }
         set(value) { account?.let { store.edit().putString("$it.provider", value).apply() } }
+    var payerProfileId: String?
+        get() = account?.let { store.getString("$it.payer", null) }
+        set(value) { account?.let { store.edit().putString("$it.payer", value).apply() } }
     val pending: PendingPayment?
         get() {
             val raw = account?.let { store.getString("$it.pending", null) } ?: return null
             return try {
                 val value = JSONObject(raw)
-                PendingPayment(value.getString("card"), value.getString("provider"), value.getLong("amount"), value.getLong("createdAt"))
+                PendingPayment(value.getString("card"), value.getString("provider"), value.getLong("amount"), value.getLong("createdAt"),
+                    value.optString("payerProfileId").takeIf { it.isNotBlank() })
             } catch (_: Exception) { PendingPayment("", "", 0, 0) } // Corrupt evidence never enables another charge.
         }
+    fun payerInPending(id: String): Boolean = store.all.filterKeys { it.endsWith(".pending") }.values.any { raw ->
+        try { JSONObject(raw as String).optString("payerProfileId") == id } catch (_: Exception) { true }
+    }
     fun beginPayment(value: PendingPayment): Boolean {
         val scope = account ?: return false
         if (pending != null) return false
         return store.edit().remove("$scope.resume").putString("$scope.pending", JSONObject().put("card", value.card).put("provider", value.provider)
-            .put("amount", value.amount).put("createdAt", value.createdAt).toString()).commit()
+            .put("amount", value.amount).put("createdAt", value.createdAt).put("payerProfileId", value.payerProfileId).toString()).commit()
     }
     private fun resumeKey(): SecretKey {
         val keys = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -57,7 +64,8 @@ class JourneyPreferences(context: Context) {
         }
     }
     private fun resumeContext(scope: String, payment: PendingPayment) =
-        "$scope|${payment.card}|${payment.provider}|${payment.amount}|${payment.createdAt}".toByteArray(Charsets.UTF_8)
+        ("$scope|${payment.card}|${payment.provider}|${payment.amount}|${payment.createdAt}" +
+            (payment.payerProfileId?.let { "|payer:$it" } ?: "")).toByteArray(Charsets.UTF_8)
 
     /** Store only the original Prex link, encrypted and bound to this account and pending operation. */
     fun rememberPrexLink(url: String): Boolean {
@@ -92,7 +100,7 @@ class JourneyPreferences(context: Context) {
     fun acknowledgePayment(): Boolean = account?.let { store.edit().remove("$it.pending").remove("$it.resume").commit() } ?: false
     fun forgetAll() {
         val edit = store.edit()
-        store.all.keys.filter { it.endsWith(".card") || it.endsWith(".provider") || it.endsWith(".resume") }.forEach { edit.remove(it) }
+        store.all.keys.filter { it.endsWith(".card") || it.endsWith(".provider") || it.endsWith(".resume") || it.endsWith(".payer") }.forEach { edit.remove(it) }
         edit.apply(); account = null
     }
 }

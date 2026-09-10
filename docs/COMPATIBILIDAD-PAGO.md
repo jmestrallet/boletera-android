@@ -1,5 +1,11 @@
 # Compatibilidad de pago — 9 de septiembre de 2026
 
+## Actualización 0.1.8 — 10 de septiembre de 2026
+
+Prex se abre ahora dentro de Boletera, en una página retenida que usa la identificación comprobada en la [prueba pública del detector](PRUEBA-IDENTIDAD-NAVEGADOR.md). Agrega apariencia y perfiles cifrados de titular; no reemplaza Google como servicio de autocompletado ni guarda datos de tarjeta. Salir y volver preserva la página y evita repetir un envío. El recorrido con fixtures Android está comprobado; la operación real, tarjeta, CAPTCHA, autorización y acreditación siguen pendientes. eBROU conserva Chrome.
+
+El detalle inferior describe 0.1.5 y su evidencia histórica. Su afirmación de que no se modifica la identificación de WebView no aplica a la nueva pantalla de Prex.
+
 ## Alcance implementado en 0.1.5
 
 Se implementó el inicio de pagos con **Prex y eBROU**, conservando la boletera y el medio elegidos por cuenta. La app prepara la recarga con STM y abre la autorización del proveedor en una pestaña de Chrome. No captura ni guarda credenciales bancarias, números de tarjeta o CVV.

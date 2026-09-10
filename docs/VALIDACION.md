@@ -1,4 +1,23 @@
-# Estado de la prueba — 9 de septiembre de 2026
+# Estado de la prueba — 10 de septiembre de 2026
+
+## Estado vigente: 0.1.8
+
+Prex está integrado en una pantalla propia de Boletera que conserva la página original del proveedor. Incluye perfiles cifrados de titular, selección por cuenta, vínculo del perfil a la solicitud y reapertura sin recargar la página retenida. No lee ni guarda datos de tarjeta ni autoriza pagos por código. eBROU conserva Chrome.
+
+Comprobaciones de esta versión:
+
+- 31 pruebas JavaScript aprobadas: 22 del adaptador STM, 4 del candidato de extensión y 5 del adaptador de titular integrado.
+- 6 pruebas JVM aprobadas. Lint terminó con 0 errores y 27 advertencias, principalmente recomendaciones de API/estilo y dependencias.
+- 14 pruebas Android ejecutadas y aprobadas. El corredor enumera 15 porque incluye el sondeo biométrico, que fue omitido mediante su condición explícita de activación; no se cuenta como aprobado.
+- El recorrido Android con contenido ficticio pasó desde ingreso y saldo hasta selección de perfil, nueva solicitud, pantalla de Prex, salida y reapertura. Se comprobó un único ingreso al enlace de pago, los campos ordinarios completados y ausencia de lanzamiento de Chrome para Prex.
+- Dos formatos de titular probados; los campos de tarjeta y CAPTCHA permanecen sin lectura ni escritura por el adaptador. Datos distintos preexistentes requieren aplicar explícitamente el perfil elegido.
+- Perfiles cifrados recuperados después de recrear su almacenamiento; registros ilegibles no se sobrescriben. Cambiar el perfil vinculado a una solicitud invalida su enlace cifrado y conserva la guardia pendiente.
+- La captura del panel se realizó después de que WebView confirmó su dibujo. Una primera captura demasiado temprana aparecía vacía y fue descartada. La evidencia visual corresponde a un formulario ficticio, no a un pago real.
+- La APK release usa versionCode 9 y conserva la firma de 0.1.7. No es depurable.
+
+La [prueba pública del detector](PRUEBA-IDENTIDAD-NAVEGADOR.md) comprobó el rechazo del WebView estándar y la ausencia de ese rechazo con la identificación alternativa. Se realizó sin operación ni APIs de pago. **No verifica un formulario con operación, Google en el teléfono, CAPTCHA real, autorización bancaria ni acreditación. El objetivo completo continúa pendiente.**
+
+## Evidencia histórica hasta 0.1.7
 
 ## Resultado
 

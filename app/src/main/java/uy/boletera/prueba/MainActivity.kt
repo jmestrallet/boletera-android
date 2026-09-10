@@ -41,6 +41,10 @@ class MainActivity : FragmentActivity() {
     private lateinit var vault: AccessVault
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+        }
         // Screenshots are enabled at the owner's request to report problems in this prototype.
         engine = StmEngine(this)
         vault = AccessVault(this)
@@ -58,6 +62,10 @@ class MainActivity : FragmentActivity() {
 
     @Composable private fun App() {
         val state = engine.state
+        if (state.stage == "embeddedPrex") {
+            EmbeddedPrexScreen(engine.prexPayment, state.pendingPayment, engine::leavePrexPayment)
+            return
+        }
         var manual by remember { mutableStateOf(false) }
         var document by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
@@ -69,6 +77,9 @@ class MainActivity : FragmentActivity() {
         var changeProvider by remember(state.stage) { mutableStateOf(false) }
         var reviewPayment by remember { mutableStateOf(false) }
         var reopenPrex by remember { mutableStateOf(false) }
+        var showPayerPicker by remember { mutableStateOf(false) }
+        var showPayerEditor by remember { mutableStateOf(false) }
+        var editingPayer by remember { mutableStateOf<PayerProfile?>(null) }
         BackHandler(enabled = state.stage != "welcome" || showProbe) {
             showProbe = false; document = ""; password = ""; engine.cancel()
         }
@@ -134,7 +145,7 @@ class MainActivity : FragmentActivity() {
                         }
                         "openingPayment" -> {
                             Title("Abriendo el pago")
-                            Text("Estamos preparando ${Amounts.format(state.amount)} con ${if (state.selectedProvider == "1033") "Prex" else "eBROU"}. Completás la autorización en Chrome.", color = Muted)
+                            Text("Estamos preparando ${Amounts.format(state.amount)} con ${if (state.selectedProvider == "1033") "Prex" else "eBROU"}.", color = Muted)
                         }
                         "cards" -> {
                             Title("Elegí tu boletera")
@@ -209,13 +220,28 @@ class MainActivity : FragmentActivity() {
                                     if (state.providers.isEmpty()) Text("No pudimos leer los medios disponibles de STM. Volvé al saldo para consultar de nuevo.", color = Muted)
                                 }
                             }
-                            Text("El pago abre la pantalla oficial en Chrome. Ahí se completan los datos y la autorización que pida Prex o eBROU.", color = Muted, fontSize = 14.sp)
-                            Primary("Pagar ${Amounts.format(state.amount)}", enabled = !state.busy && state.selectedProvider in PaymentPolicy.supported && state.pendingPayment == null) { engine.beginPayment() }
+                            if (state.selectedProvider == "1033") {
+                                val payer = engine.payerProfiles.find { it.id == state.payerProfileId }
+                                WhiteCard {
+                                    Text("Datos para esta Prex", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                                    if (payer == null) {
+                                        Text("Guardalos una vez. Si usás otra Prex, elegí un perfil distinto.", color = Muted)
+                                        Primary("Elegir titular") { showPayerPicker = true }
+                                    } else {
+                                        Text(payer.label, fontWeight = FontWeight.Bold)
+                                        Text("${payer.givenName} ${payer.familyName}", color = Muted)
+                                        TextButton(onClick = { showPayerPicker = true }) { Text("Elegir otra Prex o editar datos") }
+                                    }
+                                }
+                            }
+                            Text(if (state.selectedProvider == "1033") "Seguís con Prex dentro de Boletera. La verificación y autorización corresponden a Sistarbanc." else "La autorización de eBROU se abre en Chrome.", color = Muted, fontSize = 14.sp)
+                            Primary("Pagar ${Amounts.format(state.amount)}", enabled = !state.busy && state.selectedProvider in PaymentPolicy.supported && state.pendingPayment == null &&
+                                (state.selectedProvider != "1033" || engine.payerProfiles.any { it.id == state.payerProfileId })) { engine.beginPayment() }
                             Primary("Volver al saldo") { engine.refresh() }
                         }
                         "paymentReview" -> {
                             Title("Tu pago en ${if (state.pendingPayment?.provider == "1033") "Prex" else "eBROU"}")
-                            Text("La autorización y el resultado se muestran en la pantalla oficial. Cerrar Chrome no confirma ni cancela un pago autorizado.", color = Muted)
+                            Text("La autorización y el resultado se muestran en la pantalla del proveedor. Salir de esa pantalla no confirma ni cancela un pago autorizado.", color = Muted)
                             Text(Amounts.format(state.pendingPayment?.amount), fontSize = 38.sp, fontWeight = FontWeight.Bold)
                             Text("Podés consultar el saldo sin volver a enviar la recarga.", color = Muted)
                             if (state.canReopenPrex) Primary("Volver al pago de Prex") { reopenPrex = true }
@@ -256,6 +282,18 @@ class MainActivity : FragmentActivity() {
             }
         }
         if (showProbe) AutofillProbe { showProbe = false }
+        if (showPayerPicker) AlertDialog(onDismissRequest = { showPayerPicker = false }, title = { Text("¿Qué Prex vas a usar?") },
+            text = {
+                Column(Modifier.heightIn(max = 350.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Cada perfil conserva los datos de su titular. El número y el código de la tarjeta no se guardan acá.")
+                    engine.payerProfiles.forEach { payer ->
+                        OutlinedButton(onClick = { engine.choosePayer(payer.id); showPayerPicker = false }, modifier = Modifier.fillMaxWidth()) { Text(payer.label) }
+                        TextButton(onClick = { editingPayer = payer; showPayerPicker = false; showPayerEditor = true }) { Text("Editar ${payer.label}") }
+                    }
+                }
+            }, confirmButton = { TextButton(onClick = { editingPayer = null; showPayerPicker = false; showPayerEditor = true }) { Text("Agregar otra Prex") } },
+            dismissButton = { TextButton(onClick = { showPayerPicker = false }) { Text("Volver") } })
+        if (showPayerEditor) PayerProfileEditor(editingPayer, onSave = engine::savePayer, onDelete = engine::deletePayer, onClose = { showPayerEditor = false })
         if (reopenPrex) AlertDialog(onDismissRequest = { reopenPrex = false }, title = { Text("Volver a la solicitud anterior") },
             text = { Text("Se abrirá el mismo enlace de Prex. Si ya autorizaste el pago, revisá su resultado y no vuelvas a autorizarlo. Si el enlace venció, comprobá el estado del pago antes de iniciar otra carga.") },
             confirmButton = { TextButton(onClick = { reopenPrex = false; engine.reopenPrexPayment() }) { Text("Abrir Prex") } },
@@ -271,7 +309,10 @@ class MainActivity : FragmentActivity() {
             dismissButton = { TextButton(onClick = { reviewPayment = false }) { Text("Volver") } })
         if (showForget) AlertDialog(onDismissRequest = { showForget = false }, title = { Text("¿Olvidar este acceso?") },
             text = { Text("Se eliminan las credenciales cifradas, las preferencias y la sesión local. Esto no cancela un pago en curso; su aviso se conserva para cuando vuelvas a ingresar.") },
-            confirmButton = { TextButton(onClick = { vault.forget(); engine.forgetChoices(); engine.savedAccess(false); engine.logout(); engine.notice("Acceso guardado, preferencias y sesión local eliminados."); showForget = false }) { Text("Olvidar") } },
+            confirmButton = { TextButton(onClick = {
+                if (engine.forgetChoices()) { vault.forget(); engine.savedAccess(false); engine.logout(); engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.") }
+                showForget = false
+            }) { Text("Olvidar") } },
             dismissButton = { TextButton(onClick = { showForget = false }) { Text("Cancelar") } })
     }
 }
@@ -292,6 +333,70 @@ class MainActivity : FragmentActivity() {
         colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Ink)) {
         Text(label, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
     }
+}
+
+@Composable private fun EmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: PendingPayment?, onClose: () -> Unit) {
+    BackHandler(onBack = onClose)
+    Surface(color = Paper, modifier = Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+            Row(Modifier.fillMaxWidth().background(Ink).padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onClose) { Text("Volver", color = Lime) }
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text("Pago con Prex", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Text("Recarga · ${Amounts.format(pending?.amount)}", color = Color(0xFFBEC8CE), fontSize = 13.sp)
+                }
+                Text("boletera", color = Lime, fontWeight = FontWeight.Bold)
+            }
+            Text(payment.currentHost, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            if (payment.payerLabel.isNotBlank()) Text("Datos del titular · ${payment.payerLabel}", color = Ink, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+            if (payment.payerNotice.isNotBlank()) {
+                Text(payment.payerNotice, color = Ink, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+                if (payment.payerConflict) TextButton(onClick = payment::applyChosenPayer, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Usar los datos del perfil elegido") }
+            }
+            if (payment.busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            if (payment.message.isNotBlank()) {
+                Column(Modifier.weight(1f).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Notice(payment.message)
+                    Text("Volver conserva la solicitud pendiente. No se vuelve a enviar el pago.", color = Muted)
+                    Primary("Volver a Boletera", action = onClose)
+                }
+            } else {
+                AndroidView(factory = {
+                    (payment.web.parent as? android.view.ViewGroup)?.removeView(payment.web)
+                    payment.web
+                }, modifier = Modifier.fillMaxWidth().weight(1f))
+            }
+        }
+    }
+}
+
+@Composable private fun PayerProfileEditor(existing: PayerProfile?, onSave: (PayerProfile) -> Boolean, onDelete: (String) -> Boolean, onClose: () -> Unit) {
+    val id = remember(existing?.id) { existing?.id ?: java.util.UUID.randomUUID().toString() }
+    var label by remember(id) { mutableStateOf(existing?.label.orEmpty()) }
+    var given by remember(id) { mutableStateOf(existing?.givenName.orEmpty()) }
+    var family by remember(id) { mutableStateOf(existing?.familyName.orEmpty()) }
+    var document by remember(id) { mutableStateOf(existing?.document.orEmpty()) }
+    var email by remember(id) { mutableStateOf(existing?.email.orEmpty()) }
+    var phone by remember(id) { mutableStateOf(existing?.phone.orEmpty()) }
+    var error by remember(id) { mutableStateOf("") }
+    val profile = PayerProfile(id, label.trim(), given.trim(), family.trim(), document, email.trim(), phone)
+    AlertDialog(onDismissRequest = onClose, title = { Text(if (existing == null) "Nueva Prex" else "Datos del titular") }, text = {
+        Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Estos datos se guardan cifrados en este celular. No incluyen el número ni el código de la tarjeta.", color = Muted)
+            OutlinedTextField(label, { label = it.take(80) }, label = { Text("Nombre del perfil · por ejemplo, Mi Prex") }, singleLine = true)
+            OutlinedTextField(given, { given = it.take(80) }, label = { Text("Nombre del titular") }, singleLine = true)
+            OutlinedTextField(family, { family = it.take(80) }, label = { Text("Apellido del titular") }, singleLine = true)
+            OutlinedTextField(document, { document = it.filter(Char::isDigit).take(8) }, label = { Text("Cédula uruguaya, sin puntos ni guion") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            OutlinedTextField(email, { email = it.take(120) }, label = { Text("Correo electrónico") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+            OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(15) }, label = { Text("Celular, con código de país si corresponde") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+            if (existing != null) TextButton(onClick = {
+                if (onDelete(existing.id)) onClose() else error = "No se pudo borrar. Revisá si este perfil tiene un pago pendiente."
+            }) { Text("Eliminar este perfil") }
+        }
+    }, confirmButton = { TextButton(enabled = profile.valid(), onClick = {
+        if (onSave(profile)) onClose() else error = "No se pudieron guardar los datos. Revisá si hay un pago pendiente."
+    }) { Text("Guardar y usar") } }, dismissButton = { TextButton(onClick = onClose) { Text("Cancelar") } })
 }
 
 @Composable private fun AutofillProbe(onClose: () -> Unit) {

@@ -19,9 +19,13 @@ El código público contempla:
 
 Esto demuestra que la plataforma tiene recorridos previstos para reutilizar datos y tarjetas. **No demuestra que STM con Prex los tenga habilitados, que estén disponibles para esta app, ni que permitan evitar toda pantalla web.** No se cambió ningún indicador, no se obtuvieron tokens y no se invocaron los servicios de asociación o de pago. Los indicadores provienen del pago devuelto por el proveedor: cambiarlos visualmente no habilita una integración.
 
-El mismo archivo incluye una protección explícita contra WebView e iframe, ejecutada al iniciar el recorrido de confirmación. La denegación observada antes sigue contemplada por el código actual. No se intentó desactivar esa protección ni sustituir la identidad del navegador.
+El mismo archivo incluye una protección explícita contra WebView e iframe, ejecutada al iniciar el recorrido de confirmación. La denegación observada antes sigue contemplada por el código actual. En la investigación inicial no se modificó la identidad del navegador; la prueba posterior autorizada se documenta debajo.
 
 ## Evaluación de las rutas
+
+La revisión adicional del código separa dos requisitos: la referencia de asociación recibida en la solicitud de pago permite buscar tarjetas guardadas; la sesión de autenticación de la pasarela se valida por separado contra el servidor. Tener una tarjeta asociada no acredita una sesión válida ni elimina por sí solo el CAPTCHA. Si la validación de sesión falla, el recorrido vuelve a requerir la verificación.
+
+No hay una configuración estática en el archivo revisado que demuestre que STM habilita esas funciones para Prex: los indicadores llegan con la respuesta de una operación. Las capturas muestran un resumen y el formulario, pero no esos indicadores ni la referencia de asociación. No se usó el número visible de cliente como supuesto identificador de servicio, ni se enumeraron operaciones o clientes para suplir esa información. Por tanto, esta revisión no permite implementar honestamente un pago nativo completo.
 
 | Ruta | Evidencia y límite |
 |---|---|
@@ -33,13 +37,11 @@ El mismo archivo incluye una protección explícita contra WebView e iframe, eje
 
 El CAPTCHA no se transforma en un dato guardable por copiar el enlace. La documentación de Google describe respuestas de un solo uso y duración limitada. No se completó ni se automatizó ningún desafío en esta investigación.
 
-## Consulta técnica preparada, no enviada
+## Restricción vigente: investigación por nuestra cuenta
 
-Destino publicado por Sistarbanc para consultas SPE: `spe@sistarbanc.com.uy`.
+El usuario prohíbe contactar a cualquier persona u organización. No enviar correos, formularios de contacto, consultas de soporte ni solicitudes de habilitación. No se envió la consulta antes propuesta; esa vía queda descartada.
 
-> Estamos evaluando una aplicación Android independiente para recargar STM con Prex. Queremos que el titular registre sus datos una vez y confirme cada recarga en nuestra interfaz, sin navegar el formulario web, manteniendo la autenticación que exija el proveedor. La pasarela pública contempla asociación de cliente/tarjeta, tarjetas recordadas y autorización recurrente. ¿Están disponibles esas capacidades para STM con Prex y para una aplicación de terceros? ¿Existe API o SDK para el alta inicial, autorización de cada pago y consulta de su resultado? Necesitamos saber qué habilitación requiere STM, quién emite las credenciales/tokens, si alguna etapa exige obligatoriamente su web y si hay un entorno de pruebas. No buscamos dar de alta otro comercio para cobrar ventas propias ni activar recargas periódicas.
-
-No se envió un mensaje ni se solicitó un alta externa. Un convenio de cobranza para un comercio nuevo no acredita permiso para liquidar solicitudes existentes de STM.
+La investigación queda limitada a información pública, análisis local y pruebas dentro del acceso ya autorizado. Hay que demostrar por esos medios si la asociación de titular/tarjeta está disponible para STM con Prex y si permite una interfaz nativa. Su existencia genérica no es prueba de disponibilidad para esta aplicación. Si no puede comprobarse, registrar la limitación sin presentar el pago web como cumplimiento del objetivo.
 
 ## Evidencia y fuentes
 
@@ -50,4 +52,12 @@ No se envió un mensaje ni se solicitó un alta externa. Un convenio de cobranza
 - [Google: validación de reCAPTCHA](https://developers.google.com/recaptcha/docs/verify).
 - [Catálogo público de Montevideo API](https://api.montevideo.gub.uy/docs): transporte expone posiciones y tiempos de arribo; el catálogo consultado no publica recargas.
 
-No se modificó la APK durante esta investigación. No hay una nueva versión que cumpla el objetivo nativo.
+## Candidato posterior: extensión de navegador
+
+La propuesta de aplicar CSS sobre la página original tiene una vía investigable mediante Firefox Android y un gestor de scripts disponible públicamente. Se preparó el [candidato local](../experiments/pago-apariencia/README.md), con su alcance, pruebas y límites. No se verificó todavía sobre Sistarbanc ni demuestra que se pueda eliminar toda intervención al pagar.
+
+## Prueba posterior autorizada: identificación del navegador
+
+Se compararon tres identificaciones en un WebView Android sin red y dos contra la pantalla pública real, sin operación. La variante alternativa dejó de activar el rechazo inicial por navegador tanto en los predicados locales como en la pantalla pública. El [informe de resultados](PRUEBA-IDENTIDAD-NAVEGADOR.md) delimita la evidencia: no demuestra que se pueda completar una recarga, resolver CAPTCHA ni autorizar el pago.
+
+Tras la investigación, 0.1.8 incorpora Prex dentro de Boletera, con apariencia, perfiles de titular cifrados y conservación de la página al salir y volver. Las pruebas de integración usan datos ficticios. Falta comprobar el formulario con una operación real, Google en el teléfono, CAPTCHA, autorización y acreditación. El objetivo completo sigue pendiente.
