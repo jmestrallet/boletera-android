@@ -4,6 +4,8 @@
 
 Se mejoró el panel del CAPTCHA para conservar el componente original en una posición estable y adaptar sus dimensiones a la ventana real de la app. Pasaron 39 pruebas JavaScript, 7 JVM, lint, compilación y la matriz Android del panel con contenido ficticio, más la prueba de retención de la página. La APK está instalada en el OnePlus; el checkbox real se ve completo. [Evidencia y límites](CAPTCHA-RESPONSIVO.md). La verificación humana y el pago completo siguen pendientes.
 
+Actualización física posterior: la misma solicitud alcanzó el paso «Datos Tarjeta» de Sistarbanc, con los pasos de resumen y cliente marcados como completados. Los tres campos de tarjeta estaban vacíos. Al enfocar el número se mostraron sugerencias de tarjetas guardadas en el teclado del teléfono. Esto verifica la disponibilidad de las sugerencias en el formulario real dentro de Boletera; todavía no verifica la selección, el llenado, la huella, la autorización ni la acreditación. No se eligió ninguna tarjeta ni se pulsó Continuar en ese paso. Se dejó la selección abierta para el titular. La captura privada permanece fuera del repositorio.
+
 ## Candidato local: 0.1.11
 
 El resumen y los datos del titular se presentan con controles nativos Android. La sesión sigue en el WebView original; el adaptador lee únicamente los pares de texto del resumen y los cinco campos ordinarios del cliente. Las acciones nativas solo avanzan desde los componentes reconocidos de resumen o cliente; no autorizan el pago.

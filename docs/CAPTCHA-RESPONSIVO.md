@@ -21,3 +21,5 @@ En cada configuración se probaron ventanas de 340, 280 y 380 dp y un desafío e
 Se instaló la APK `61D96D03D8B93CC53F1AFAA1E2D95148819310D05FB13CBB9A5933C7A3155237` en el OnePlus 6T con Android 11. Se abrió la misma solicitud pendiente y se comprobó visualmente el checkbox original completo dentro de la pantalla nativa. No se inició otra solicitud.
 
 El CAPTCHA real no se resolvió. El desafío expandido real, los demás modelos físicos, el envío del formulario, Google/tarjeta, la autorización y la acreditación siguen pendientes. La matriz demuestra el comportamiento del panel con contenido controlado; no certifica una operación bancaria ni compatibilidad universal.
+
+Observación posterior: el teléfono avanzó al formulario real de tarjeta de la misma solicitud. No se observó directamente la interacción humana con el CAPTCHA. Al enfocar el número de tarjeta, el teclado ofreció tarjetas guardadas. La selección, el llenado, la autenticación y el resultado financiero todavía requieren comprobación; no se eligió una tarjeta desde las herramientas.
