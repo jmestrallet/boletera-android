@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.29-prueba — vibración controlada desde Boletera
+
+- Interruptor persistente propio, encendido por defecto, aplicado a los toques y a Probar vibración.
+- Pulsos de 25 ms y prueba de dos pulsos de 70 ms; Android 13+ usa atributos explícitos de vibración de la app. No modifica ajustes del sistema ni solicita privilegios.
+- Verificada la ejecución con respuesta táctil del sistema apagada en Android 16. En Android 8–12 se conserva la API compatible, cuyo comportamiento depende del sistema y necesita comprobación.
+
 ## 0.2.28-prueba — encabezado de la boletera
 
 - Se elimina Tu boletera, que repetía la marca del encabezado.

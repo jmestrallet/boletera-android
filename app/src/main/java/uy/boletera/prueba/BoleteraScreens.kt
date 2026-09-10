@@ -178,6 +178,7 @@ import java.util.Locale
     val view=LocalView.current
     val vibration=remember(view.context) {AppHaptics(view.context)}
     var pulseResult by remember { mutableStateOf<PulseResult?>(null) }
+    var vibrationEnabled by remember {mutableStateOf(vibration.enabled)}
     ModalBottomSheet(onDismissRequest=onClose,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=Paper) {
         Column(Modifier.fillMaxWidth().widthIn(max=560.dp).align(Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(24.dp)) {
             Text("Configuración",style=MaterialTheme.typography.headlineLarge,color=Ink)
@@ -211,12 +212,15 @@ import java.util.Locale
                 if(updates.release!=null)TextButton(onClick=updates::check,enabled=!updates.busy) { Text("Buscar actualizaciones") }
             }
             WhiteCard {
-                Text("Respuesta táctil",style=MaterialTheme.typography.titleMedium)
-                Text("Probá la vibración en este teléfono.",style=MaterialTheme.typography.bodyMedium,color=Muted)
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                    Text("Vibración",style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
+                    Switch(checked=vibrationEnabled,onCheckedChange={vibrationEnabled=it;vibration.enabled=it;pulseResult=null},modifier=Modifier.semantics {contentDescription="Vibración de Boletera"})
+                }
+                Text("Activá o apagá la vibración de Boletera desde acá.",style=MaterialTheme.typography.bodyMedium,color=Muted)
                 OutlinedButton(onClick={pulseResult=vibration.testPulse()},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("Probar vibración")}
                 if(pulseResult!=null)Text(when(pulseResult) {
-                    PulseResult.Requested->"Se pidieron dos pulsos. Si no los sentís, revisá la intensidad de respuesta táctil del teléfono."
-                    PulseResult.Disabled->"La respuesta táctil está apagada en Android. Podés activarla en los ajustes del teléfono."
+                    PulseResult.Requested->"Se pidieron dos pulsos. Si no los sentís, el teléfono puede estar limitando la vibración."
+                    PulseResult.Disabled->"La vibración de Boletera está apagada. Activala con el interruptor de arriba."
                     PulseResult.Unavailable->"Android no informa un motor de vibración disponible."
                     else->"Android no pudo iniciar la vibración."
                 },style=MaterialTheme.typography.bodySmall,color=Muted)

@@ -1,6 +1,16 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.28
+## Versión vigente: 0.2.29
+
+Vibración con interruptor propio persistente, encendido por defecto. Todas las instancias consultan la misma preferencia al pedir cada pulso. Se elimina el bloqueo previo por HAPTIC_FEEDBACK_ENABLED. En Android 13+ se declara USAGE_MEDIA para la vibración controlada por la aplicación; atributos sin flags privilegiados. En Android 8–12 se utiliza AudioAttributes y falta comprobar el efecto de las políticas de esas versiones: pueden reclasificar pulsos cortos como respuesta táctil.
+
+Debug, release y lint aprobados en 11 s. Tres pruebas Android aprobadas en 6,696 s (`outputs/haptic-android-0.2.29.txt`): el botón real funciona con la preferencia táctil del emulador en 0, el interruptor desactiva una instancia ya creada y conserva el valor en instancias nuevas; los gestos de home y del botón primario mantienen una acción por gesto. El test restaura preferencias originales. El primer intento falló por codificación del texto del test, corregida antes de la ejecución final.
+
+`outputs/haptic-system-0.2.29.txt` registra FINISHED, flags 0 y ejecución de dos pulsos de 70 ms y un pulso de 25 ms en Android 16. Esto verifica ejecución del servicio, no percepción física. Captura `outputs/haptics-0.2.29.png` revisada: interruptor, botón y resultado legibles. Falta confirmar vibración en el teléfono del dueño; las restricciones del fabricante, ahorro y controles generales pueden seguir aplicándose. No se instaló ni cambió configuración del teléfono físico; sin operaciones financieras.
+
+APK código 47, SHA-256 `b4f6412a8fa8e4084364fb07501c105ab3f69301878b0edee4d3616d3f4f5559`.
+
+## Versión anterior: 0.2.28
 
 Ajuste visual pedido: se retira el título Tu boletera y Cambiar boletera queda dentro del panel de saldo, en su extremo superior derecho, junto a Saldo disponible. Se mantiene STM y los últimos cuatro caracteres de la boletera por encima del panel. El botón usa el color de contenido del panel para conservar contraste.
 
