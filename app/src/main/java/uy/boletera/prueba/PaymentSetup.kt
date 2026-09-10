@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
                 available.forEach { provider ->
                     FilterChip(
                         selected = state.selectedProvider == provider.id,
-                        onClick = { if(state.selectedProvider!=provider.id){ haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onProvider(provider.id) } },
+                        onClick = { if(state.selectedProvider!=provider.id){ haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onProvider(provider.id) } },
                         enabled = !state.busy,
                         label = { Text(if (provider.id == "1033") "Prex" else "eBROU") },
                         leadingIcon = { AppGlyph(if (state.selectedProvider == provider.id) Glyph.Check else Glyph.Card, tint = LocalContentColor.current) },

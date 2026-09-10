@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -64,19 +65,20 @@ import java.util.Locale
     val colors=MaterialTheme.colorScheme
     val touch = remember { MutableInteractionSource() }
     val held by touch.collectIsPressedAsState()
-    val compression by animateFloatAsState(if(held)0.975f else 1f,spring(dampingRatio=0.65f,stiffness=500f),label="wallet press")
-    val tilt by animateFloatAsState(if(held)-1.2f else 0f,spring(dampingRatio=0.6f,stiffness=450f),label="wallet tilt")
+    val haptic=LocalHapticFeedback.current
+    val compression by animateFloatAsState(if(held)0.985f else 1f,spring(dampingRatio=0.8f,stiffness=650f),label="wallet press")
+    fun chooseCard() { haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onChangeCard() }
     Column(verticalArrangement=Arrangement.spacedBy(24.dp)) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Tu boletera",style=MaterialTheme.typography.headlineLarge,color=Ink)
                 Text("STM · ${state.selectedCard?.takeLast(4).orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=Muted)
             }
-            IconButton(onClick=onChangeCard,enabled=!state.busy) { AppGlyph(Glyph.Card,label="Cambiar boletera",tint=colors.primary) }
+            IconButton(onClick=::chooseCard,enabled=!state.busy) { AppGlyph(Glyph.Card,label="Cambiar boletera",tint=colors.primary) }
         }
-        Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.graphicsLayer { scaleX=compression; scaleY=compression; rotationZ=tilt; shape=RoundedCornerShape(32.dp);clip=true }.combinedClickable(
+        Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.graphicsLayer { scaleX=compression; scaleY=compression; shape=RoundedCornerShape(32.dp);clip=true }.combinedClickable(
             interactionSource=touch, indication=androidx.compose.material3.ripple(), enabled=!state.busy,
-            onClickLabel="Cambiar boletera", onLongClickLabel="Elegir boletera", onClick=onChangeCard, onLongClick=onChangeCard
+            onClickLabel="Cambiar boletera", onLongClickLabel="Elegir boletera", onClick=::chooseCard, onLongClick=onChangeCard
         ).semantics {
             customActions=listOf(CustomAccessibilityAction("Actualizar saldo") { if (!state.busy) { onRefresh(); true } else false })
         }) {
@@ -141,10 +143,10 @@ import java.util.Locale
                 choices.forEachIndexed { i,value ->
                     val active=!custom&&selected==value
                     val fill by animateColorAsState(if(active)Lime else Panel,spring(stiffness=650f),label="amount surface")
-                    val radius by animateDpAsState(if(active)30.dp else 20.dp,spring(dampingRatio=0.7f,stiffness=550f),label="amount shape")
+                    val radius by animateDpAsState(if(active)32.dp else 12.dp,spring(dampingRatio=0.7f,stiffness=500f),label="amount shape")
                     val checkScale by animateFloatAsState(if(active)1f else 0f,spring(dampingRatio=0.6f,stiffness=500f),label="amount check")
                     Surface(color=fill,shape=RoundedCornerShape(radius),modifier=Modifier.fillMaxWidth().selectable(active,enabled=!state.busy,role=Role.RadioButton) {
-                        if(!active) { custom=false; selected=value; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+                        if(!active) { custom=false; selected=value; haptic.performHapticFeedback(HapticFeedbackType.ContextClick) }
                     }) {
                         Row(Modifier.padding(horizontal=20.dp,vertical=18.dp),verticalAlignment=Alignment.CenterVertically) {
                             Text(Amounts.format(value),style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f),color=if(active)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
@@ -184,6 +186,8 @@ import java.util.Locale
     canLogout: Boolean, diagnostic: String, onForget: () -> Unit, onLogout: () -> Unit, onInstall: () -> Unit, onClose: () -> Unit) {
     var details by remember { mutableStateOf(false) }
     val haptic=LocalHapticFeedback.current
+    val view=LocalView.current
+    var pulseAccepted by remember { mutableStateOf<Boolean?>(null) }
     ModalBottomSheet(onDismissRequest=onClose,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=Paper) {
         Column(Modifier.fillMaxWidth().widthIn(max=560.dp).align(Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(24.dp)) {
             Text("Configuración",style=MaterialTheme.typography.headlineLarge,color=Ink)
@@ -192,7 +196,7 @@ import java.util.Locale
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     listOf(Triple("system","Sistema",Glyph.Phone),Triple("light","Claro",Glyph.Sun),Triple("dark","Oscuro",Glyph.Moon)).forEach { (value,label,glyph) ->
                         val selectionRadius by animateDpAsState(if(appearance==value)28.dp else 20.dp,spring(dampingRatio=0.7f,stiffness=550f),label="appearance shape")
-                        Surface(color=if(appearance==value)Lime else Panel,shape=RoundedCornerShape(selectionRadius),modifier=Modifier.weight(1f).selectable(appearance==value,role=Role.RadioButton){if(appearance!=value){haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove);onAppearance(value)}}) {
+                        Surface(color=if(appearance==value)Lime else Panel,shape=RoundedCornerShape(selectionRadius),modifier=Modifier.weight(1f).selectable(appearance==value,role=Role.RadioButton){if(appearance!=value){haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onAppearance(value)}}) {
                             Column(Modifier.padding(vertical=16.dp,horizontal=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)) {
                                 AppGlyph(glyph,tint=if(appearance==value)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
                                 Text(label,style=MaterialTheme.typography.bodyMedium,color=if(appearance==value)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
@@ -212,6 +216,12 @@ import java.util.Locale
                 else if(updates.release!=null)Primary("Actualizar ahora",!updates.busy,updates::download)
                 else OutlinedButton(onClick=updates::check,enabled=!updates.busy,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)) { Text("Buscar actualizaciones") }
                 if(updates.release!=null)TextButton(onClick=updates::check,enabled=!updates.busy) { Text("Buscar actualizaciones") }
+            }
+            WhiteCard {
+                Text("Respuesta táctil",style=MaterialTheme.typography.titleMedium)
+                Text("Probá la vibración en este teléfono.",style=MaterialTheme.typography.bodyMedium,color=Muted)
+                OutlinedButton(onClick={pulseAccepted=view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("Probar vibración")}
+                if(pulseAccepted!=null)Text(if(pulseAccepted==true)"Si no la sentís, revisá la respuesta táctil en los ajustes del teléfono." else "Android no habilitó el pulso. Revisá la respuesta táctil en los ajustes del teléfono.",style=MaterialTheme.typography.bodySmall,color=Muted)
             }
             if(hasSavedAccess||canLogout) WhiteCard {
                 Text("En este teléfono",style=MaterialTheme.typography.titleMedium)

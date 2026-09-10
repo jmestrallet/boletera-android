@@ -32,9 +32,11 @@ class TouchResponseTest {
         compose.onNodeWithText("Saldo disponible").performTouchInput { longClick() }
         compose.runOnIdle { assertEquals(1,changes); assertEquals(1,feedback.count { it==HapticFeedbackType.LongPress }) }
         compose.onNodeWithText("Saldo disponible").performTouchInput { swipeDown() }
-        compose.runOnIdle { assertEquals(1,changes); busy=true }
-        compose.onNodeWithText("Saldo disponible").performTouchInput { longClick() }
         compose.runOnIdle { assertEquals(1,changes) }
+        compose.onNodeWithText("Saldo disponible").performTouchInput { click() }
+        compose.runOnIdle { assertEquals(2,changes);assertEquals(1,feedback.count { it==HapticFeedbackType.ContextClick });busy=true }
+        compose.onNodeWithText("Saldo disponible").performTouchInput { longClick() }
+        compose.runOnIdle { assertEquals(2,changes) }
     }
     @Test fun primaryReleaseInvokesOnceCancelAndDisabledDoNothing() {
         var calls=0

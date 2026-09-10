@@ -1,6 +1,14 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.7
+## Versión vigente: 0.2.8
+
+Tras el feedback del usuario, se elimina la inclinación de la boletera, se agrega pulso al toque normal y se amplían las respuestas visuales de botones e importes. Los cambios claro/oscuro interpolan colores y la entrada de pantalla aumenta su desplazamiento. Configuración incorpora Probar vibración con resultado de aceptación de Android; no afirma una sensación física comprobada.
+
+Pasaron diez pruebas Android (48,001 s): cinco de diseño, dos de gestos con pulso diferenciado de toque normal/pulsación larga, dos de Express y el recorrido STM/Prex interceptado. Compilación release y lint aprobados. Registro: `outputs/feedback-0.2.8.txt`. La emisión se comprobó con captura de eventos; la vibración física en Xiaomi continúa pendiente de evaluación por el usuario.
+
+APK código 26, SHA-256 `1561B768577B90B8643B2F1A92440DECCF8CED8F6140E8F435EB85A1C826C20C`. No se cambiaron el acceso ni el mecanismo de pagos y no se realizó una operación real.
+
+## Versión anterior: 0.2.7
 
 Modo Express con activación por pulsación sostenida, respuesta táctil y configuración por cuenta/boletera. El botón de recarga usa el mínimo vigente y evita repetir la selección de importe y medio. La autorización continúa en el proveedor. [Comportamiento y límites](MODO-EXPRESS.md).
 

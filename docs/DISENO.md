@@ -49,3 +49,11 @@ Referencias consultadas el 10/09/2026:
 - [Android: respuesta táctil semántica y ajustes del usuario](https://developer.android.com/develop/ui/views/haptics/haptic-feedback).
 
 Es una implementación propia inspirada en esos criterios. No acredita equivalencia de calidad con productos de Google o Apple, medición de fluidez a 120 Hz ni validación física en Xiaomi.
+
+## Corrección tras feedback · 0.2.8
+
+El usuario no percibía las mejoras de 0.2.5 y rechazó la inclinación de la boletera. Se elimina ese giro; se mantiene una compresión plana al 98,5%. El toque normal y el icono Cambiar boletera solicitan un pulso de interacción ContextClick; la pulsación larga conserva su pulso propio. Los botones e importes también usan ContextClick en lugar de TextHandleMove. La diferencia física depende del dispositivo; no se atribuye una intensidad medida.
+
+Los botones se comprimen al 94%, pasan de radio 32 a 16 dp y desplazan su flecha 10 dp. Los importes alternan radio 12/32 dp. La entrada de contenido dura 380 ms con 40 dp de recorrido y escala 97–100%; sigue existiendo una única composición del navegador. Los colores del tema interpolan durante 360 ms. Las preferencias de duración de Android siguen vigentes.
+
+Configuración incorpora Probar vibración con el pulso largo nativo. Se informa si Android no acepta la petición; una respuesta positiva no se confunde con una comprobación física de que el usuario la sintió. No se fuerza ni modifica la configuración del sistema.

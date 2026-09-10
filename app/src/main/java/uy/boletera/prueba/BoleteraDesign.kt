@@ -63,7 +63,7 @@ private val AppTypography = Typography(
 
 @Composable internal fun BoleteraTheme(appearance: String = "system", content: @Composable () -> Unit) {
     val dark = when (appearance) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
-    val colors = if (dark) darkColorScheme(
+    val targetColors = if (dark) darkColorScheme(
         primary = Color(0xFFB9E991), onPrimary = Color(0xFF193616), primaryContainer = Color(0xFF2D4B2B), onPrimaryContainer = Color(0xFFD6F7AE),
         secondary = Color(0xFFB8CCAE), onSecondary = Color(0xFF243622), secondaryContainer = Color(0xFF334530), onSecondaryContainer = Color(0xFFD7E9CD),
         background = Color(0xFF101610), onBackground = Color(0xFFE3E9DF), surface = Color(0xFF1A221A), onSurface = Color(0xFFE3E9DF),
@@ -76,6 +76,7 @@ private val AppTypography = Typography(
         surfaceVariant = Color(0xFFE8EDE2), onSurfaceVariant = Color(0xFF56634F), outline = Color(0xFF73806B), outlineVariant = Color(0xFFD9E0D1),
         error = Color(0xFFAC3024), onError = Color.White, errorContainer = Color(0xFFFFE5DE), onErrorContainer = Color(0xFF722316)
     )
+    val colors=targetColors.animatedThemeColors()
     val view = LocalView.current
     SideEffect {
         (view.context as? Activity)?.window?.let { window ->
@@ -94,11 +95,20 @@ private val AppTypography = Typography(
 internal fun Modifier.pageEntrance(key: String, enabled: Boolean = true): Modifier = composed {
     val enter = remember { Animatable(1f) }
     LaunchedEffect(key, enabled) {
-        if (enabled) { enter.snapTo(0f); enter.animateTo(1f, tween(280, easing = FastOutSlowInEasing)) }
+        if (enabled) { enter.snapTo(0f); enter.animateTo(1f, tween(380, easing = FastOutSlowInEasing)) }
         else enter.snapTo(1f)
     }
-    graphicsLayer { alpha = enter.value; translationY = (1f - enter.value) * 16.dp.toPx() }
+    graphicsLayer { alpha = enter.value; translationY = (1f - enter.value) * 40.dp.toPx(); scaleX=0.97f+0.03f*enter.value;scaleY=scaleX }
 }
+
+@Composable private fun themeColor(target:Color):Color = androidx.compose.animation.animateColorAsState(target,tween(360),label="theme color").value
+@Composable private fun ColorScheme.animatedThemeColors():ColorScheme = copy(
+    primary=themeColor(primary),onPrimary=themeColor(onPrimary),primaryContainer=themeColor(primaryContainer),onPrimaryContainer=themeColor(onPrimaryContainer),
+    secondary=themeColor(secondary),onSecondary=themeColor(onSecondary),secondaryContainer=themeColor(secondaryContainer),onSecondaryContainer=themeColor(onSecondaryContainer),
+    background=themeColor(background),onBackground=themeColor(onBackground),surface=themeColor(surface),onSurface=themeColor(onSurface),
+    surfaceVariant=themeColor(surfaceVariant),onSurfaceVariant=themeColor(onSurfaceVariant),outline=themeColor(outline),outlineVariant=themeColor(outlineVariant),
+    error=themeColor(error),onError=themeColor(onError),errorContainer=themeColor(errorContainer),onErrorContainer=themeColor(onErrorContainer)
+)
 
 internal enum class Glyph { Ticket, Arrow, Back, Close, Settings, Check, Lock, Fingerprint, Card, Refresh, Info, Moon, Sun, Phone, Chevron, Eye, EyeOff, Download, Exit }
 
@@ -148,10 +158,10 @@ internal enum class Glyph { Ticket, Arrow, Back, Close, Settings, Check, Lock, F
     val interaction=remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val haptic = LocalHapticFeedback.current
-    val radius by animateDpAsState(if(pressed)20.dp else 32.dp,spring(dampingRatio=0.72f,stiffness=700f),label="button shape")
-    val compression by animateFloatAsState(if(pressed)0.97f else 1f,spring(dampingRatio=0.65f,stiffness=650f),label="button press")
-    val arrowOffset by animateDpAsState(if(pressed)4.dp else 0.dp,spring(dampingRatio=0.7f,stiffness=650f),label="button arrow")
-    Button(onClick={ haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); action() },enabled=enabled,interactionSource=interaction,shape=RoundedCornerShape(radius),
+    val radius by animateDpAsState(if(pressed)16.dp else 32.dp,spring(dampingRatio=0.72f,stiffness=700f),label="button shape")
+    val compression by animateFloatAsState(if(pressed)0.94f else 1f,spring(dampingRatio=0.65f,stiffness=500f),label="button press")
+    val arrowOffset by animateDpAsState(if(pressed)10.dp else 0.dp,spring(dampingRatio=0.7f,stiffness=550f),label="button arrow")
+    Button(onClick={ haptic.performHapticFeedback(HapticFeedbackType.ContextClick); action() },enabled=enabled,interactionSource=interaction,shape=RoundedCornerShape(radius),
         modifier=Modifier.fillMaxWidth().heightIn(min=60.dp).graphicsLayer { scaleX=compression; scaleY=compression },contentPadding=PaddingValues(horizontal=24.dp,vertical=16.dp)) {
         Text(label,style=MaterialTheme.typography.labelLarge,modifier=Modifier.weight(1f))
         Spacer(Modifier.width(12.dp)); AppGlyph(Glyph.Arrow,modifier=Modifier.offset(x=arrowOffset),tint=LocalContentColor.current)

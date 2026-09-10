@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.8-prueba — respuesta visible y pulso al tocar
+
+- Se elimina la inclinación de la boletera y se incorpora respuesta táctil en el toque normal, además de la pulsación larga.
+- Botones con compresión y desplazamiento de flecha más visibles; selecciones de importe con mayor cambio de forma.
+- Entrada de pantalla con desplazamiento y escala; transición gradual entre claro y oscuro.
+- Pulsos de interacción en botones, importes, apariencia y medio de pago, en lugar del pulso de selección de texto.
+- Probar vibración en Configuración permite comprobar la respuesta del propio teléfono. Respeta los ajustes de Android.
+
 ## 0.2.7-prueba — modo Express
 
 - Activación con pulsación sostenida, anillo de energía, pulsos táctiles y confirmación visual. Activar guarda la configuración, sin iniciar una recarga.

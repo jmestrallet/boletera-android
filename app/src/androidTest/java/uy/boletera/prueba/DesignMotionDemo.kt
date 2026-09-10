@@ -39,26 +39,28 @@ class DesignMotionDemo {
                 } } }
             }
         }
+        compose.waitForIdle()
         android.os.SystemClock.sleep(1200)
-        compose.onNodeWithText("Saldo disponible").performTouchInput { down(center) }
-        android.os.SystemClock.sleep(350)
-        compose.onNodeWithText("Saldo disponible").performTouchInput { up() }
-        android.os.SystemClock.sleep(650)
-        compose.onNodeWithText("Recargar boletera").performScrollTo().performTouchInput { down(center) }
-        android.os.SystemClock.sleep(250)
-        compose.onNodeWithText("Recargar boletera").performTouchInput { up() }
-        android.os.SystemClock.sleep(900)
-        compose.onNodeWithText("$ 500").performClick()
-        android.os.SystemClock.sleep(800)
-        compose.onNodeWithText("Continuar").performClick()
-        android.os.SystemClock.sleep(900)
-        compose.onNodeWithContentDescription("Configuración").performClick()
-        android.os.SystemClock.sleep(900)
-        compose.onNodeWithText("Oscuro").performClick()
-        android.os.SystemClock.sleep(1100)
-        compose.onNodeWithText("Claro").performClick()
-        android.os.SystemClock.sleep(900)
-        InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
-        android.os.SystemClock.sleep(1200)
+        fun frames(ms:Int) { repeat(ms/16) { compose.mainClock.advanceTimeBy(16);android.os.SystemClock.sleep(16) } }
+        fun press(text:String) {
+            compose.onNodeWithText(text).performScrollTo().performTouchInput { down(center) }
+            frames(220)
+            compose.onNodeWithText(text).performTouchInput { up() }
+            frames(600)
+        }
+        compose.mainClock.autoAdvance=false
+        try {
+            press("Saldo disponible")
+            press("Recargar boletera")
+            compose.onNodeWithText("$ 500").performClick();frames(650)
+            compose.onNodeWithText("$ 1.000").performClick();frames(650)
+            press("Continuar")
+            compose.onNodeWithContentDescription("Configuración").performClick();frames(700)
+            compose.onNodeWithText("Oscuro").performClick();frames(800)
+            compose.onNodeWithText("Claro").performClick();frames(800)
+            compose.onNodeWithText("Probar vibración").performScrollTo().performClick();frames(700)
+            InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+            frames(800)
+        } finally { compose.mainClock.autoAdvance=true }
     }
 }
