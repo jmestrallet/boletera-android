@@ -1,6 +1,18 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.12
+## Versión vigente: 0.2.13
+
+Express recupera doce líneas radiales y confirma la preparación inmediatamente; el anillo no termina antes de aceptar el gesto, independientemente de la escala de animaciones de Android. El saldo recorre combinaciones comunes de 1 h y 2 h con sobrante, avance manual y automático.
+
+48 pruebas JavaScript y 11 JVM aprobadas. Release, debug, pruebas Android y lint compilados correctamente en 29 s. Las pruebas JVM incluyen saldos insuficientes, negativos, más de 1.400 saldos distintos y Long.MAX_VALUE: cantidades enteras, opciones distintas, costo dentro del saldo y selección acotada.
+
+En Android, la primera tanda pasó cancelación, pulsación completa, exclusión de duplicados y recorrido común/Express con páginas interceptadas; falló la expectativa sobre cuál mezcla equilibrada iba tercera. Se definió el desempate por mayor aprovechamiento del saldo (7 de 1 h + 8 de 2 h para $1.000) y se verificó también en JVM. La prueba del carrusel pausa su avance durante las comprobaciones manuales y lo reanuda para comprobar el avance por tiempo real.
+
+Validación final: dos pruebas Android en pantalla habitual en 12,099 s (`outputs/express-feedback-final-normal-0.2.13.txt`); cuatro en pantalla 360 × 640 dp, letra 2× y animaciones desactivadas en 12,948 s (`outputs/express-feedback-final-small-0.2.13.txt`). Capturas revisadas: señales de preparación legibles, mezclas completas y contenido desplazable. Se comprobaron cancelación antes de completar, un único inicio, señal inmediata, interacción independiente de la boletera, pausa/reanudación y ocultamiento con saldo negativo. El recorrido interceptado anterior pasó en la tanda de 60,445 s (`outputs/express-feedback-normal-0.2.13.txt`), cuyo único fallo era la expectativa de orden ya corregida.
+
+APK código 31, SHA-256 `a99590eff6333099407c40adc6da3c56d669db7fb4b79c252d8d62e368310639`, misma firma que 0.2.12. No se realizó ninguna operación financiera real. La velocidad de respuesta de STM y el resultado en el teléfono quedan para comprobar al actualizar.
+
+## Versión anterior: 0.2.12
 
 Corrección de la superposición del ancla reCAPTCHA: su índice de apilamiento elevado podía cubrir la consigna del iframe de desafío. Ahora queda debajo. El desafío expandido dispone del panel, cierra el teclado y usa un viewport de navegador con alto suficiente antes de ajustar el rectángulo completo. Los controles nativos se ocultan temporalmente y los campos de tarjeta permanecen en memoria para volver. En la vista original el botón de regreso queda fuera del navegador. Se permite capturar durante todo el pago, a pedido del usuario.
 

@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.13-prueba — respuesta de Express y combinaciones de boletos
+
+- Express recupera doce líneas radiales durante la pulsación y la preparación. Al aceptar el gesto muestra que ya se puede soltar, sin esperar la respuesta de STM.
+- El anillo mide el tiempo de pulsación y solo se completa al aceptar el gesto, incluso con animaciones de Android desactivadas.
+- Combinaciones de boletos comunes de 1 h y 2 h, con sobrante, cambio automático cada cinco segundos y avance al tocar. El cambio se pausa al pasar la app al fondo y respeta los tiempos de accesibilidad.
+- Se conservan la ayuda inicial y la protección contra solicitudes duplicadas.
+
 ## 0.2.12-prueba — CAPTCHA completo y capturas habilitadas
 
 - La casilla inicial de reCAPTCHA deja de superponerse a la consigna del desafío de imágenes.

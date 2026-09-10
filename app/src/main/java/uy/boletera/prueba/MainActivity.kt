@@ -185,12 +185,12 @@ class MainActivity : FragmentActivity() {
                             }
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
                                 onExpressCharge=if(engine.expressAvailable)::requestExpress else null,
-                                onExpressHelp={showExpressHelp=true},onTicketGuide={showTicketGuide=true})
+                                onExpressHelp={showExpressHelp=true},onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing)
                             "connecting" -> {
-                                LoadingState(if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", "Estamos consultando el sitio. Tu información va a aparecer acá.")
+                                LoadingState(if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(engine.expressPreparing)"Ya podés soltar. Estamos conectando con STM y Prex." else "Estamos consultando el sitio. Tu información va a aparecer acá.",express=engine.expressPreparing)
                                 TextButton(onClick=::back) { Text("Cancelar") }
                             }
-                            "openingPayment" -> LoadingState("Un momento…","Abriendo ${if(state.selectedProvider=="1033")"Prex" else "eBROU"} para tu recarga de ${Amounts.format(state.amount)}.")
+                            "openingPayment" -> LoadingState("Un momento…","Abriendo ${if(state.selectedProvider=="1033")"Prex" else "eBROU"} para tu recarga de ${Amounts.format(state.amount)}.",express=engine.expressPreparing)
                             "cards" -> {
                                 Title("Elegí tu boletera")
                                 Text("Recordamos tu elección para la próxima.",color=Muted)
@@ -327,7 +327,7 @@ class MainActivity : FragmentActivity() {
                     if (native && payment.nativeStage!="card" && !payment.expandedChallenge) Column(Modifier.fillMaxSize().background(Paper)) {
                       Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         if (payment.nativeStage != "payer" || expressAdvancing) PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.fillMaxWidth().height(1.dp))
-                        if(expressAdvancing) LoadingState("Preparando Prex", "Usando el mínimo y tus datos guardados.") else {
+                        if(expressAdvancing) LoadingState("Preparando Prex", "Usando el mínimo y tus datos guardados.",express=true) else {
                         ProgressSteps(if(payment.nativeStage=="payer")1 else 0,listOf("Recarga","Titular","Tarjeta"))
                         Text(if(expressVerification)"Una verificación\ny seguimos" else if (payment.nativeStage == "payer") "Datos del titular" else "Revisá tu recarga",style=MaterialTheme.typography.headlineMedium,color=Ink)
                         if (payment.nativeStage == "loading") {

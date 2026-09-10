@@ -15,8 +15,10 @@ Si falta cualquiera de esos datos, Express se oculta. Los datos se guardan media
 
 ## Una recarga Express
 
-1. Mantené apretado **Modo Express** durante 1,2 segundos. El control muestra Prex y el importe mínimo antes del gesto, llena su anillo y emite pulsos. Soltar antes cancela; un toque corto abre la ayuda sin iniciar una solicitud.
+1. Mantené apretado **Modo Express** durante 1,2 segundos. El control muestra Prex y el importe mínimo antes del gesto, llena su anillo, extiende doce líneas radiales y emite pulsos. El tiempo del gesto no depende de la velocidad de animación configurada en Android. Soltar antes cancela; un toque corto abre la ayuda sin iniciar una solicitud.
 2. Al completar el gesto, se muestra la explicación salvo que hayas elegido no volver a mostrarla. Después de aceptar, o directamente si la omitiste, comienza esa única solicitud con el mínimo vigente, la boletera habitual y el titular predeterminado. La app vuelve a comprobar las condiciones y las opciones devueltas por STM.
+Desde 0.2.13, al comenzar la solicitud aparece **Preparando tu recarga · Ya podés soltar**, con las líneas animadas durante la espera. El anillo no se completa antes de que el gesto sea aceptado. Esta señal confirma el inicio de la preparación, no el pago.
+
 3. En Prex se avanza por el resumen únicamente si moneda e importe coinciden. Se avanza por el titular si coincide con el perfil elegido, el formulario original es válido y no aparece una verificación o dato adicional.
 4. El recorrido se detiene en el CAPTCHA original, si lo pide, o en el número de tarjeta. Con CAPTCHA se conserva el botón para continuar después de resolverlo: no se lee su respuesta ni se afirma poder detectar su resolución desde otro origen. En el formulario de tarjeta se enfoca el número para facilitar la sugerencia del sistema. La tarjeta guardada y su autorización con huella pertenecen a Android/Google; Boletera no almacena esos datos ni los envía automáticamente.
 

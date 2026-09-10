@@ -51,6 +51,7 @@ class StmEngine(private val context: Context) {
     private var handoffSent = false
     private var expressRequest: ExpressChoice? = null
     private var expressPayment = false
+    val expressPreparing: Boolean get() = expressPayment && state.busy
     val web = WebView(context)
     val host = CaptchaHost(context, web)
     private val poll = object : Runnable {

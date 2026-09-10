@@ -61,7 +61,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit,
-    onExpressCharge: (() -> Unit)? = null, onExpressHelp: (() -> Unit)? = null, onTicketGuide: (() -> Unit)? = null) {
+    onExpressCharge: (() -> Unit)? = null, onExpressHelp: (() -> Unit)? = null, onTicketGuide: (() -> Unit)? = null, expressPreparing: Boolean = false) {
     val colors=MaterialTheme.colorScheme
     val touch = remember { MutableInteractionSource() }
     val held by touch.collectIsPressedAsState()
@@ -90,6 +90,7 @@ import java.util.Locale
                 Text(Amounts.format(state.balance),style=if(Amounts.format(state.balance).length>10)MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge,
                     color=colors.onPrimaryContainer,modifier=Modifier.fillMaxWidth())
                 Text(if((state.balance?:0)<0) "Saldo pendiente de cubrir" else "Informado por STM",style=MaterialTheme.typography.bodyMedium,color=colors.onPrimaryContainer)
+                TicketBudgetCarousel(state.balance,enabled=!state.busy)
                 HorizontalDivider(color=colors.onPrimaryContainer.copy(alpha=0.15f))
                 Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     AppGlyph(Glyph.Refresh,Modifier.size(16.dp),tint=colors.onPrimaryContainer)
@@ -99,7 +100,7 @@ import java.util.Locale
             }
         }
             Primary("Recargar boletera",enabled=!state.busy && state.minimum!=null,action=onCharge)
-            if(onExpressCharge!=null) ExpressShortcut(state.minimum,enabled=!state.busy,onExplain=onExpressHelp,onStart=onExpressCharge)
+            if(onExpressCharge!=null) ExpressShortcut(state.minimum,enabled=!state.busy,onExplain=onExpressHelp,preparing=expressPreparing,onStart=onExpressCharge)
             Surface(color=Panel,shape=RoundedCornerShape(24.dp)) {
                 Row(Modifier.fillMaxWidth().padding(20.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
                     Surface(color=colors.secondaryContainer,shape=RoundedCornerShape(14.dp),modifier=Modifier.size(44.dp)) { Box(contentAlignment=Alignment.Center) { AppGlyph(Glyph.Card,tint=colors.onSecondaryContainer) } }
@@ -163,10 +164,13 @@ import java.util.Locale
     }
 }
 
-@Composable internal fun LoadingState(title: String, description: String) {
+@Composable internal fun LoadingState(title: String, description: String, express: Boolean = false) {
     Column(Modifier.fillMaxWidth().padding(vertical=32.dp),verticalArrangement=Arrangement.spacedBy(24.dp)) {
         Surface(color=Lime,shape=RoundedCornerShape(28.dp),modifier=Modifier.size(88.dp)) {
-            Box(contentAlignment=Alignment.Center) { CircularProgressIndicator(Modifier.size(40.dp),strokeWidth=3.dp,color=MaterialTheme.colorScheme.onPrimaryContainer) }
+            Box(contentAlignment=Alignment.Center) {
+                if(express)ExpressEnergy(1f,true,MaterialTheme.colorScheme.onPrimaryContainer,Modifier.size(80.dp))
+                else CircularProgressIndicator(Modifier.size(40.dp),strokeWidth=3.dp,color=MaterialTheme.colorScheme.onPrimaryContainer)
+            }
         }
         Title(title)
         Text(description,style=MaterialTheme.typography.bodyLarge,color=Muted)

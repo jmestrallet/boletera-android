@@ -6,11 +6,13 @@ El código y la documentación se publican para permitir revisión y colaboraci�
 
 La 0.1.9 corrige la conexión segura de Sistarbanc en Android 11; se reprodujo el fallo y se verificó la corrección en un OnePlus 6T. Ver [evidencia TLS](docs/TLS-ANDROID11.md).
 
+Desde **0.2.13**, Express recupera las líneas radiales y confirma **Ya podés soltar** al empezar a preparar la recarga. El saldo muestra combinaciones de boletos comunes de 1 h y 2 h: cambian cada cinco segundos y también al tocarlas. Por ejemplo, $1.000 permite recorrer 14 alternativas. Son estimaciones con el saldo informado y las tarifas incluidas en la app.
+
 ## Probar en el celular
 
 **Objetivo pendiente:** completar y verificar el recorrido real de pago desde Boletera. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. El CAPTCHA, Google en el teléfono, la autorización y la acreditación requieren comprobación real. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
 
-**[Descargar la versión 0.2.12](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.12)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+**[Descargar la versión 0.2.13](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.13)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
@@ -20,7 +22,7 @@ Desde 0.1.15, las próximas versiones publicadas en este repositorio se pueden d
 
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Las versiones anteriores se conservan con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
 
-1. Pasá `outputs/boletera-prueba-0.2.12.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
+1. Pasá `outputs/boletera-prueba-0.2.13.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
 3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.
@@ -40,7 +42,7 @@ Los avisos, incluido el fallo de desbloqueo, aparecen flotando en la parte infer
 
 La **0.2.11** incorpora una explicación de Express antes del primer uso, con opción de no volver a mostrar, y una [guía de boletos y tarifas](docs/BOLETOS-Y-TARIFAS.md) accesible al pie de la boletera y desde Configuración. Precios y ejemplos revisados el 10/9/2026; se leen sin conexión y tienen enlaces a las fuentes.
 
-La **0.2.12** corrige el desafío ampliado del CAPTCHA: la casilla inicial queda detrás, la consigna y el pie se ajustan completos al panel y el teclado se oculta. También habilita capturas durante el pago para reportar errores. Se conserva la página original y sus verificaciones.
+La **0.2.13** corrige el desafío ampliado del CAPTCHA: la casilla inicial queda detrás, la consigna y el pie se ajustan completos al panel y el teclado se oculta. También habilita capturas durante el pago para reportar errores. Se conserva la página original y sus verificaciones.
 
 ## Qué incluye
 
