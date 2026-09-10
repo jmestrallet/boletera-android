@@ -14,7 +14,9 @@ La 0.1.9 corrige la conexión segura de Sistarbanc en Android 11; se reprodujo e
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
-El candidato vigente es **0.1.14**, en `outputs/boletera-prueba-0.1.14.apk`: permite actualizar el saldo arrastrando hacia abajo desde el comienzo de la pantalla, en lugar del botón inferior. Conserva la corrección del destello de Sistarbanc de 0.1.13 y la adaptación del CAPTCHA incorporada en 0.1.12; ver [pruebas de tamaños y densidades](docs/CAPTCHA-RESPONSIVO.md). Todavía no se publicó una versión remota nueva.
+El candidato vigente es **0.1.15**, en `outputs/boletera-prueba-0.1.15.apk`: agrega **Configuración → Buscar actualizaciones**, descarga desde GitHub y apertura del instalador de Android. Conserva la actualización del saldo al arrastrar hacia abajo de 0.1.14 y las mejoras anteriores del pago. Todavía no se publicó una versión remota nueva.
+
+Desde 0.1.15, las próximas versiones publicadas en este repositorio se pueden descargar desde Configuración, sin buscar el archivo a mano. Se incluyen las publicaciones de prueba porque esta app todavía está en prueba. Primero se comprueba la descarga y la firma; luego **Instalar actualización** abre la confirmación de Android. La primera vez puede pedir **Permitir desde esta fuente**: al volver, tocá Instalar actualización nuevamente. Una actualización conserva los datos guardados. Si tu candidato local es más nuevo que GitHub, no ofrece volver a una versión anterior.
 
 En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y se pueden compartir por enlace. Las versiones anteriores se conservan con su SHA-256. La 0.1.0 se publica como archivo histórico: es anterior al código subido al repo y su descarga automática de «Source code» no contiene el código de esa versión.
 

@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.1.15-prueba — actualizaciones desde Configuración
+
+- Agrega Configuración con versión instalada, búsqueda en GitHub, descarga e instalación mediante la confirmación de Android.
+- Incluye las versiones de prueba publicadas del repositorio oficial; solo ofrece versiones posteriores. Comprueba tamaño, SHA-256, identidad de la app, versión interna y firma antes de ofrecer instalar.
+- La APK se descarga en almacenamiento privado y se comparte únicamente con permiso temporal de lectura. Android puede pedir habilitar la instalación desde Boletera.
+- No necesita cuenta ni token de GitHub. La consulta y la descarga se inician desde Configuración y conservan su estado al girar la pantalla.
+
 ## 0.1.14-prueba — deslizar para actualizar
 
 - En la pantalla de saldo, arrastrar hacia abajo desde el comienzo actualiza saldo y mínimo, con indicador de carga.

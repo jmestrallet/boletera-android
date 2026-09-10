@@ -18,6 +18,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.pullToRefresh
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,6 +70,8 @@ class MainActivity : FragmentActivity() {
     @Composable private fun App() {
         val state = engine.state
         val pullState = rememberPullToRefreshState()
+        val updates: AppUpdates = viewModel()
+        var showSettings by rememberSaveable { mutableStateOf(false) }
         if (state.stage == "embeddedPrex") {
             EmbeddedPrexScreen(engine.prexPayment, state.pendingPayment, engine::leavePrexPayment)
             return
@@ -94,7 +98,7 @@ class MainActivity : FragmentActivity() {
                 Row(Modifier.fillMaxWidth().background(Ink).padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("boletera", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 25.sp)
                     Spacer(Modifier.weight(1f))
-                    Text(BuildConfig.VERSION_NAME, color = Lime, fontSize = 11.sp, letterSpacing = 1.sp)
+                    TextButton(onClick = { showSettings = true }) { Text("Configuración", color = Lime, fontSize = 13.sp) }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth().pullToRefresh(
                     isRefreshing = state.stage == "balance" && state.busy,
@@ -300,6 +304,19 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+        if (showSettings) AlertDialog(onDismissRequest = { showSettings = false },
+            title = { Text("Configuración") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("Boletera · ${BuildConfig.VERSION_NAME}", fontWeight = FontWeight.SemiBold)
+                    Text(updates.message)
+                    if (updates.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (updates.ready) Primary("Instalar actualización", !updates.busy) { updates.install(this@MainActivity) }
+                    else if (updates.release != null) Primary("Descargar actualización", !updates.busy) { updates.download() }
+                    TextButton(onClick = updates::check, enabled = !updates.busy) { Text("Buscar actualizaciones") }
+                    Text("Las actualizaciones se descargan de GitHub. Android te pide confirmar la instalación y conserva tus datos.", color = Muted, fontSize = 12.sp)
+                }
+            }, confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Volver") } })
         if (showProbe) AutofillProbe { showProbe = false }
         if (showPayerPicker) AlertDialog(onDismissRequest = { showPayerPicker = false }, title = { Text("¿Qué Prex vas a usar?") },
             text = {

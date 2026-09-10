@@ -1,6 +1,18 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Candidato vigente: 0.1.14
+## Candidato vigente: 0.1.15
+
+Configuración permite buscar versiones de prueba publicadas en `jmestrallet/boletera-android`, descargar una versión posterior y abrir el instalador de Android. No usa credenciales de GitHub ni consulta la cuenta STM. Verifica tamaño, SHA-256 publicado, paquete, versión y misma firma; no ofrece bajar de versión. Comparte únicamente la APK privada mediante FileProvider y un permiso de lectura temporal.
+
+Pasaron 40 pruebas JavaScript, 7 JVM, lint y compilación. Cuatro pruebas Android comprobaron selección numérica de versiones de prueba, rechazo de borradores/destinos ajenos/digest ausente, controles de paquete/firma/versión, consulta real de GitHub desde Configuración y descarga pública con comprobación de SHA-256. La descarga con hash alterado fue rechazada y eliminada; la versión publicada anterior no se aceptó como actualización. La prueba positiva de identidad usó la APK debug real con metadatos de versión anterior como referencia: no representa una actualización instalada desde GitHub.
+
+Una quinta prueba comprobó el URI privado, el permiso temporal, el rechazo de un archivo fuera del directorio compartido y abrió el instalador real de Android 16. La captura local muestra «Do you want to update this app?»; se salió sin confirmar. Para esa prueba se habilitó la instalación desde esta app únicamente en el emulador. No se modificó ese ajuste en el teléfono.
+
+Evidencia local: `outputs/updates-0.1.15-test.txt`, `outputs/updates-installer-0.1.15-test.txt`, `outputs/update-installer-0.1.15.png`. APK final instalada por cable en el OnePlus y versión comprobada: `0.1.15-prueba`, código 16; SHA-256 `CE4AA79CABCF834371DF7FE6D65B772F42F9F63B555A6A235C27ABB31C7A8E4B`. Todavía no se completó una actualización de extremo a extremo desde GitHub: su última publicación sigue siendo 0.1.10. No hubo publicación remota nueva.
+
+Referencias de Android: [compartir archivos con FileProvider](https://developer.android.com/training/secure-file-sharing/setup-sharing) y [autorización por fuente de instalación](https://android-developers.googleblog.com/2017/08/making-it-safer-to-get-apps-on-android-o.html).
+
+## Candidato anterior: 0.1.14
 
 La pantalla de saldo usa el gesto estándar de arrastrar hacia abajo desde el comienzo para ejecutar la misma consulta de saldo y mínimo. Se retiró el botón inferior. El gesto está deshabilitado en otras pantallas y mientras hay una consulta en curso.
 
