@@ -1,6 +1,12 @@
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Candidato vigente: 0.1.13
+## Candidato vigente: 0.1.14
+
+La pantalla de saldo usa el gesto estándar de arrastrar hacia abajo desde el comienzo para ejecutar la misma consulta de saldo y mínimo. Se retiró el botón inferior. El gesto está deshabilitado en otras pantallas y mientras hay una consulta en curso.
+
+Pasaron 40 pruebas JavaScript, 7 JVM, lint y compilación release. APK instalada y versión comprobada en el OnePlus: `0.1.14-prueba`, código 15. SHA-256: `ED550CC1985D39FE93D98C03F189EDBF587AECFA142BB47DE6E8CA9EAA08528B`. No se realizó un ingreso real ni una prueba del gesto en la cuenta del titular durante este cambio. Candidato local sin publicación remota.
+
+## Candidato anterior: 0.1.13
 
 Se reprodujo con una regresión JavaScript que la ausencia temporal del formulario se clasificaba como página original. Ahora conserva la carga nativa hasta reconocer el siguiente paso. El navegador comienza oculto y vuelve a ocultarse al navegar; las respuestas anteriores no pueden cambiar el estado de la nueva navegación.
 

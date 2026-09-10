@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.1.14-prueba — deslizar para actualizar
+
+- En la pantalla de saldo, arrastrar hacia abajo desde el comienzo actualiza saldo y mínimo, con indicador de carga.
+- Retira el botón inferior «Actualizar saldo y mínimo». El gesto solo funciona en saldo y no repite consultas mientras hay una en curso.
+
 ## 0.1.13-prueba — carga sin destello de la página
 
 - Conserva la pantalla de carga nativa mientras Sistarbanc prepara el formulario, evitando mostrar brevemente la página original.

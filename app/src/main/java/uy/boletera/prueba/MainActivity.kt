@@ -14,6 +14,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,8 +64,10 @@ class MainActivity : FragmentActivity() {
     override fun onStart() { super.onStart(); if (::engine.isInitialized) engine.resume() }
     override fun onDestroy() { if (::vault.isInitialized) vault.cancel(); if (::engine.isInitialized) engine.destroy(); super.onDestroy() }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable private fun App() {
         val state = engine.state
+        val pullState = rememberPullToRefreshState()
         if (state.stage == "embeddedPrex") {
             EmbeddedPrexScreen(engine.prexPayment, state.pendingPayment, engine::leavePrexPayment)
             return
@@ -91,7 +96,13 @@ class MainActivity : FragmentActivity() {
                     Spacer(Modifier.weight(1f))
                     Text(BuildConfig.VERSION_NAME, color = Lime, fontSize = 11.sp, letterSpacing = 1.sp)
                 }
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                Box(Modifier.weight(1f).fillMaxWidth().pullToRefresh(
+                    isRefreshing = state.stage == "balance" && state.busy,
+                    state = pullState,
+                    enabled = state.stage == "balance" && !state.busy,
+                    onRefresh = { if (engine.state.stage == "balance" && !engine.state.busy) engine.refresh() }
+                )) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     if (state.message.isNotBlank()) Notice(state.message)
                     when (state.stage) {
                         "welcome" -> {
@@ -195,7 +206,6 @@ class MainActivity : FragmentActivity() {
                                 if (amountText.isNotEmpty() && !valid) Text("Ingresá un monto igual o mayor al mínimo, con hasta 2 decimales.", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                                 OutlinedButton(onClick = { parsed?.let { engine.prepare(it) } }, enabled = valid && !state.busy && state.pendingPayment == null, modifier = Modifier.fillMaxWidth()) { Text("Elegir este monto") }
                             }
-                            TextButton(onClick = { engine.refresh() }, enabled = !state.busy) { Text("Actualizar saldo y mínimo") }
                         }
                         "captcha" -> {
                             Title("Una verificación")
@@ -279,6 +289,14 @@ class MainActivity : FragmentActivity() {
                     if (state.stage != "welcome") TextButton(onClick = { engine.logout() }) { Text("Cerrar sesión local") }
                     if (state.hasSavedAccess) TextButton(onClick = { showForget = true }) { Text("Olvidar acceso guardado") }
                     if (state.diagnostic.isNotBlank()) Text("Referencia: ${state.diagnostic}", color = Muted, fontSize = 11.sp)
+                }
+                if (state.stage == "balance") PullToRefreshDefaults.Indicator(
+                    state = pullState,
+                    isRefreshing = state.busy,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    containerColor = Lime,
+                    color = Ink
+                )
                 }
             }
         }
