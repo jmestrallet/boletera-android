@@ -18,6 +18,31 @@ class JourneyPreferences(context: Context) {
         edit.apply()
     }
     private var account: String? = null
+    internal val accountKey: String? get() = account
+    internal fun rememberVerifiedSession() {account?.let {store.edit().putString("session_account",it).apply()}}
+    internal fun restoreSessionAccount(): Boolean {
+        val saved=store.getString("session_account",null)?.takeIf {it.matches(Regex("[0-9a-f]{64}"))} ?: return false
+        account=saved;return true
+    }
+    internal fun clearSessionAccount() {store.edit().remove("session_account").apply()}
+    var successfulProvider: String?
+        get() = account?.let { store.getString("$it.successProvider",null) }
+        set(value) {account?.let {store.edit().putString("$it.successProvider",value).apply()}}
+    var successfulPayer: String?
+        get() = account?.let {store.getString("$it.successPayer",null)}
+        set(value) {account?.let {store.edit().putString("$it.successPayer",value).apply()}}
+    var successfulCardSuffix: String?
+        get() = account?.let {store.getString("$it.successCardSuffix",null)}
+        set(value) {account?.let {store.edit().putString("$it.successCardSuffix",value).apply()}}
+    var successfulCardIdentity: String?
+        get() = account?.let {store.getString("$it.successCardIdentity",null)}
+        set(value) {account?.let {store.edit().putString("$it.successCardIdentity",value).apply()}}
+    internal fun cardIdentity(number: String): String? = runCatching {
+        val accountKey=account ?: return null
+        val keys=KeyStore.getInstance("AndroidKeyStore").apply {load(null)}
+        val key=keys.getKey("boletera_choices_account",null) as SecretKey
+        Mac.getInstance("HmacSHA256").run {init(key);doFinal("card:$accountKey:$number".toByteArray()).joinToString("") {"%02x".format(it)}}
+    }.getOrNull()
     fun useAccount(document: String) {
         account = try {
             val keys = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -40,7 +65,7 @@ class JourneyPreferences(context: Context) {
         set(value) { account?.let { store.edit().putString("$it.payer", value).apply() } }
     fun forgetAll() {
         val edit = store.edit()
-        store.all.keys.filter { it.endsWith(".card") || it.endsWith(".provider") || it.endsWith(".resume") || it.endsWith(".payer") || it.endsWith(".express") }.forEach { edit.remove(it) }
-        edit.apply(); account = null
+        store.all.keys.filter { it.endsWith(".card") || it.endsWith(".provider") || it.endsWith(".resume") || it.endsWith(".payer") || it.endsWith(".express") || it.contains(".success") }.forEach { edit.remove(it) }
+        edit.remove("session_account").apply(); account = null
     }
 }

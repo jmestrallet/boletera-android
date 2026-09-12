@@ -1,5 +1,7 @@
 # Carga Express — atajo puntual
 
+**Actualización 0.2.30:** el comportamiento vigente de Express, sesión y seguimiento de pagos está en [EXPRESS-0.2.30.md](EXPRESS-0.2.30.md). Las secciones siguientes describen las versiones indicadas y sus antecedentes.
+
 La recarga común conserva el botón principal **Recargar boletera**, con elección de importe y medio. Debajo aparece un control secundario **Carga Express** solo cuando la cuenta ya tiene lo necesario. No hay encendido/apagado ni activación persistente.
 
 Desde 0.2.11, antes de iniciar se muestra una explicación con el mínimo actual variable por cuenta y consulta, medio guardado, gesto y verificaciones humanas. **Aceptar y continuar** inicia esa recarga; **Ahora no**, Atrás o cerrar no inician nada. Desde 0.2.21, **No volver a mostrar** se guarda al marcar la casilla, incluso si luego se cierra con Ahora no. La preferencia se respeta tanto en pulsaciones completas como en toques cortos o cancelados. Si se marca, las siguientes pulsaciones completas inician directamente y soltar antes no abre la ayuda. Olvidar el acceso restablece también esta preferencia de ayuda del teléfono.

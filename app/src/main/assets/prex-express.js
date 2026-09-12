@@ -1,7 +1,7 @@
 (() => {
   const trusted=()=>location.origin==='https://pasarelaspe.sistarbanc.com.uy'&&location.pathname.startsWith('/v2/')&&window.top===window.self;
   if(!trusted()||window.BoleteraExpress)return;
-  let plan=null,phase='off',lastStage='',stageSince=0;
+  let plan=null,phase='off',lastStage='',stageSince=0,pausedAt=null;
   const visible=e=>{
     if(!e||!e.getClientRects().length||e.closest('[hidden],[aria-hidden="true"],.mat-horizontal-stepper-content[aria-expanded="false"]'))return false;
     for(let p=e;p;p=p.parentElement){const s=getComputedStyle(p);if(s.display==='none'||s.visibility==='hidden'||s.opacity==='0')return false;}
@@ -24,7 +24,12 @@
       plan={amount,payer};phase='advancing';return true;
     },
     stop(){return stop();},
+    suspend(paused) {
+      if(paused && pausedAt===null)pausedAt=Date.now();
+      else if(!paused && pausedAt!==null) {stageSince+=Date.now()-pausedAt;pausedAt=null;}
+    },
     tick() {
+      if(pausedAt!==null)return phase;
       if(!plan)return phase;
       if(!trusted()||!window.BoleteraNative)return stop();
       const state=window.BoleteraNative.snapshot(),stage=state.stage;
@@ -65,6 +70,8 @@
           if(!allowed.includes(selected))return stop();
         }
         // The user solves the original CAPTCHA. No token, iframe content or response is read.
+        // The provider's Continue can be enabled BEFORE CAPTCHA validation. An enabled button or
+        // ng-valid form is not a success signal; preserve the human continuation for a visible widget.
         if(state.challenge||[...root.querySelectorAll('angular-recaptcha')].some(visible))return phase='verification';
         if(!form.classList.contains('ng-valid'))return stop();
         phase='advancing';if(state.canContinue)window.BoleteraNative.advance('payer');return phase;

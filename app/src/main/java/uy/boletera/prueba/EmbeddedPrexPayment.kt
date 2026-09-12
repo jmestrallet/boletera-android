@@ -70,18 +70,36 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     private var navigationVersion = 0
     private var nativeMask = true
     private var expressAmount: Long? = null
+    var expressJourney by mutableStateOf(false)
+        private set
+    private var expectedCardIdentity: String? = null
+    private var expectedCardSuffix: String? = null
+    var enteredCardIdentity: String? = null
+        private set
+    private var enteredCardSuffix: String? = null
+    var verifiedCardSuffix: String? = null
+        private set
+    var identifyCard: (String) -> String? = { null }
+    var beforeAuthorize: () -> Boolean = { true }
+    var beforeOriginalReview: () -> Boolean = { true }
+    var authorizationNotSent: () -> Unit = {}
+    var outcomeListener: (String, List<Pair<String,String>>) -> Unit = { _, _ -> }
+    private var observedOutcome = ""
+    private var suspended = false
+    private var suspendedAt = 0L
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val profileStatus: Runnable = object : Runnable {
         override fun run() {
-            if (destroyed || !visible || originalLink == null) return
+            if (destroyed || !visible || suspended || originalLink == null) return
             checkProgress()
             val version = navigationVersion
             web.evaluateJavascript("(()=>{const phase=window.BoleteraExpress?.tick()||'off';return window.BoleteraNative?JSON.stringify({...window.BoleteraNative.snapshot(),expressPhase:phase}):null;})()") { raw ->
-                if (!destroyed && visible && version == navigationVersion) try {
+                if (!destroyed && visible && !suspended && version == navigationVersion) try {
                     val decoded = org.json.JSONTokener(raw).nextValue() as? String
                     if (decoded != null) {
                         val state = org.json.JSONObject(decoded)
                         nativeStage = state.optString("stage", "loading")
+                        if(nativeStage=="original" && !prepareOriginalReview())return@evaluateJavascript
                         completionNotice = state.optString("completionNotice")
                         completionSubmitted = state.optBoolean("submitted")
                         val rows = state.optJSONArray("rows")
@@ -97,6 +115,19 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
                         cssViewportWidth = state.optDouble("viewportWidth", 0.0).toFloat()
+                        if(nativeStage=="finalConfirmation")verifiedCardSuffix=summaryRows.firstOrNull {
+                            it.first.trim().trimEnd(':').equals("Medio de pago",true)
+                        }?.second?.takeLast(4)?.takeIf {it.matches(Regex("[0-9]{4}"))}
+                        if(nativeStage in listOf("receipt","paymentRejected","paymentPending","stmSuccess")) {
+                            val outcomeKey=nativeStage+summaryRows.toString()
+                            if(observedOutcome!=outcomeKey) {observedOutcome=outcomeKey;outcomeListener(nativeStage,summaryRows)}
+                        }
+                        if(expressJourney && nativeStage=="finalConfirmation" && canContinue &&
+                            expectedCardIdentity!=null && enteredCardIdentity==expectedCardIdentity &&
+                            expectedCardSuffix==enteredCardSuffix && summaryRows.any {
+                                it.first.trim().trimEnd(':').equals("Medio de pago",true) && it.second.takeLast(4)==expectedCardSuffix
+                            }) advance()
+                        if(expressJourney && nativeStage=="receipt" && canContinue) advance()
                         if(nativeStage=="stmSuccess" && canContinue) advance()
                         if(nativeStage!=progressStage) {
                             progressStage=nativeStage;progressSince=clock();slowStep=false
@@ -109,7 +140,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                 } catch (_: Exception) { nativeStage = "loading" }
             }
             web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer ? window.BoleteraPayer.status() : 'waiting'; } else { 'waiting'; }") { raw ->
-                if (!destroyed && visible && version == navigationVersion) {
+                if (!destroyed && visible && !suspended && version == navigationVersion) {
                     val status = try { org.json.JSONTokener(raw).nextValue() as? String } catch (_: Exception) { null }
                     payerConflict = status == "conflict"
                     payerNotice = when (status) {
@@ -119,7 +150,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     }
                 }
             }
-            handler.postDelayed(this, 1000)
+            handler.postDelayed(this, if(busy || expressPhase=="advancing" || cardBusy || completionSubmitted || returningToWallet) 200 else 800)
         }
     }
     private val completionScript = context.assets.open("prex-completion.js").bufferedReader().use { it.readText() }
@@ -192,6 +223,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                             view.evaluateJavascript("window.BoleteraExpress && window.BoleteraExpress.start($amount,${profile.json()})",null)
                         }
                     }
+                    handler.removeCallbacks(profileStatus)
+                    if(visible && !suspended)handler.post(profileStatus)
                 } else {
                     view.evaluateJavascript(returnScript + ";window.BoleteraNative ? window.BoleteraNative.snapshot().stage : 'original'") { raw ->
                         if (!destroyed && url == view.url) {
@@ -215,7 +248,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         }
     }
 
-    fun open(url: String, profile: PayerProfile? = null, expressAmount: Long? = null, expectedAmount: Long? = null): Boolean {
+    fun open(url: String, profile: PayerProfile? = null, expressAmount: Long? = null, expectedAmount: Long? = null,
+        expectedCardIdentity: String? = null, expectedCardSuffix: String? = null): Boolean {
         if (destroyed || !PaymentPolicy.prexLink(url) || profile?.valid() == false) return false
         if (originalLink == url) {
             if (payer?.id != profile?.id) return false
@@ -228,6 +262,9 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         originalLink = url
         this.expectedAmount = expectedAmount ?: expressAmount
         this.expressAmount = expressAmount
+        this.expressJourney = expressAmount!=null
+        this.expectedCardIdentity=expectedCardIdentity
+        this.expectedCardSuffix=expectedCardSuffix
         expressPhase = if(expressAmount!=null)"advancing" else "off"
         payer = profile
         payerLabel = profile?.label.orEmpty()
@@ -246,19 +283,29 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.applyChosenProfile(); }", null)
     }
 
-    fun advance() {
-        if (destroyed || !visible || !canContinue || nativeStage !in listOf("summary", "payer", "finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess")) return
-        stopExpress()
+    fun advance() = advance(nativeStage)
+    fun advance(expectedStage: String) {
+        if (destroyed || !visible || suspended || !canContinue || nativeStage!=expectedStage || nativeStage !in listOf("summary", "payer", "finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess")) return
         val expected = nativeStage
         if(expected in listOf("receipt","paymentRejected","paymentPending","stmSuccess"))returningToWallet=true
         if (expected == "finalConfirmation") {
             if (finalSubmitted) return
+            if(!beforeAuthorize()) {stopExpress();fail("No pudimos guardar el seguimiento de esta recarga. El pago no fue enviado.");return}
             finalSubmitted = true // Conservative lock survives navigation and reopening this journey.
         }
         canContinue = false
         completionSubmitted = true
         progressSince=clock();slowStep=false
-        web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.advance(${org.json.JSONObject.quote(expected)})", null)
+        val version=navigationVersion
+        web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.advance(${org.json.JSONObject.quote(expected)})") { raw ->
+            // Only a definite false proves no action was executed. Silence never unlocks a payment.
+            if(!destroyed && version==navigationVersion && raw=="false") {
+                completionSubmitted=false;returningToWallet=false
+                if(expected=="finalConfirmation") {finalSubmitted=false;authorizationNotSent()}
+                stopExpress()
+                message="La página cambió antes de continuar. Revisá esta solicitud; no se ejecutó ese paso."
+            }
+        }
     }
 
     fun positionVerification() {
@@ -266,7 +313,9 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     }
 
     fun submitCard(pan: String, expiry: String, cvv: String) {
-        if(destroyed || !visible || nativeStage!="card" || cardBusy || !canContinue)return
+        if(destroyed || !visible || suspended || nativeStage!="card" || cardBusy || !canContinue)return
+        enteredCardIdentity=identifyCard(pan)
+        enteredCardSuffix=pan.takeLast(4)
         cardBusy=true;cardError=false;canContinue=false
         progressSince=clock();slowStep=false
         val version=navigationVersion
@@ -282,6 +331,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
 
     fun stopExpress() {
         expressAmount=null
+        expressJourney=false
         if(destroyed)return
         expressPhase="manual"
         web.evaluateJavascript("window.BoleteraExpress && window.BoleteraExpress.stop()",null)
@@ -296,6 +346,21 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     }
 
     fun hide() { visible = false; handler.removeCallbacks(profileStatus) }
+    fun pause() {
+        if(!suspended)suspendedAt=clock()
+        suspended=true;handler.removeCallbacks(profileStatus)
+        if(!destroyed)web.evaluateJavascript("window.BoleteraExpress?.suspend(true)",null)
+    }
+    fun prepareOriginalReview(): Boolean {
+        if(!beforeOriginalReview()) {stopExpress();fail("No pudimos guardar el seguimiento. No se abrió la página de pago para continuar.");return false}
+        stopExpress();return true
+    }
+    fun resume() {
+        if(suspended) {progressSince+=clock()-suspendedAt;failureSince+=clock()-suspendedAt}
+        suspended=false
+        if(!destroyed)web.evaluateJavascript("window.BoleteraExpress?.suspend(false)",null)
+        if(visible && originalLink!=null) {handler.removeCallbacks(profileStatus);handler.post(profileStatus)}
+    }
 
     private fun fail(text: String) { busy = false; message = text }
     private fun deferFailure(text: String) {
@@ -331,6 +396,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         summaryRows = emptyList()
         expectedAmount = null
         finalSubmitted = false
+        expressJourney=false;expectedCardIdentity=null;expectedCardSuffix=null;enteredCardIdentity=null;enteredCardSuffix=null;verifiedCardSuffix=null;observedOutcome=""
         completionNotice = ""
         completionSubmitted = false
         returningToWallet = false

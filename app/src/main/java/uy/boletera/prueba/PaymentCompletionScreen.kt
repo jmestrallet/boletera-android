@@ -13,10 +13,12 @@ import androidx.compose.ui.unit.dp
 
 @Composable internal fun PaymentCompletionScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, onOriginal: () -> Unit, browser: @Composable () -> Unit) {
     val stage=payment.nativeStage
-    if(stage in listOf("stmSuccess","returnBalance","sessionExpired") || payment.returningToWallet && stage=="loading") {
+    if(stage in listOf("stmSuccess","returnBalance","sessionExpired") || payment.returningToWallet && stage=="loading" ||
+        payment.expressJourney && (stage=="receipt" || stage=="finalConfirmation" && payment.completionSubmitted)) {
         Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
             browser()
-            if(!payment.slowStep)LoadingState("Volviendo a tu boletera","Estamos consultando el saldo actualizado en STM.")
+            if(!payment.slowStep)LoadingState(if(stage=="finalConfirmation")"Procesando tu recarga" else "Volviendo a tu boletera",
+                if(stage=="finalConfirmation")"Esperando la confirmación de Prex…" else "Estamos consultando el saldo actualizado en STM.",express=payment.expressJourney)
         }
         return
     }
@@ -72,7 +74,7 @@ import androidx.compose.ui.unit.dp
         }
         Surface(color=Paper,shadowElevation=6.dp) {
             Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=12.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                Primary(if(confirming)"Confirmar pago" else "Volver a mi boletera",payment.canContinue,payment::advance)
+                Primary(if(confirming)"Confirmar pago" else "Volver a mi boletera",payment.canContinue) {payment.advance(stage)}
                 TextButton(onClick=onOriginal) {Text("Ver página original")}
             }
         }

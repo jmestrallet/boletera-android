@@ -42,7 +42,7 @@ class TicketGuideTest {
         compose.activity.setContent { BoleteraTheme("light") { ExpressIntroDialog(26000,{}, {accepted=it}) } }
         screenshot("express-intro-light.png")
         compose.onNodeWithText("No volver a mostrar").performScrollTo().assertIsOff()
-        compose.onNodeWithText("Aceptar y continuar").performClick()
+        compose.onNodeWithText("Entendido").performClick()
         assertEquals(false,accepted)
     }
     @Test fun guideIsAvailableFromSettingsWithoutLoginAndReturnsToSettingsAccess() {

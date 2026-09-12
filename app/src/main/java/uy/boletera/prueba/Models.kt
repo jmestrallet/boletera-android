@@ -20,6 +20,7 @@ data class UiState(
     val sessionExpired: Boolean = false,
     val recoveringSession: Boolean = false,
     val paymentNeedsReview: Boolean = false,
+    val paymentStatus: String = "",
     val providers: List<ProviderInfo> = emptyList(), val selectedProvider: String? = null,
     val activePayment: ActivePayment? = null,
     val payerProfileId: String? = null,

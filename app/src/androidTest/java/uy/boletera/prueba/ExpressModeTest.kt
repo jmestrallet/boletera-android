@@ -39,7 +39,7 @@ class ExpressModeTest {
         compose.onNodeWithText("Carga Express").performTouchInput { longClick(durationMillis=1500) };assertEquals(1,starts)
     }
 
-    @Test fun visibilityRequiresCompleteDefaultsAndInterruptedRequestsCannotContinue() {
+    @Test fun visibilityRequiresCompleteDefaultsAndBackgroundSuspendsWithoutDiscardingTheRequest() {
         compose.runOnIdle {
             val engine=MainActivity::class.java.getDeclaredField("engine").apply { isAccessible=true }.get(compose.activity) as StmEngine
             val choices=StmEngine::class.java.getDeclaredField("choices").apply { isAccessible=true }.get(engine) as JourneyPreferences
@@ -63,14 +63,15 @@ class ExpressModeTest {
             val savedKeys=compose.activity.getSharedPreferences("journey_choices",0).all.keys.toSet()
             engine.startExpress();assertNotNull(request.get(engine))
             assertEquals(savedKeys,compose.activity.getSharedPreferences("journey_choices",0).all.keys.toSet())
-            engine.pause();assertNull(request.get(engine))
+            engine.pause();assertNotNull(request.get(engine))
             snapshot.invoke(engine,org.json.JSONObject("""{"stage":"paymentBoundary","providers":[{"id":"1033","name":"Prex"}]}"""))
-            assertNull(engine.state.activePayment);assertEquals("paymentBoundary",engine.state.stage)
+            assertNull(engine.state.activePayment);assertEquals("balance",engine.state.stage)
+            engine.resume();engine.cancel();assertNull(request.get(engine))
             request.set(engine,ExpressChoice("DEMO1234","1033",person.id))
             snapshot.invoke(engine,org.json.JSONObject("""{"stage":"paymentBoundary","providers":[]}"""))
             assertNull(engine.state.activePayment);assertNull(request.get(engine))
             choices.useAccount("11111111");assertFalse(engine.expressAvailable)
-            engine.cancel();engine.forgetChoices()
+            engine.cancel();engine.acknowledgePaymentReviewed();engine.forgetChoices()
         }
     }
     @Test fun savedBrouNeedsNoPrexProfileAndUsesTheCurrentAccountMinimum() {
@@ -96,7 +97,7 @@ class ExpressModeTest {
             assertEquals(73100L,engine.state.activePayment?.amount)
             assertNull(engine.state.activePayment?.payerProfileId)
             assertNull(request.get(engine))
-            engine.cancel();engine.forgetChoices()
+            engine.cancel();engine.acknowledgePaymentReviewed();engine.forgetChoices()
         }
     }
 

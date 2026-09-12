@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.2.30-prueba — Express y sesión vigente
+
+- Se conservan los 1,2 segundos. La ayuda no interrumpe el inicio ni inicia pagos al cerrarla.
+- Express reconoce la tarjeta usada con éxito mediante un identificador por cuenta, sin guardar número, vencimiento ni CVV. Con esa tarjeta confirma y vuelve al saldo automáticamente; una distinta pide confirmación.
+- El autocompletado parcial lleva al CVV y Listo continúa. Se mantiene Google y la verificación original.
+- Al abrir se intenta reutilizar la sesión STM vigente. La contraseña de gub.uy conserva la protección por huella y se desbloquea solo si hace falta volver a ingresar.
+- Seguimiento cifrado de pagos inciertos, conservado entre ingresos y cierres. Consultar saldo no equivale a resolver un pago.
+- Inspecciones más frecuentes durante las transiciones, suspensión del mismo recorrido al pasar al fondo y hasta tres consultas adicionales si STM confirma pero el saldo no cambia.
+- Alcance y limitaciones: [EXPRESS-0.2.30](docs/EXPRESS-0.2.30.md).
+
 ## 0.2.29-prueba — vibración controlada desde Boletera
 
 - Interruptor persistente propio, encendido por defecto, aplicado a los toques y a Probar vibración.

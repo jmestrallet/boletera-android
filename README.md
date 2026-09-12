@@ -30,11 +30,13 @@ En **0.2.28**, se elimina el título repetido Tu boletera y el icono de Cambiar 
 
 En **0.2.29**, Configuración tiene un interruptor propio de vibración, encendido por defecto. Se comprobó la ejecución con respuesta táctil de Android apagada en un emulador Android 16. La percepción en teléfonos reales y el comportamiento de versiones anteriores siguen pendientes.
 
+En **0.2.30**, Express mantiene los 1,2 segundos, reconoce la tarjeta de la última recarga confirmada y puede confirmar y volver al saldo sin pasos adicionales. Conserva Google para completar la tarjeta y el CAPTCHA original. Al abrir la app intenta reutilizar la sesión STM antes de pedir huella; la contraseña sigue protegida por biometría. Los pagos inciertos mantienen un seguimiento cifrado que no desaparece por consultar el saldo. [Alcance, límites y comprobaciones](docs/EXPRESS-0.2.30.md).
+
 ## Probar en el celular
 
 **Estado actual:** el dueño reportó tres recargas reales con Prex y señaló esperas sin salida, un aviso transitorio, CVV vacío tras autocompletar y un toque adicional para regresar al saldo. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. La 0.2.19 integra confirmación final, comprobante, resultado STM y regreso a la home. La 0.2.22 aborda esos puntos con pruebas ficticias. El CVV efectivamente entregado por Google depende del proveedor y de los datos guardados; se conserva el ingreso manual visible. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
 
-**[Descargar la versión 0.2.29](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.29)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+**[Descargar la versión 0.2.30](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.30)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
@@ -46,7 +48,7 @@ En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y
 
 1. Pasá `outputs/boletera-prueba-0.2.29.apk` a tu Android e instalala. Requiere Android 8 o posterior y Android System WebView actualizado. La actualización usa la misma firma que las versiones anteriores; instalala encima para conservar el acceso guardado.
 2. Abrí **Boletera · Prueba** e ingresá tu documento y contraseña de Usuario gub.uy.
-3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en el siguiente ingreso, pedirá biometría para descifrarlo.
+3. Si querés, activá **Guardar acceso con huella**. El celular debe tener biometría fuerte configurada. La app pedirá autorización para cifrar el acceso; en los siguientes ingresos se intenta reutilizar la sesión STM y solo se pide biometría si hace falta descifrar el acceso otra vez.
 4. Si aparece un CAPTCHA reconocido, se mostrará únicamente su recorte interactivo. Completalo y tocá **Ya completé la verificación**.
 5. Elegí la boletera operativa una vez: la app la recuerda por cuenta y la selecciona en los próximos ingresos si sigue habilitada. Podés usar **Cambiar boletera**. Compará saldo y mínimo con STM y elegí el monto.
 6. Elegí Prex o eBROU. Si usás Prex por primera vez, **Agregar datos** abre directamente el formulario del titular. Con un solo titular guardado se usan esos datos; con varios podés cambiar la selección. El nombre para guardar es opcional.
@@ -54,9 +56,9 @@ En **Assets**, elegí el archivo `.apk`. Las descargas de GitHub son públicas y
 
 Si el acceso, CAPTCHA o certificado falla, la app se detiene. No cambia el servicio de autocompletado de Android; los perfiles propios son solo datos ordinarios del titular. La compatibilidad de Google con el formulario dentro del WebView todavía requiere prueba en el teléfono. Para reportar el problema alcanza con el texto del mensaje y el modelo/versión de Android; no compartas contraseñas ni números bancarios.
 
-Desde 0.2.1, salir de Prex vuelve al saldo y permite iniciar otra recarga sin revisión manual. Al regresar de eBROU también se actualiza el saldo. La app ya no guarda solicitudes como pagos pendientes ni conserva enlaces para reabrirlas. Esto no confirma ni cancela una operación del proveedor. Se mantiene la protección contra toques duplicados mientras se abre el pago.
+Desde 0.2.30, salir del pago vuelve a consultar el saldo. Si existe una operación por resolver, se conserva su seguimiento cifrado y se requiere revisar su resultado antes de otra recarga. No se guardan enlaces de pago para reabrirlos ni se considera que salir cancele la operación.
 
-Desde 0.2.2, al abrir la app con un acceso guardado se solicita la huella automáticamente. Cancelar permite reintentar con el botón o ingresar manualmente; cerrar sesión no vuelve a abrir la huella por sí solo.
+Desde 0.2.30, al abrir con acceso guardado se intenta recuperar la sesión STM vigente antes de solicitar huella. Si se requiere identificación, la contraseña se desbloquea con la misma protección biométrica anterior. Cancelar permite reintentar o ingresar manualmente.
 
 Desde 0.2.3, la preparación de la recarga es más compacta y la acción principal queda fija abajo. También quedan visibles las acciones de guardar datos y continuar en las pantallas nativas de Prex. [Auditoría de la experiencia de pago](docs/AUDITORIA-PAGOS-UX.md).
 
@@ -133,4 +135,4 @@ Los tests JS usan fixtures sintéticos y WebView se prueba también dentro de An
 - Validar Prex dentro de Boletera y eBROU en Chrome, incluyendo tarjeta, autorización y acreditación reales. No se simula una recarga exitosa.
 - Otros métodos de ID Uruguay, diferentes tipos de boletera y revisión de las condiciones aplicables antes de publicar.
 
-No se infiere el mínimo a partir de una tarifa fija. Pago confirmado y saldo acreditado deberán ser estados diferentes cuando se implemente el cobro real.
+No se infiere el mínimo a partir de una tarifa fija. Pago confirmado por el proveedor, confirmación STM y saldo consultado se conservan como evidencias distintas.

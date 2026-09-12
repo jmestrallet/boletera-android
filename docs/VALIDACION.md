@@ -1,6 +1,24 @@
+# Validación 0.2.30 — Express y sesión vigente
+
+Fecha: 12/9/2026. Código 48. Resultado de laboratorio; todavía no comprobado con una recarga real en el teléfono del dueño.
+
+- Compilaciones release/debug, pruebas unitarias y lint: correctas. 8 pruebas unitarias.
+- Adaptadores de páginas: 62 pruebas correctas, incluida suspensión sin reenvío y detención ante CAPTCHA visible.
+- Android 16, emulador propio sin cuenta real: 25 pruebas correctas en 51,16 s. Sitios financieros y de identidad interceptados con datos ficticios.
+- Verificados: tarjeta habitual reconocida → una confirmación → retorno original → saldo STM nuevo sin toques posteriores; tarjeta distinta → confirmación humana; resultado pendiente conservado al refrescar; seguimiento cifrado recreado y aislado por cuenta; sesión vigente reutilizada sin descifrar credenciales; sesión vencida solicita desbloqueo sin bucles; vencimiento después del traspaso al proveedor conserva revisión y no reenvía.
+- Se mantienen el gesto de 1,2 segundos, la recarga común, Google y el CAPTCHA original. La ayuda se cierra sin iniciar un pago.
+- `AccessVault.kt` no cambia: la contraseña de gub.uy conserva AES-GCM con clave biométrica por uso. No se guardan número, vencimiento ni CVV de tarjeta.
+- Revisión visual: home con tarjeta habitual enmascarada y saldo leído de STM; home con pago pendiente visible y nueva recarga deshabilitada. Capturas locales `outputs/express30-return-home.png` y `outputs/express30-pending-home.png`, con datos ficticios.
+- APK: `boletera-prueba-0.2.30.apk`, 8.646.995 bytes, SHA-256 `536aefd592de854d06eb72759310df48c47a63957315ec7be5c7f14867969165`.
+- Certificado SHA-256: `547f110e5f633028151676a0c5d2536b80ee72a40810f6707a754cf2edccdab5`, igual al de las versiones anteriores.
+
+Límites: la primera recarga después de actualizar puede requerir confirmación para reconocer la tarjeta. Google conserva la selección/autenticación; el CAPTCHA visible requiere continuación humana. No se midió ahorro de tiempo en una operación real ni se garantiza un solo gesto. Ver [alcance completo](EXPRESS-0.2.30.md).
+
+---
+
 # Estado de la prueba — 10 de septiembre de 2026
 
-## Versión vigente: 0.2.29
+## Versión anterior: 0.2.29
 
 Vibración con interruptor propio persistente, encendido por defecto. Todas las instancias consultan la misma preferencia al pedir cada pulso. Se elimina el bloqueo previo por HAPTIC_FEEDBACK_ENABLED. En Android 13+ se declara USAGE_MEDIA para la vibración controlada por la aplicación; atributos sin flags privilegiados. En Android 8–12 se utiliza AudioAttributes y falta comprobar el efecto de las políticas de esas versiones: pueden reclasificar pulsos cortos como respuesta táctil.
 

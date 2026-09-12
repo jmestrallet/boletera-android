@@ -43,3 +43,14 @@ test('stalled advance, pause and unknown forms never replay or resume automatica
  w.BoleteraExpress.stop();payer(dom);w.document.querySelector('button').onclick=()=>clicks++;assert.equal(w.BoleteraExpress.tick(),'manual');assert.equal(clicks,1);
  }finally{dom.window.close();}
 });
+
+test('suspension preserves the same request but cannot advance until resumed',()=>{
+ const dom=setup();try {
+  const w=dom.window;let clicks=0;
+  w.document.querySelector('button').onclick=()=>clicks++;
+  w.BoleteraExpress.start(56400,person);w.BoleteraExpress.suspend(true);
+  w.BoleteraExpress.tick();assert.equal(clicks,0);
+  w.BoleteraExpress.suspend(false);w.BoleteraExpress.tick();w.BoleteraExpress.tick();assert.equal(clicks,1);
+  w.BoleteraExpress.stop();w.BoleteraExpress.suspend(false);w.BoleteraExpress.tick();assert.equal(clicks,1);
+ }finally{dom.window.close();}
+});

@@ -1,5 +1,7 @@
 # Cierre de Prex · revisión 0.2.22
 
+**Actualización 0.2.30:** el comportamiento vigente de Express, sesión y seguimiento de pagos está en [EXPRESS-0.2.30.md](EXPRESS-0.2.30.md). Las secciones siguientes describen las versiones indicadas y sus antecedentes.
+
 ## Problema observado
 
 El dueño completó por primera vez una recarga real el 10/9/2026. Sus cuatro capturas muestran confirmación final de Sistarbanc, comprobante exitoso, confirmación de recarga en STM y saldo posterior aumentado. El pago funcionó, pero esas pantallas aparecieron como web dentro del panel y el recorrido no devolvió la home nativa. Las capturas privadas y sus referencias no se incorporan al repositorio.

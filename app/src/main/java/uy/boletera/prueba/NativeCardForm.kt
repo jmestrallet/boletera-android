@@ -110,6 +110,12 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
         return true
     }
     LaunchedEffect(focusCard,expandedChallenge) { if(focusCard&&!expandedChallenge) { numberFocus.requestFocus();keyboard?.show() } }
+    LaunchedEffect(filledFields) {
+        // A partial system fill commonly omits CVV. Focus it without selecting a different card.
+        if(focusCard && filledFields and 3 == 3 && CardInput.panValid(pan) && CardInput.expiryValid(expiry) && cvv.isBlank()) {
+            codeFocus.requestFocus();keyboard?.show();codeView.bringIntoView()
+        }
+    }
     LaunchedEffect(expandedChallenge) { if(expandedChallenge) {focus.clearFocus();keyboard?.hide()} }
     DisposableEffect(lifecycle,autofill) {
         fun clear() { filledFields=0;autofill?.cancel();pan="";expiry="";cvv="";attempted=false;focus.clearFocus() }
@@ -152,7 +158,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                         modifier=Modifier.weight(1f).bringIntoViewRequester(codeView).focusRequester(codeFocus).semantics { contentType=ContentType.CreditCardSecurityCode;onAutofillText { fill(4,it.text) } },
                         visualTransformation=PasswordVisualTransformation(),
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword,imeAction=ImeAction.Done),
-                        keyboardActions=KeyboardActions(onDone={if(!focusMissing())keyboard?.hide()}),
+                        keyboardActions=KeyboardActions(onDone={if(!focusMissing())submit()}),
                         isError=attempted&&!CardInput.cvvValid(cvv),
                         supportingText=if(attempted&&!CardInput.cvvValid(cvv)) {{Text(if(cvv.isBlank())"Falta el código de seguridad de tu tarjeta." else "Ingresá 3 o 4 dígitos.")}} else null)
                 }

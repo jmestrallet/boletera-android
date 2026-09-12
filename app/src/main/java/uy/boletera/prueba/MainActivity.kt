@@ -106,7 +106,7 @@ class MainActivity : FragmentActivity() {
                 val current=engine.state
                 if (automaticUnlockHandled != current.accessRequestId) {
                     automaticUnlockHandled = current.accessRequestId
-                    if (vault.exists && current.stage == "welcome") unlockSavedAccess()
+                    if (vault.exists && current.stage == "welcome" && !engine.trySavedSession()) unlockSavedAccess()
                 }
             }
         }
@@ -114,11 +114,11 @@ class MainActivity : FragmentActivity() {
         var showTicketGuide by rememberSaveable { mutableStateOf(false) }
         var showAccessGuide by rememberSaveable { mutableStateOf(false) }
         var showExpressHelp by rememberSaveable { mutableStateOf(false) }
+        var showPaymentReview by remember {mutableStateOf(false)}
         val helpPreferences=remember { getSharedPreferences("feature_help",MODE_PRIVATE) }
         fun requestExpress() {
             if(!engine.expressAvailable || state.busy)return
-            if(helpPreferences.getBoolean("express_skip_intro_v1",false))engine.startExpress()
-            else showExpressHelp=true
+            engine.startExpress()
         }
         if (state.stage == "embeddedPrex") {
             EmbeddedPrexScreen(engine.prexPayment, state.activePayment, engine::leavePrexPayment)
@@ -218,7 +218,8 @@ class MainActivity : FragmentActivity() {
                             }
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
                                 onExpressCharge=if(engine.expressAvailable)::requestExpress else null,
-                                onExpressHelp={if(!helpPreferences.getBoolean("express_skip_intro_v1",false))showExpressHelp=true},onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressProviderName)
+                                onExpressHelp={if(!helpPreferences.getBoolean("express_skip_intro_v1",false))showExpressHelp=true},onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel,
+                                onPaymentReviewed={showPaymentReview=true})
                             "connecting" -> {
                                 LoadingState(if(state.recoveringSession)"Recuperando tu sesión" else if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(state.recoveringSession)"Estamos comprobando si podés volver a entrar sin identificarte otra vez." else if(engine.expressPreparing)"Ya podés soltar. Estamos preparando tu medio de pago." else "Estamos consultando el sitio. Tu información va a aparecer acá.",express=engine.expressPreparing)
                                 TextButton(onClick=::back) { Text("Cancelar") }
@@ -290,12 +291,15 @@ class MainActivity : FragmentActivity() {
             text={Column(Modifier.heightIn(max=350.dp).verticalScroll(rememberScrollState())) {StmAccessInstructions()}},
             confirmButton={TextButton(onClick=::openStmAccess){Text("Abrir STM")}},
             dismissButton={TextButton(onClick={showAccessGuide=false}){Text("Volver")}})
+        if(showPaymentReview)AlertDialog(onDismissRequest={showPaymentReview=false},title={Text("¿Ya comprobaste el resultado?")},
+            text={Text("Confirmá solo después de revisar el pago en Prex o en tu banco. Esto habilita otra recarga; no cancela ni devuelve el pago anterior.")},
+            confirmButton={TextButton(onClick={if(engine.acknowledgePaymentReviewed())showPaymentReview=false}) {Text("Sí, ya lo revisé")}},
+            dismissButton={TextButton(onClick={showPaymentReview=false}) {Text("Volver")}})
         if(showExpressHelp && stage=="balance")ExpressIntroDialog(state.minimum,
             onSkipChanged={skip->helpPreferences.edit().putBoolean("express_skip_intro_v1",skip).apply()},
             onClose={showExpressHelp=false},onAccept={skip->
                 helpPreferences.edit().putBoolean("express_skip_intro_v1",skip).apply()
                 showExpressHelp=false
-                if(engine.expressAvailable && !state.busy)engine.startExpress()
             })
         if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",state.diagnostic,
             onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall=updates::requestReview,onClose={showSettings=false},
@@ -373,7 +377,7 @@ class MainActivity : FragmentActivity() {
             if(payment.slowStep && payment.message.isBlank()) {
                 Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=8.dp)) {
                     Text("Este paso está demorando más de lo habitual. Podés revisar la misma solicitud en la página original. No se volvió a enviar.",color=Muted,style=MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick={payment.stopExpress();showOriginal=true}) {Text("Revisar esta solicitud")}
+                    TextButton(onClick={if(payment.prepareOriginalReview())showOriginal=true}) {Text("Revisar esta solicitud")}
                     TextButton(onClick=onClose) {Text("Volver al saldo")}
                 }
             }
@@ -394,11 +398,11 @@ class MainActivity : FragmentActivity() {
                         PaymentBrowserView(payment,false,null,browserWidth,browserHeight,Modifier.weight(1f).fillMaxWidth())
                     }
                     if (native && completion) {
-                        PaymentCompletionScreen(payment, pending, onOriginal={showOriginal=true}) {
+                        PaymentCompletionScreen(payment, pending, onOriginal={if(payment.prepareOriginalReview())showOriginal=true}) {
                             PaymentBrowserView(payment,true,null,browserWidth,browserHeight,Modifier.size(1.dp))
                         }
                     }
-                    if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{payment.stopExpress();showOriginal=true},focusCard=payment.expressPhase=="done") {
+                    if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{if(payment.prepareOriginalReview())showOriginal=true},focusCard=payment.expressPhase=="done") {
                         if(payment.expandedChallenge) ExpandedPaymentChallenge(payment,browserWidth,browserHeight,Modifier.fillMaxSize())
                         else BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
                             val cap=payment.challenge
@@ -409,7 +413,7 @@ class MainActivity : FragmentActivity() {
                     }
                     if(native && !completion && payment.nativeStage!="card" && payment.expandedChallenge)Column(Modifier.fillMaxSize()) {
                         ExpandedPaymentChallenge(payment,browserWidth,browserHeight,Modifier.weight(1f).fillMaxWidth().padding(12.dp))
-                        TextButton(onClick={payment.stopExpress();showOriginal=true},modifier=Modifier.fillMaxWidth()){Text("Ver página original")}
+                        TextButton(onClick={if(payment.prepareOriginalReview())showOriginal=true},modifier=Modifier.fillMaxWidth()){Text("Ver página original")}
                     }
                     if (native && !completion && payment.nativeStage!="card" && !payment.expandedChallenge) Column(Modifier.fillMaxSize().background(Paper)) {
                       Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -453,7 +457,7 @@ class MainActivity : FragmentActivity() {
                             Primary(if(payment.nativeStage=="payer")"Continuar a la tarjeta" else "Continuar a los datos",payment.canContinue,payment::advance)
                             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                                 if(payment.nativeStage=="payer" && !expressVerification)TextButton(onClick={payment.stopExpress();editing=true},enabled=payment.chosenPayer!=null){Text("Editar datos")}
-                                TextButton(onClick={payment.stopExpress();showOriginal=true}){Text("Ver página original")}
+                                TextButton(onClick={if(payment.prepareOriginalReview())showOriginal=true}){Text("Ver página original")}
                             }
                         }
                       }

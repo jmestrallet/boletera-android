@@ -24,15 +24,15 @@ import androidx.compose.ui.unit.dp
         title={Text("Así funciona Carga Express")},
         text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(16.dp)) {
             Text("Recarga el mínimo que STM indique para esta boletera. Puede cambiar entre cuentas y consultas. Ahora es ${Amounts.format(amount)}.")
-            Text("Usa tu medio de pago guardado y completa los pasos que ya dejaste preparados.")
-            Text("Vos completás las verificaciones que aparezcan y autorizás el pago en el medio elegido.")
-            Text("La próxima vez, mantené Carga Express apretado hasta completar el círculo. Si soltás antes, se cancela el atajo.")
+            Text("Usa el medio de tu última recarga exitosa. Google completa tu tarjeta; si falta el CVV, lo ingresás y tocás Listo.")
+            Text("Mantené Carga Express apretado durante 1,2 segundos para autorizar esa recarga. Si soltás antes, se cancela el atajo.")
+            Text("Si reconoce la misma tarjeta de pago, confirma y vuelve al saldo automáticamente. La primera vez o con una tarjeta distinta, pide confirmación. Las verificaciones del proveedor siguen siendo tuyas.")
             Row(Modifier.fillMaxWidth().toggleable(skip,role=Role.Checkbox,onValueChange={skip=it;onSkipChanged(it)}),verticalAlignment=Alignment.CenterVertically) {
                 Checkbox(skip,onCheckedChange=null)
                 Text("No volver a mostrar",modifier=Modifier.weight(1f))
             }
         }},
-        confirmButton={TextButton(onClick={onAccept(skip)}) {Text("Aceptar y continuar")}},
+        confirmButton={TextButton(onClick={onAccept(skip)}) {Text("Entendido")}},
         dismissButton={TextButton(onClick=onClose) {Text("Ahora no")}})
 }
 

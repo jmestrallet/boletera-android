@@ -1,5 +1,7 @@
 # Recuperación de sesión · 0.2.21
 
+**Actualización 0.2.30:** el comportamiento vigente de Express, sesión y seguimiento de pagos está en [EXPRESS-0.2.30.md](EXPRESS-0.2.30.md). Las secciones siguientes describen las versiones indicadas y sus antecedentes.
+
 La sesión de STM puede vencer mientras Boletera permanece abierta. La app no conserva una contraseña descifrada para renovar el acceso: el almacén de credenciales exige una autorización biométrica por uso.
 
 ## Detección y recuperación

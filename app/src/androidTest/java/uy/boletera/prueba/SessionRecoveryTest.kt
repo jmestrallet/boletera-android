@@ -85,6 +85,53 @@ class SessionRecoveryTest {
         compose.onNodeWithText("Ingresar",useUnmergedTree=true).performScrollTo().performClick()
         home()
     }
+    private fun prepareSavedSession() {
+        val cookieReady=java.util.concurrent.atomic.AtomicBoolean(false)
+        compose.runOnIdle {
+            CookieManager.getInstance().setCookie(StmEngine.START,"BOLETERA_TEST_SESSION=synthetic; Path=/; Secure") {cookieReady.set(it)}
+        }
+        compose.waitUntil(5000){cookieReady.get()}
+        compose.runOnIdle {engine.cancel();engine.savedAccess(true)}
+    }
+    @Test fun savedLiveSessionReturnsToHomeWithoutDecryptingCredentials() {
+        setup();prepareSavedSession()
+        val before=hits["/login"]?.get()?:0
+        compose.runOnIdle {assertTrue(engine.trySavedSession())}
+        home()
+        compose.runOnIdle {
+            assertEquals(before,hits["/login"]?.get()?:0)
+            assertNull(StmEngine::class.java.getDeclaredField("document").apply{isAccessible=true}.get(engine))
+            assertNull(StmEngine::class.java.getDeclaredField("password").apply{isAccessible=true}.get(engine))
+            assertEquals(0,engine.state.accessRequestId);assertFalse(engine.state.sessionExpired)
+            engine.forgetChoices()
+        }
+    }
+    @Test fun aNewSignInAndFreshBalanceDoNotClearAnUnresolvedPayment() {
+        setup()
+        compose.runOnIdle {
+            val choices=StmEngine::class.java.getDeclaredField("choices").apply{isAccessible=true}.get(engine) as JourneyPreferences
+            assertTrue(PaymentJournal(compose.activity).write(choices.accountKey!!,PaymentRecord("ABCD1234","1033",56400,1000,26000,"pending","DEMO-PENDING")))
+            engine.cancel();engine.connect("00000000","synthetic-session-password")
+        }
+        home()
+        compose.runOnIdle {
+            assertTrue(engine.state.paymentNeedsReview);engine.startExpress()
+            assertNull(engine.state.activePayment);assertEquals("balance",engine.state.stage)
+            assertEquals(0,hits["/app/mistm/cuenta/pages/recarga2.xhtml"]?.get()?:0)
+            assertTrue(engine.acknowledgePaymentReviewed());engine.forgetChoices()
+        }
+    }
+    @Test fun expiredSavedSessionRequestsUnlockOnceInsteadOfLoopingOrSendingCredentials() {
+        setup();prepareSavedSession();authenticated=false;ssoAlive=false
+        compose.runOnIdle {assertTrue(engine.trySavedSession())}
+        compose.waitUntil(20000){engine.state.stage=="welcome"&&engine.state.sessionExpired}
+        compose.runOnIdle {
+            assertEquals(1,engine.state.accessRequestId);assertFalse(engine.trySavedSession())
+            assertNull(StmEngine::class.java.getDeclaredField("document").apply{isAccessible=true}.get(engine))
+            assertNull(StmEngine::class.java.getDeclaredField("password").apply{isAccessible=true}.get(engine))
+            engine.forgetChoices()
+        }
+    }
     @Test fun expiredViewUsesExistingIdentitySessionWithoutAskingForCredentialsOrRepeatingCharge() {
         setup()
         val before=hits["/app/mistm/cuenta/pages/tarjetas.xhtml"]!!.get()
@@ -123,7 +170,7 @@ class SessionRecoveryTest {
         signInAgain()
         assertEquals(1,hits["/app/mistm/cuenta/pages/recarga2.xhtml"]?.get())
         assertEquals(1,hits["/app/mistm/cuenta/pages/session-ended.xhtml"]?.get())
-        compose.runOnIdle {assertEquals(82400L,engine.state.balance);assertNull(engine.state.activePayment);engine.forgetChoices()}
+        compose.runOnIdle {assertEquals(82400L,engine.state.balance);assertNull(engine.state.activePayment);assertTrue(engine.state.paymentNeedsReview);engine.acknowledgePaymentReviewed();engine.forgetChoices()}
     }
     @Test fun httpSessionExpiryRecoversButAnUnrelatedServerFailureRemainsAnError() {
         setup();ssoAlive=true

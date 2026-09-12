@@ -44,6 +44,15 @@ class StmEngine(private val context: Context) {
     private var pendingHttpError: String? = null
     private var debugDestination = ""
     private val choices = JourneyPreferences(context)
+    private val paymentJournal = PaymentJournal(context)
+    private var paymentRecord: PaymentRecord? = null
+    private var priorAuthorizationRecord: PaymentRecord? = null
+    private var journalUnavailable = false
+    private var savedSessionAttempted = false
+    private var foreground = true
+    private var balanceRefreshTask: Runnable? = null
+    private var balanceRefreshRecord = 0L
+    private var balanceRefreshCount = 0
     private val payerStore = PayerProfiles(context)
     var payerProfiles by mutableStateOf<List<PayerProfile>>(emptyList())
         private set
@@ -61,10 +70,23 @@ class StmEngine(private val context: Context) {
     val web = WebView(context)
     val host = CaptchaHost(context, web)
     private val poll = object : Runnable {
-        override fun run() { if (active && !destroyed) { inspect(); handler.postDelayed(this, 1100) } }
+        override fun run() { if (active && !destroyed) { inspect(); handler.postDelayed(this, if(state.busy)200 else 1100) } }
     }
 
     init {
+        prexPayment.identifyCard=choices::cardIdentity
+        prexPayment.beforeAuthorize=::trackAuthorization
+        prexPayment.beforeOriginalReview=::trackOriginalReview
+        prexPayment.authorizationNotSent={
+            val account=choices.accountKey
+            if(account!=null && paymentRecord?.phase=="authorizing") {
+                val prior=priorAuthorizationRecord
+                if(if(prior==null)paymentJournal.clear(account) else paymentJournal.write(account,prior)) {
+                    paymentRecord=prior;paymentNeedsReview=prior!=null
+                } else {journalUnavailable=true;paymentNeedsReview=true}
+            }
+        }
+        prexPayment.outcomeListener=::observePaymentOutcome
         // Standard Android WebView inspector is available only in developer builds.
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         web.settings.apply {
@@ -139,8 +161,87 @@ class StmEngine(private val context: Context) {
     }
 
     fun savedAccess(value: Boolean) { state = state.copy(hasSavedAccess = value) }
+    fun trySavedSession(): Boolean {
+        if(savedSessionAttempted || state.stage!="welcome" || state.busy || !state.hasSavedAccess)return false
+        savedSessionAttempted=true
+        if(!choices.restoreSessionAccount() || CookieManager.getInstance().getCookie(START).isNullOrBlank())return false
+        restorePaymentRecord()
+        recoverSession()
+        return true
+    }
     fun dismissNotice(message: String) { if (state.message == message) state = state.copy(message = "") }
     fun notice(message: String) { state = state.copy(message = message, busy = false) }
+
+    private fun restorePaymentRecord() {
+        journalUnavailable=false
+        paymentRecord=try {choices.accountKey?.let(paymentJournal::read)} catch(_:Exception) {journalUnavailable=true;null}
+        paymentNeedsReview=journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
+    }
+
+    private fun trackAuthorization(): Boolean {
+        val pending=state.activePayment ?: return false
+        val account=choices.accountKey ?: return false
+        if(journalUnavailable || paymentRecord?.let {it.phase!="reviewing" || it.startedAt!=pending.createdAt || it.card!=pending.card || it.provider!=pending.provider || it.amount!=pending.amount}==true)return false
+        val transaction=prexPayment.summaryRows.firstOrNull {paymentLabel(it.first)=="transaccion"}?.second.orEmpty()
+        val record=PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance,transaction=transaction)
+        if(!paymentJournal.write(account,record))return false
+        priorAuthorizationRecord=paymentRecord
+        paymentRecord=record;paymentNeedsReview=true
+        return true
+    }
+    private fun trackOriginalReview(): Boolean {
+        val pending=state.activePayment ?: return false
+        if(journalUnavailable)return false
+        paymentRecord?.let {return it.startedAt==pending.createdAt && it.card==pending.card && it.provider==pending.provider && it.amount==pending.amount}
+        val account=choices.accountKey ?: return false
+        val record=PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance,"reviewing")
+        if(!paymentJournal.write(account,record))return false
+        paymentRecord=record;paymentNeedsReview=true;return true
+    }
+
+    private fun observePaymentOutcome(stage: String, rows: List<Pair<String,String>>) {
+        val account=choices.accountKey ?: return
+        val pending=state.activePayment ?: return
+        val previous=paymentRecord ?: PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance)
+        val phase=when(stage) {"receipt"->"confirmed";"paymentRejected"->"rejected";"paymentPending"->"pending";"stmSuccess"->"credited";else->return}
+        val transaction=rows.firstOrNull {paymentLabel(it.first)=="transaccion"}?.second.orEmpty()
+        if(previous.transaction.isNotBlank() && transaction.isNotBlank() && previous.transaction!=transaction) {
+            journalUnavailable=true;paymentNeedsReview=true;return
+        }
+        val record=previous.copy(phase=phase,transaction=transaction.ifBlank {previous.transaction})
+        if(paymentJournal.write(account,record)) {
+            paymentRecord=record
+            paymentNeedsReview=phase in setOf("authorizing","pending","confirmed")
+            if(stage=="receipt") {
+                choices.successfulProvider=pending.provider;choices.successfulPayer=pending.payerProfileId
+                val suffix=rows.firstOrNull {it.first.trim().trimEnd(':').equals("Medio de pago",true)}?.second?.takeLast(4) ?: prexPayment.verifiedCardSuffix
+                choices.successfulCardSuffix=suffix?.takeIf {it.matches(Regex("[0-9]{4}"))}
+                choices.successfulCardIdentity=prexPayment.enteredCardIdentity
+            }
+        } else {journalUnavailable=true;paymentNeedsReview=true}
+    }
+    private fun paymentLabel(label: String)=java.text.Normalizer.normalize(label,java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{M}+"),"").trim().trimEnd(':').lowercase()
+
+    private fun showPaymentStatus() {
+        val record=paymentRecord
+        val status=when {
+            journalUnavailable->"No pudimos recuperar el seguimiento del último pago. No inicies otra recarga hasta revisarlo."
+            record?.phase=="confirmed"->"Prex confirmó el pago. Todavía falta comprobar su acreditación en STM."
+            record?.phase=="credited"->if(balanceRefreshCount<3)"STM confirmó la recarga. Actualizando el saldo…" else "STM confirmó la recarga, pero el saldo sigue igual. Podés actualizarlo o revisar el pago."
+            record?.phase in setOf("reviewing","pending","authorizing")->"Hay una recarga de ${Amounts.format(record?.amount)} por revisar. Consultar el saldo no confirma su resultado."
+            else->""
+        }
+        state=state.copy(paymentNeedsReview=paymentNeedsReview,paymentStatus=status)
+    }
+
+    fun acknowledgePaymentReviewed(): Boolean {
+        val account=choices.accountKey ?: return false
+        if(!paymentJournal.clear(account))return false
+        paymentRecord=null;paymentNeedsReview=false;journalUnavailable=false
+        state=state.copy(paymentNeedsReview=false,paymentStatus="",message="Revisión registrada. No se envió otra recarga.")
+        return true
+    }
 
     fun connect(doc: String, pass: String) {
         if (state.busy) return
@@ -152,6 +253,7 @@ class StmEngine(private val context: Context) {
         document = doc; password = pass
         accountVerified = false
         choices.useAccount(doc)
+        restorePaymentRecord()
         choosingCard = false
         paymentInFlight = false; providerSubmitted = false; handoffSent = false
         interruptedAccess = false; stageTrail.clear()
@@ -253,7 +355,7 @@ class StmEngine(private val context: Context) {
         val provider = state.selectedProvider ?: return
         val amount = state.amount ?: return
         val card = state.selectedCard ?: return
-        if (!accountVerified || paymentInFlight || state.stage != "paymentBoundary" || state.busy || provider !in PaymentPolicy.supported || !Amounts.valid(amount, state.minimum)) return
+        if (!accountVerified || paymentNeedsReview || journalUnavailable || paymentInFlight || state.stage != "paymentBoundary" || state.busy || provider !in PaymentPolicy.supported || !Amounts.valid(amount, state.minimum)) return
         if (provider == "1033" && payerProfiles.none { it.id == state.payerProfileId }) {
             notice("Elegí o guardá los datos para esta Prex antes de seguir.")
             return
@@ -263,6 +365,7 @@ class StmEngine(private val context: Context) {
         paymentInFlight = true; providerSubmitted = false; handoffSent = false
         active = true; lastAction = ""; actionStarted = System.currentTimeMillis()
         state = state.copy(stage = "openingPayment", busy = true, activePayment = pending, message = "")
+        if(provider=="1002" && !trackAuthorization()) {fail("No pudimos guardar el seguimiento de esta recarga. No se abrió el banco.");return}
         act("provider", provider)
         handler.removeCallbacks(poll); handler.post(poll)
     }
@@ -286,7 +389,8 @@ class StmEngine(private val context: Context) {
     private fun openPrexPayment(url: String) {
         if (handoffSent || !paymentInFlight || state.selectedProvider != "1033") return
         if (prexPayment.open(url, payerProfiles.find { it.id == state.activePayment?.payerProfileId },
-                expressAmount = state.activePayment?.amount?.takeIf { expressPayment }, expectedAmount = state.activePayment?.amount)) {
+                expressAmount = state.activePayment?.amount?.takeIf { expressPayment }, expectedAmount = state.activePayment?.amount,
+                expectedCardIdentity=choices.successfulCardIdentity,expectedCardSuffix=choices.successfulCardSuffix)) {
             paymentOpened()
             state = state.copy(stage = "embeddedPrex")
         } else fail("No se pudo abrir esta solicitud de Prex. No se volvió a enviar la recarga.")
@@ -325,7 +429,7 @@ class StmEngine(private val context: Context) {
 
     fun refresh() {
         if (state.busy) return
-        paymentNeedsReview = paymentNeedsReview || state.activePayment != null
+        balanceRefreshTask?.let(handler::removeCallbacks);balanceRefreshTask=null
         clearPaymentSession()
         clearSecrets(); lastAction = ""; pageStage = ""; active = true; paymentInFlight = false; handoffSent = false
         state = state.copy(stage = "connecting", busy = true, minimum = null, amount = null, captcha = null, message = "")
@@ -345,16 +449,20 @@ class StmEngine(private val context: Context) {
         act("amount", amount.toString())
     }
 
-    private fun expressPayer() = payerProfiles.find { it.id==state.payerProfileId && it.valid() }
-        ?: payerProfiles.singleOrNull()?.takeIf { it.valid() }
+    private fun expressPayer(): PayerProfile? {
+        if(choices.successfulProvider=="1033")return payerProfiles.find {it.id==choices.successfulPayer && it.valid()}
+        return payerProfiles.find {it.id==state.payerProfileId && it.valid()} ?: payerProfiles.singleOrNull()?.takeIf {it.valid()}
+    }
 
-    val expressProviderName: String get() = when(choices.provider) {"1033"->"Prex";"1002"->"eBROU";else->"Medio guardado"}
-    private val expressProviderReady: Boolean get() = when(choices.provider) {
+    private val expressProvider: String? get()=choices.successfulProvider ?: choices.provider
+    val expressProviderName: String get() = when(expressProvider) {"1033"->"Prex";"1002"->"eBROU";else->"Medio guardado"}
+    val expressPaymentLabel: String get()=expressProviderName + if(expressProvider=="1033")choices.successfulCardSuffix?.let {" · •••• $it"}.orEmpty() else ""
+    private val expressProviderReady: Boolean get() = when(expressProvider) {
         "1033" -> payerStoreAvailable && expressPayer()!=null
         "1002" -> paymentBrowser.available()
         else -> false
     }
-    val expressAvailable: Boolean get() = accountVerified && expressProviderReady &&
+    val expressAvailable: Boolean get() = accountVerified && !paymentNeedsReview && !journalUnavailable && expressProviderReady &&
         choices.card==state.selectedCard &&
         state.selectedCard!=null && state.cards.any { it.id==state.selectedCard && it.active } &&
         Amounts.valid(state.minimum,state.minimum)
@@ -364,7 +472,7 @@ class StmEngine(private val context: Context) {
         val amount=state.minimum ?: return
         if(!accountVerified || state.busy || state.stage!="balance" || pageStage!="amount" || state.activePayment!=null || expressRequest!=null) return
         if(!expressAvailable)return
-        val provider=choices.provider ?: return
+        val provider=expressProvider ?: return
         val payer=if(provider=="1033")expressPayer() ?: return else null
         if(state.cards.none { it.id==card && it.active })return
         if(!Amounts.valid(amount,state.minimum))return
@@ -398,6 +506,7 @@ class StmEngine(private val context: Context) {
 
     fun logout() {
         cancel()
+        choices.clearSessionAccount()
         state = state.copy(busy = true)
         // Remove this app's local session, not sessions in another browser or device.
         val request = sessionRequest
@@ -411,14 +520,16 @@ class StmEngine(private val context: Context) {
     }
 
     fun pause() {
-        expressRequest = null // Returning to the app never starts a provider automatically.
-        expressPayment = false
-        prexPayment.stopExpress()
+        foreground=false
+        // Suspend only: the existing authorization remains bound to this one in-memory journey.
+        prexPayment.pause()
         handler.removeCallbacks(poll)
         if (document != null || password != null) interruptedAccess = true
         clearSecrets()
     }
     fun resume() {
+        foreground=true
+        prexPayment.resume()
         if (state.stage == "externalPayment") { refresh(); return }
         if (active) { handler.removeCallbacks(poll); handler.post(poll) }
     }
@@ -456,7 +567,7 @@ class StmEngine(private val context: Context) {
         }
     }
     private fun act(action: String, value: String = "") {
-        if (!active || destroyed || !NavigationPolicy.allowed(web.url ?: "")) return
+        if (!active || !foreground || destroyed || !NavigationPolicy.allowed(web.url ?: "")) return
         if (lastAction == action && state.busy) return
         lastAction = action; actionStarted = System.currentTimeMillis()
         state = state.copy(busy = true, message = "")
@@ -487,7 +598,7 @@ class StmEngine(private val context: Context) {
     }
 
     private fun inspect() {
-        if (!active || destroyed || polling || !allowedPage(web.url ?: "")) return
+        if (!active || !foreground || destroyed || polling || !allowedPage(web.url ?: "")) return
         if (paymentInFlight && !NavigationPolicy.allowed(web.url ?: "")) {
             inspectPaymentPage()
             if (System.currentTimeMillis() - actionStarted > 45000) fail("El proveedor demoró demasiado. Revisá el pago antes de iniciar otro.")
@@ -521,6 +632,7 @@ class StmEngine(private val context: Context) {
     }
 
     private fun applySnapshot(data: JSONObject) {
+        if(!foreground)return
         val stage = data.optString("stage", "unknown")
         if(stage=="password")passwordStepSeen=true
         val loginStage = stage in setOf("start", "identity", "document", "password", "signedOut")
@@ -606,6 +718,8 @@ class StmEngine(private val context: Context) {
                     catch (_: Exception) { payerProfiles = emptyList(); payerStoreAvailable = false }
                 }
                 accountVerified = true
+                choices.rememberVerifiedSession()
+                CookieManager.getInstance().flush()
                 recoveringSession = false; recoverySteps.clear()
                 state = state.copy(stage = "cards", recoveringSession = false, sessionExpired = false, cards = list, activePayment = null,
                     payerProfileId = choices.payerProfileId?.takeIf { id -> payerProfiles.any { it.id == id } } ?: payerProfiles.singleOrNull()?.id,
@@ -635,9 +749,27 @@ class StmEngine(private val context: Context) {
                 if (state.minimum == null || state.balance == null) {
                     fail("No pudimos leer el saldo o el mínimo con certeza. No se habilitó la recarga.")
                 } else {
-                    paymentNeedsReview = false
-                    if(state.paymentNeedsReview)state=state.copy(paymentNeedsReview=false,
-                        message="Acceso recuperado. Revisá el saldo y el estado del pago antes de iniciar otra recarga.")
+                    val record=paymentRecord
+                    if(record?.phase in setOf("credited","rejected") && record?.card==state.selectedCard) {
+                        val account=choices.accountKey
+                        val unchanged=record?.phase=="credited" && record.balanceBefore!=null && state.balance==record.balanceBefore
+                        if(unchanged) {
+                            paymentNeedsReview=true
+                            if(balanceRefreshRecord!=record!!.startedAt) {balanceRefreshRecord=record.startedAt;balanceRefreshCount=0}
+                            if(balanceRefreshTask==null && balanceRefreshCount<3) {
+                                balanceRefreshTask=Runnable {
+                                    balanceRefreshTask=null
+                                    if(foreground && state.stage=="balance" && !state.busy && paymentRecord?.startedAt==record.startedAt) {
+                                        balanceRefreshCount++;refresh()
+                                    }
+                                }.also {handler.postDelayed(it,1000L*(balanceRefreshCount+1))}
+                            }
+                        } else if(account!=null && paymentJournal.clear(account)) {
+                            paymentRecord=null;paymentNeedsReview=false
+                            state=state.copy(message=if(record?.phase=="credited")"Recarga confirmada por STM. Saldo actualizado." else "El pago fue rechazado. Saldo consultado.")
+                        }
+                    }
+                    showPaymentStatus()
                 }
             }
             "paymentBoundary" -> {
@@ -687,7 +819,8 @@ class StmEngine(private val context: Context) {
     }
     /** Retry only navigation to the account. Amounts, providers and financial confirmations are discarded. */
     private fun recoverSession() {
-        paymentNeedsReview = paymentNeedsReview || state.activePayment != null || providerSubmitted
+        if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
+        paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
         sessionRequest++
         clearSecrets(); clearPaymentSession()
         recoveringSession = true; recoverySteps.clear(); pendingHttpError = null
@@ -702,7 +835,8 @@ class StmEngine(private val context: Context) {
     }
 
     private fun expired() {
-        paymentNeedsReview = paymentNeedsReview || state.activePayment != null || providerSubmitted
+        if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
+        paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
         sessionRequest++; accessRequestId++
         clearSecrets(); clearPaymentSession()
         active = false; accountVerified = false; recoveringSession = false; recoverySteps.clear()
