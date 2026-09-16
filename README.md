@@ -58,7 +58,6 @@ La app reconoce las pantallas conocidas y automatiza acciones mecánicas, como n
 | | **Estable** | **Beta** |
 |---|---|---|
 | Para quién | Uso habitual | Pruebas y novedades anticipadas |
-| Carga Express | No incluida | Experimental |
 | Actualizaciones | Sólo versiones estables | Sólo versiones Beta |
 | Descarga | [`boletera-0.2.31.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.31) | [`boletera-beta-0.2.31-beta.1.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.31-beta.1) |
 
