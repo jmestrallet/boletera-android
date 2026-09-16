@@ -88,7 +88,7 @@ Todo el código es público. Si te interesa, podés revisar qué se guarda, cóm
 
 ## Feedback y próximos pasos
 
-Me encantaría saber cómo te funciona. Si encontrás un problema, tenés una idea o querés que sume otro método, podés [abrir un issue](https://github.com/jmestrallet/boletera-android/issues) o escribirme por Telegram: [@mestrallet](https://t.me/mestrallet).
+Me encantaría saber cómo te funciona. Si encontrás un problema, tenés una idea o querés que sume otro método, podés [abrir un issue](https://github.com/jmestrallet/boletera-android/issues).
 
 Cada cambio en los sitios oficiales puede exigir una actualización. La versión Beta conserva funciones experimentales que todavía no recomiendo para el uso habitual.
 
