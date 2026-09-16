@@ -66,8 +66,6 @@ internal fun errorPresentation(message:String):ErrorPresentation {
         }
         Column(verticalArrangement=Arrangement.spacedBy(4.dp),horizontalAlignment=Alignment.CenterHorizontally) {
             Primary(if(info.code=="DATOS DE ACCESO")"Corregir datos" else if(payment)"Volver a Boletera" else "Volver al inicio",action=onExit)
-            OutlinedButton(onClick={},enabled=false,modifier=Modifier.fillMaxWidth()) {Text("Enviar error al desarrollador")}
-            Text("Próximamente",style=MaterialTheme.typography.labelSmall,color=Muted)
         }
     }
 }

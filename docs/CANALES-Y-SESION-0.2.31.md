@@ -1,14 +1,14 @@
-# Canales y recuperación de sesión · 0.2.31
+# Versiones y recuperación de sesión · 0.2.31
 
-## Pública y Beta
+## Estable y Beta
 
-La app mantiene el mismo identificador, firma y datos locales en ambos canales. La variante Pública no muestra Carga Express. La Beta conserva el comportamiento de Express publicado en 0.2.30; esta entrega no lo corrige ni lo amplía.
+La app mantiene el mismo identificador, firma y datos locales en ambas versiones. **Boletera** es la versión estable y no muestra Carga Express. **Boletera Beta** conserva el comportamiento de Express publicado en 0.2.30; esta entrega no lo corrige ni lo amplía.
 
-Configuración permite elegir **Pública** o **Beta**. La app consulta solo las publicaciones del canal elegido y exige una APK con el mismo paquete y firma. Cambiar de canal puede instalar una variante con el mismo código de versión cuando ambas corresponden a la misma base; Android sigue mostrando su confirmación de instalación. La descarga y la instalación nunca comienzan solo por tocar el selector.
+Configuración permite elegir **Estable** o **Beta**. La app consulta solo las publicaciones de la opción elegida y exige una APK con el mismo paquete y firma. Cambiar puede instalar una variante con el mismo código cuando ambas corresponden a la misma base; Android sigue mostrando su confirmación. La descarga nunca comienza solo por tocar el selector.
 
-La Pública 0.2.31 muestra una sola vez un aviso sobre la Beta experimental. **Ver Beta** selecciona ese canal y abre Configuración; **Seguir en Pública** conserva el canal estable. La elección se guarda para las búsquedas futuras. Instalar manualmente la APK del otro canal también actualiza esa elección al abrirla.
+La versión estable 0.2.31 muestra una sola vez un aviso sobre Boletera Beta. **Ver Boletera Beta** abre Configuración con Beta seleccionada; **Ahora no** conserva Estable. La elección se guarda para las búsquedas futuras. Instalar manualmente el otro APK también actualiza esa elección al abrirlo.
 
-Las publicaciones públicas usan etiquetas `vX.Y.Z`. Las Beta usan `vX.Y.Z-beta.N`. La búsqueda pública ignora Beta y la búsqueda Beta ignora Pública. Ambos APK comparten `applicationId`, firma y código base para poder reemplazarse sin borrar los datos de Boletera.
+Las publicaciones estables usan etiquetas `vX.Y.Z`. Las Beta usan `vX.Y.Z-beta.N`. Cada búsqueda ignora las publicaciones de la otra versión. Ambos APK comparten `applicationId`, firma y código base para poder reemplazarse sin borrar los datos de Boletera.
 
 ## Sesión vencida sin otra huella
 

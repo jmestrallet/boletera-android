@@ -108,7 +108,7 @@ class AppUpdatesTest {
         } finally { file.delete() }
     }
     private fun fixture(version: String, draft: Boolean = false, digest: String = "sha256:" + "a".repeat(64), host: String = "github.com") =
-        """{"tag_name":"v$version","draft":$draft,"prerelease":true,"assets":[{"name":"boletera-prueba-$version.apk","size":8000,"digest":"$digest","browser_download_url":"https://$host/jmestrallet/boletera-android/releases/download/v$version/boletera-prueba-$version.apk"}]}"""
+        """{"tag_name":"v$version","draft":$draft,"prerelease":false,"assets":[{"name":"boletera-$version.apk","size":8000,"digest":"$digest","browser_download_url":"https://$host/jmestrallet/boletera-android/releases/download/v$version/boletera-$version.apk"}]}"""
     private fun betaFixture(version:String) =
         """{"tag_name":"v$version","draft":false,"prerelease":true,"assets":[{"name":"boletera-beta-$version.apk","size":8000,"digest":"sha256:${"b".repeat(64)}","browser_download_url":"https://github.com/jmestrallet/boletera-android/releases/download/v$version/boletera-beta-$version.apk"}]}"""
 
@@ -129,13 +129,14 @@ class AppUpdatesTest {
 
     @Test fun publicAndBetaFeedsStaySeparateAndAllowAChannelSwitchAtTheSameBaseVersion() {
         val json="[${fixture("0.2.31")},${betaFixture("0.2.31-beta.1")},${betaFixture("0.2.32-beta.2")}]"
-        assertEquals("0.2.31",UpdatePolicy.select(json,"0.2.30-prueba",UpdateChannel.PUBLIC)?.version)
+        assertEquals("0.2.31",UpdatePolicy.select(json,"0.2.30-prueba",UpdateChannel.STABLE)?.version)
         assertEquals("0.2.32-beta.2",UpdatePolicy.select(json,"0.2.31-publica",UpdateChannel.BETA)?.version)
-        val publicSwitch=UpdatePolicy.select(json,"0.2.31-beta.1",UpdateChannel.PUBLIC)
+        val publicSwitch=UpdatePolicy.select(json,"0.2.31-beta.1",UpdateChannel.STABLE)
         assertEquals("0.2.31",publicSwitch?.version)
         assertEquals(listOf("0.2.31"),publicSwitch?.history?.map {it.version})
         assertNull(UpdatePolicy.select("[${betaFixture("0.2.31-beta.1")} ]","0.2.31-beta.1",UpdateChannel.BETA))
         assertTrue(UpdatePolicy.newer("0.2.31-beta.2","0.2.31-beta.1"))
+        assertEquals("0.2.31 Beta 2",UpdatePolicy.display("0.2.31-beta.2"))
     }
 
     @Suppress("DEPRECATION")
@@ -149,7 +150,7 @@ class AppUpdatesTest {
         baseline.versionName = "0.2.30-prueba"; baseline.longVersionCode = BuildConfig.VERSION_CODE.toLong() - 1
         val publicRelease=UpdateRelease("0.2.31","",1,"",packageVersion=candidate.versionName!!)
         UpdateFiles.verifyArchive(candidate, baseline, context.packageName, publicRelease)
-        baseline.versionName="0.2.31-prueba";baseline.longVersionCode=BuildConfig.VERSION_CODE.toLong()
+        baseline.versionName="0.2.31";baseline.longVersionCode=BuildConfig.VERSION_CODE.toLong()
         candidate.versionName="0.2.31-beta.1";candidate.longVersionCode=BuildConfig.VERSION_CODE.toLong()
         UpdateFiles.verifyArchive(candidate,baseline,context.packageName,
             UpdateRelease("0.2.31-beta.1","",1,"",channel=UpdateChannel.BETA,packageVersion="0.2.31-beta.1"))
@@ -167,7 +168,7 @@ class AppUpdatesTest {
     @Test fun settingsCanCheckPublicGithubAndKeepInstalledNewerVersion() {
         compose.onNodeWithContentDescription("Configuración").performClick()
         compose.onNodeWithText("Buscar actualizaciones").performScrollTo().performClick()
-        compose.waitUntil(45_000) { compose.onAllNodesWithText("Ya tenés la versión más nueva del canal Pública.").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(45_000) { compose.onAllNodesWithText("Tenés la última versión estable.").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Descargar actualización").assertDoesNotExist()
     }
 

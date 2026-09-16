@@ -207,7 +207,7 @@ import java.util.Locale
                 }
             }
             Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                Text("Canal de actualizaciones",style=MaterialTheme.typography.titleMedium,color=Ink)
+                Text("Versión",style=MaterialTheme.typography.titleMedium,color=Ink)
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     UpdateChannel.entries.forEach { option ->
                         Surface(color=if(updates.channel==option)Lime else Panel,shape=RoundedCornerShape(22.dp),
@@ -217,19 +217,21 @@ import java.util.Locale
                             Column(Modifier.padding(vertical=14.dp,horizontal=8.dp),horizontalAlignment=Alignment.CenterHorizontally) {
                                 Text(option.label,style=MaterialTheme.typography.titleSmall,
                                     color=if(updates.channel==option)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
-                                Text(if(option==UpdateChannel.PUBLIC)"Estable" else "Experimental",style=MaterialTheme.typography.bodySmall,
+                                Text(if(option==UpdateChannel.STABLE)"Recomendada" else "Experimental",style=MaterialTheme.typography.bodySmall,
                                     color=if(updates.channel==option)MaterialTheme.colorScheme.onPrimaryContainer else Muted)
                             }
                         }
                     }
                 }
-                Text("Instalada: ${updates.installedChannel.label}. Las próximas actualizaciones siguen el canal elegido.",style=MaterialTheme.typography.bodySmall,color=Muted)
-                if(updates.channel!=updates.installedChannel)Text("Instalá la versión encontrada para completar el cambio de canal.",style=MaterialTheme.typography.bodySmall,color=Muted)
+                Text("Versión instalada: ${updates.installedChannel.label}.",style=MaterialTheme.typography.bodySmall,color=Muted)
+                Text(if(updates.channel==updates.installedChannel && updates.channel==UpdateChannel.STABLE)"Recibirás actualizaciones estables."
+                    else if(updates.channel==updates.installedChannel)"Recibirás actualizaciones Beta."
+                    else "Elegiste ${updates.channel.label}. Instalá la versión encontrada para completar el cambio.",style=MaterialTheme.typography.bodySmall,color=Muted)
             }
             WhiteCard {
                 Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
                     AppGlyph(Glyph.Download,tint=MaterialTheme.colorScheme.primary)
-                    Column { Text("Siempre al día",style=MaterialTheme.typography.titleMedium); Text("Versión ${BuildConfig.VERSION_NAME}",style=MaterialTheme.typography.bodySmall,color=Muted) }
+                    Column { Text("Actualizaciones",style=MaterialTheme.typography.titleMedium); Text("Boletera ${BuildConfig.DISPLAY_VERSION}",style=MaterialTheme.typography.bodySmall,color=Muted) }
                 }
                 Text(updates.message,style=MaterialTheme.typography.bodyMedium,color=Muted)
                 if(updates.busy)LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -243,7 +245,7 @@ import java.util.Locale
                     Text("Vibración",style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
                     Switch(checked=vibrationEnabled,onCheckedChange={vibrationEnabled=it;vibration.enabled=it;pulseResult=null},modifier=Modifier.semantics {contentDescription="Vibración de Boletera"})
                 }
-                Text("Activá o apagá la vibración de Boletera desde acá.",style=MaterialTheme.typography.bodyMedium,color=Muted)
+                Text("Elegí si Boletera vibra al tocar los controles.",style=MaterialTheme.typography.bodyMedium,color=Muted)
                 OutlinedButton(onClick={pulseResult=vibration.testPulse()},modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)){Text("Probar vibración")}
                 if(pulseResult!=null)Text(when(pulseResult) {
                     PulseResult.Requested->"Se pidieron dos pulsos. Si no los sentís, el teléfono puede estar limitando la vibración."
@@ -258,8 +260,7 @@ import java.util.Locale
                 if(canLogout)TextButton(onClick=onLogout) { AppGlyph(Glyph.Exit,tint=LocalContentColor.current); Spacer(Modifier.width(12.dp)); Text("Cerrar sesión local") }
             }
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text("Una forma más simple de moverte.",style=MaterialTheme.typography.bodyMedium,color=Ink)
-                Text("App independiente de STM. Versión de prueba.",style=MaterialTheme.typography.bodySmall,color=Muted)
+                Text("Proyecto independiente y no oficial de STM.",style=MaterialTheme.typography.bodySmall,color=Muted)
                 if(diagnostic.isNotBlank()) {
                     TextButton(onClick={details=!details}) { Text("Información de ayuda") }
                     AnimatedVisibility(details) { Text(diagnostic,style=MaterialTheme.typography.bodySmall,color=Muted) }

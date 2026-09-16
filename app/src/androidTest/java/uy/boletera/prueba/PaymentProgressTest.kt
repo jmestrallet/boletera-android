@@ -96,7 +96,7 @@ class PaymentProgressTest {
             compose.waitForIdle();assertTrue(payment.message.isBlank())
             httpFailure();compose.runOnIdle{now+=3000}
             compose.waitUntil(5000){payment.message.isNotBlank()}
-            compose.onNodeWithText("Enviar error al desarrollador").assertExists()
+            compose.onNodeWithText("Enviar error al desarrollador").assertDoesNotExist()
         } finally {compose.runOnIdle{payment.destroy()}}
     }
 }

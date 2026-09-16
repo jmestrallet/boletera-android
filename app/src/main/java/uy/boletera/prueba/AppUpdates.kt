@@ -22,13 +22,13 @@ import java.security.MessageDigest
 import java.util.concurrent.Executors
 
 enum class UpdateChannel(val key: String, val label: String) {
-    PUBLIC("public", "Pública"), BETA("beta", "Beta");
-    companion object { fun from(value: String?) = entries.firstOrNull { it.key == value } ?: PUBLIC }
+    STABLE("public", "Estable"), BETA("beta", "Beta");
+    companion object { fun from(value: String?) = entries.firstOrNull { it.key == value } ?: STABLE }
 }
 internal data class UpdateNews(val version: String, val notes: List<String>)
 internal data class UpdateRelease(val version: String, val url: String, val size: Long, val sha256: String,
     val notes: List<String> = emptyList(), val history: List<UpdateNews> = emptyList(),
-    val channel: UpdateChannel = UpdateChannel.PUBLIC, val packageVersion: String = "$version-publica")
+    val channel: UpdateChannel = UpdateChannel.STABLE, val packageVersion: String = version)
 
 internal object UpdatePolicy {
     const val API = "https://api.github.com/repos/jmestrallet/boletera-android/releases?per_page=100"
@@ -50,14 +50,18 @@ internal object UpdatePolicy {
         return ParsedVersion(core,match.groupValues[4].takeIf(String::isNotBlank)?.toIntOrNull())
     }
     fun version(value: String): List<Int>? = parsed(value)?.core
-    fun channel(value: String): UpdateChannel = if(parsed(value)?.beta!=null)UpdateChannel.BETA else UpdateChannel.PUBLIC
+    fun channel(value: String): UpdateChannel = if(parsed(value)?.beta!=null)UpdateChannel.BETA else UpdateChannel.STABLE
+    fun display(value: String): String {
+        val parsed=Regex("^(\\d+\\.\\d+\\.\\d+)-beta\\.(\\d+)$").matchEntire(value)
+        return parsed?.let { "${it.groupValues[1]} Beta ${it.groupValues[2]}" } ?: value.removeSuffix("-prueba").removeSuffix("-publica")
+    }
     fun newer(candidate: String, installed: String): Boolean {
         val a = parsed(candidate) ?: return false
         val b = parsed(installed) ?: return false
         for (i in a.core.indices) if (a.core[i] != b.core[i]) return a.core[i] > b.core[i]
         return a.beta!=null && b.beta!=null && a.beta>b.beta
     }
-    fun select(json: String, installed: String, wanted: UpdateChannel = UpdateChannel.PUBLIC): UpdateRelease? {
+    fun select(json: String, installed: String, wanted: UpdateChannel = UpdateChannel.STABLE): UpdateRelease? {
         val releases = JSONArray(json)
         val switching=channel(installed)!=wanted
         val candidates = (0 until releases.length()).mapNotNull { i ->
@@ -69,7 +73,7 @@ internal object UpdatePolicy {
             if (version(v) == null || v.endsWith("-prueba") || v.endsWith("-publica")) return@mapNotNull null
             val assets = release.optJSONArray("assets") ?: return@mapNotNull null
             val acceptedNames=if(wanted==UpdateChannel.BETA)setOf("boletera-beta-$v.apk")
-                else setOf("boletera-publica-$v.apk","boletera-prueba-$v.apk")
+                else setOf("boletera-$v.apk","boletera-publica-$v.apk","boletera-prueba-$v.apk")
             val matching = (0 until assets.length()).map { assets.getJSONObject(it) }.filter {it.optString("name") in acceptedNames}
             if (matching.size != 1) return@mapNotNull null
             val asset = matching.single()
@@ -79,7 +83,7 @@ internal object UpdatePolicy {
             val size = asset.optLong("size")
             if (asset.optString("browser_download_url") != url || size !in 1..MAX_APK ||
                 !Regex("sha256:[a-fA-F0-9]{64}").matches(digest)) return@mapNotNull null
-            val packageVersion=if(wanted==UpdateChannel.BETA)v else "$v-prueba"
+            val packageVersion=v
             UpdateRelease(v, url, size, digest.substringAfter(':').lowercase(), notes(release.optString("body")),
                 channel=wanted,packageVersion=packageVersion)
         }
@@ -165,7 +169,7 @@ internal object UpdateFiles {
         check(candidate.packageName == packageName) { "La descarga no es Boletera." }
         val installedName=installed.versionName ?: ""
         val switching=UpdatePolicy.channel(installedName)!=release.channel
-        check(candidate.versionName == release.packageVersion && (switching || UpdatePolicy.newer(release.version,installedName))) { "La versión descargada no corresponde al canal elegido." }
+        check(candidate.versionName == release.packageVersion && (switching || UpdatePolicy.newer(release.version,installedName))) { "La descarga no corresponde a la versión elegida." }
         val candidateCode = if (Build.VERSION.SDK_INT >= 28) candidate.longVersionCode else candidate.versionCode.toLong()
         val installedCode = if (Build.VERSION.SDK_INT >= 28) installed.longVersionCode else installed.versionCode.toLong()
         check(candidateCode > installedCode || switching && candidateCode == installedCode) { "La descarga no es compatible con la app instalada." }
@@ -177,7 +181,7 @@ internal object UpdateFiles {
 
 class AppUpdates(application: Application) : AndroidViewModel(application) {
     var busy by mutableStateOf(false); private set
-    var message by mutableStateOf("Buscá una versión nueva sin salir de la app."); private set
+    var message by mutableStateOf("Buscá actualizaciones sin salir de Boletera."); private set
     internal var release by mutableStateOf<UpdateRelease?>(null); private set
     var ready by mutableStateOf(false); private set
     var installRequested by mutableStateOf(false); private set
@@ -196,7 +200,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         channel=if(priorArtifact!=null && priorArtifact!=installedChannel.key)installedChannel
             else UpdateChannel.from(preferences.getString("channel",installedChannel.key))
         preferences.edit().putString("installed_artifact",installedChannel.key).putString("channel",channel.key).apply()
-        message="Canal ${channel.label}. Buscá una versión nueva sin salir de la app."
+        message="Buscá actualizaciones de la versión ${channel.label.lowercase()}."
     }
     private fun publish(action: () -> Unit) { main.post { if (!closed) action() } }
     private fun work(action: () -> Unit) {
@@ -213,7 +217,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         channel=value
         preferences.edit().putString("channel",value.key).remove("last_attempt.${value.key}").apply()
         installRequested=false;awaitingInstallPermission=false;reviewRequested=false;ready=false;release=null;automaticNotice=false
-        message="Buscando la versión ${value.label}…"
+        message=if(value==UpdateChannel.STABLE)"Buscando la versión estable…" else "Buscando Boletera Beta…"
         checkRelease(false)
     }
     internal fun automaticCheckDue(now: Long = System.currentTimeMillis()): Boolean {
@@ -241,10 +245,14 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                 if(channel!=requested)return@publish
                 release = found
                 automaticNotice = automatic && found!=null
-                message = if (found == null && channel==installedChannel) "Ya tenés la versión más nueva del canal ${channel.label}."
-                    else if(found==null)"Todavía no hay una versión ${channel.label} compatible para cambiar de canal."
-                    else if(channel!=installedChannel)"Está lista la versión ${channel.label} ${found.version} para cambiar de canal."
-                    else "Está disponible la versión ${found.version} del canal ${channel.label}."
+                message = if (found == null && channel==installedChannel && channel==UpdateChannel.STABLE) "Tenés la última versión estable."
+                    else if(found == null && channel==installedChannel) "Tenés la última versión Beta."
+                    else if(found==null && channel==UpdateChannel.STABLE)"Todavía no hay una versión estable compatible."
+                    else if(found==null)"Todavía no hay una versión Beta compatible."
+                    else if(channel!=installedChannel && channel==UpdateChannel.STABLE)"La versión estable ${found.version} está lista para instalar."
+                    else if(channel!=installedChannel)"Boletera ${UpdatePolicy.display(found.version)} está lista para instalar."
+                    else if(channel==UpdateChannel.STABLE)"Hay una nueva versión estable: ${found.version}."
+                    else "Hay una nueva versión: ${UpdatePolicy.display(found.version)}."
             }
         }
     }

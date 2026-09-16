@@ -20,14 +20,13 @@ class AppErrorScreenTest {
             state.value=UiState(stage="blocked",message="No se pudo conectar. Revisá tu conexión.",diagnostic="DEMO-CONEXION")
         }
         compose.onNodeWithText("CONEXIÓN").assertIsDisplayed()
-        compose.onNodeWithText("Enviar error al desarrollador").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithText("Próximamente").assertExists()
+        compose.onNodeWithText("Enviar error al desarrollador").assertDoesNotExist()
         compose.onNodeWithText("Ver qué pasó").performClick()
         compose.onNodeWithText("Referencia: DEMO-CONEXION").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Ocultar detalle").performClick()
         compose.onNodeWithText("CONEXIÓN").performScrollTo()
         if(compose.activity.resources.configuration.fontScale<=1f) {
-            compose.onNodeWithText("Próximamente").assertIsDisplayed()
+            compose.onNodeWithText("Enviar error al desarrollador").assertDoesNotExist()
             val scrolls=compose.onAllNodes(SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange)).fetchSemanticsNodes()
             for(node in scrolls)assertEquals(0f,node.config[androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange].maxValue(),0f)
         }

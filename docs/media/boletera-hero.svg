@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">Boletera</title>
+  <desc id="desc">Tu STM, más simple. Aplicación Android de código abierto, sin anuncios.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1925"/>
+      <stop offset="1" stop-color="#183247"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.82" cy="0.15" r="0.9">
+      <stop offset="0" stop-color="#b9f26a" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#b9f26a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="420" rx="36" fill="url(#bg)"/>
+  <rect width="1200" height="420" rx="36" fill="url(#glow)"/>
+  <g transform="translate(96 88)">
+    <rect width="136" height="136" rx="38" fill="#b9f26a"/>
+    <rect x="33" y="40" width="70" height="56" rx="18" fill="#122333"/>
+    <path d="M48 59h40M48 76h28" fill="none" stroke="#b9f26a" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="88" cy="77" r="5" fill="#b9f26a"/>
+  </g>
+  <text x="272" y="166" fill="#ffffff" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="76" font-weight="750" letter-spacing="-2">Boletera</text>
+  <text x="276" y="225" fill="#c8d4dd" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="32">Tu STM, más simple.</text>
+  <g transform="translate(276 278)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="20" font-weight="600">
+    <rect width="146" height="48" rx="24" fill="#ffffff" fill-opacity="0.1"/>
+    <text x="73" y="31" text-anchor="middle" fill="#eaf2f7">Android 8+</text>
+    <rect x="162" width="190" height="48" rx="24" fill="#ffffff" fill-opacity="0.1"/>
+    <text x="257" y="31" text-anchor="middle" fill="#eaf2f7">Código abierto</text>
+    <rect x="368" width="160" height="48" rx="24" fill="#ffffff" fill-opacity="0.1"/>
+    <text x="448" y="31" text-anchor="middle" fill="#eaf2f7">Sin anuncios</text>
+  </g>
+</svg>

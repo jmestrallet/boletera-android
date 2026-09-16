@@ -127,7 +127,7 @@ class StmEngine(private val context: Context) {
                 if (allowedPage(request.url.toString())) return false
                 if (!active) return true
                 if (BuildConfig.DEBUG) debugDestination = "${request.url.scheme}://${request.url.host}${request.url.path}"
-                fail("Este paso necesita otra pantalla o proveedor. La prueba se detuvo sin abrir la web ni pagar.")
+                fail("Este paso necesita otra pantalla o proveedor. Boletera se detuvo sin abrir la web ni iniciar el pago.")
                 return true
             }
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
@@ -496,7 +496,7 @@ class StmEngine(private val context: Context) {
         when (pageStage) {
             "document" -> document?.let { act("document", it) }
             "password" -> password?.let { act("password", it) }
-            else -> notice("Terminá la verificación original. Si pide otro paso, esta prueba se detendrá.")
+            else -> notice("Terminá la verificación. Si aparece otro paso, Boletera se va a detener.")
         }
     }
 
@@ -829,7 +829,7 @@ class StmEngine(private val context: Context) {
                     clearSecrets();active=false;pendingHttpError=null;handler.removeCallbacks(poll)
                     host.crop=null;web.stopLoading()
                     state=state.copy(stage="accessHelp",busy=false,captcha=null,message="")
-                } else fail("Este acceso pide un paso que la prueba no reconoce. No vamos a mostrarte la página completa.")
+                } else fail("Este acceso requiere un paso que Boletera todavía no reconoce. No vamos a mostrarte la página completa.")
             }
             "blocked" -> fail("Pantalla fuera del recorrido permitido.")
         }

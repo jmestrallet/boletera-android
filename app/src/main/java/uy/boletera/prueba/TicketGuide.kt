@@ -23,10 +23,10 @@ import androidx.compose.ui.unit.dp
         icon={AppGlyph(Glyph.Arrow,tint=MaterialTheme.colorScheme.primary)},
         title={Text("Así funciona Carga Express")},
         text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            Text("Recarga el mínimo que STM indique para esta boletera. Puede cambiar entre cuentas y consultas. Ahora es ${Amounts.format(amount)}.")
-            Text("Usa el medio de tu última recarga exitosa. Google completa tu tarjeta; si falta el CVV, lo ingresás y tocás Listo.")
-            Text("Mantené Carga Express apretado durante 1,2 segundos para autorizar esa recarga. Si soltás antes, se cancela el atajo.")
-            Text("Si reconoce la misma tarjeta de pago, confirma y vuelve al saldo automáticamente. La primera vez o con una tarjeta distinta, pide confirmación. Las verificaciones del proveedor siguen siendo tuyas.")
+            Text("Recargá el mínimo que informa STM para esta boletera. Puede cambiar entre cuentas y consultas. Ahora es ${Amounts.format(amount)}.")
+            Text("Usá el medio de tu última recarga exitosa. Google puede completar la tarjeta; si falta el CVV, ingresalo y tocá Listo.")
+            Text("Mantené presionado Carga Express durante 1,2 segundos. Si soltás antes, se cancela el atajo.")
+            Text("Si Boletera reconoce la misma tarjeta, confirma y vuelve al saldo automáticamente. La primera vez o con otra tarjeta, te pide confirmación. Cualquier verificación adicional queda a tu cargo.")
             Row(Modifier.fillMaxWidth().toggleable(skip,role=Role.Checkbox,onValueChange={skip=it;onSkipChanged(it)}),verticalAlignment=Alignment.CenterVertically) {
                 Checkbox(skip,onCheckedChange=null)
                 Text("No volver a mostrar",modifier=Modifier.weight(1f))
@@ -43,7 +43,7 @@ private const val SUBURBAN="https://cutcsa.com.uy/informacion/tarifas"
 
 private data class TicketHelp(val title: String,val price: String,val text: String,val source: String=TYPES,val sourceLabel: String="Ver explicación oficial")
 private val tickets=listOf(
-    TicketHelp("1 hora","$52","Hasta dos ómnibus urbanos, incluso para ir y volver. Subí al segundo dentro de una hora; la IM publica cinco minutos de tolerancia. Necesitás tu STM. Los diferenciales no están incluidos."),
+    TicketHelp("1 hora","$52","Hasta dos ómnibus urbanos, incluso para ir y volver. Subí al segundo dentro de una hora; la IM publica cinco minutos de tolerancia. Necesitás tu tarjeta STM. Los diferenciales no están incluidos."),
     TicketHelp("2 horas","$78","Para encadenar varios viajes: sin límite de ómnibus urbanos, en cualquier sentido, entre el primer y el último ascenso dentro de dos horas. Necesitás tu STM."),
     TicketHelp("Paradas de intercambio","Sin extra en 1 h","Son paradas habilitadas para ampliar el boleto de una hora: permiten un tercer tramo y tiempo adicional. No cualquier parada sirve.\n\nEjemplo: primer ómnibus a las 10:00; segundo en parada común a las 10:30; tercero desde una parada de intercambio antes de las 12:00. El cuarto se paga.\n\nOtro caso: si el segundo ascenso es en una parada de intercambio antes de las 12:00, se habilita un tercero durante los siguientes 60 minutos. Mirá las paradas y ejemplos oficiales. El boleto de dos horas no se extiende por esta modalidad.",EXCHANGES,"Ver paradas y ejemplos"),
     TicketHelp("Combinación metropolitana","Según recorrido","Combina un urbano con un suburbano, con descuento. Es lo que necesitás cuando hacés parte del viaje en Montevideo y después seguís hacia Canelones o San José, o al revés.\n\nPedí «combinación metropolitana» y decí tu destino antes de pagar; presentá tu STM y conservá el boleto. Consultá dónde hacer el cambio.\n\nLos $80 publicados por la IM no significan que cualquier recorrido suburbano completo cueste eso. Puede haber un complemento según el tramo. Por ejemplo, Cutcsa publica para anillo 1: $80 al salir en el urbano + $55 en el suburbano = $135; entrante, $135. Ejemplo de esa empresa, no tarifa universal.",SUBURBAN,"Ver tarifas por recorrido · Cutcsa"),

@@ -1,15 +1,15 @@
-# Validación 0.2.31 — canales y recuperación silenciosa
+# Validación 0.2.31 — versiones, textos y recuperación silenciosa
 
 Fecha: 16/9/2026. Código 49 en ambas variantes. Resultado de laboratorio; todavía no comprobado con una cuenta real en el teléfono del dueño.
 
-- Pública: `0.2.31-prueba`, sin acceso a Carga Express desde la home. Beta: `0.2.31-beta.1`, con el Express de 0.2.30 sin cambios funcionales.
-- Compilaciones Pública y Beta firmadas. Release y lint de Pública correctos; Beta release correcta. Diez pruebas JVM correctas, incluidas dos del acceso cifrado temporal.
+- Estable: `0.2.31`, nombre visible **Boletera**, sin acceso a Carga Express desde la home. Beta: `0.2.31-beta.1`, nombre visible **Boletera Beta**, con el Express de 0.2.30 sin cambios funcionales.
+- Compilaciones Estable y Beta firmadas. Release y lint de Estable correctos; Beta release correcta. Diez pruebas JVM correctas, incluidas dos del acceso cifrado temporal. Los 62 casos JavaScript siguen correctos.
 - Android 16 con identidad, STM y proveedores interceptados: ocho recorridos de sesión correctos. El caso nuevo vence la sesión después de un ingreso autorizado, conserva saldo y boletera, reingresa con la copia cifrada en memoria, no incrementa la solicitud biométrica y no visita el límite de pago.
-- La tanda final de Pública terminó OK en 28,676 s: once casos ejecutados y uno omitido por corresponder exclusivamente a la ayuda de Express. Cubrió sesión, archivo firmado, separación de feeds, cambio con el mismo código y home sin Express.
-- Dos casos de home Beta correctos: Express visible, mínimo vigente, ayuda y persistencia. La regresión integral histórica de Express llegó al recorrido Beta pero falló por una excepción de WebView en su fixture; no se corrigió Express en esta entrega y el canal se mantiene experimental.
-- Instalación real en el emulador: Pública → Beta → Pública con el mismo paquete, firma y código 49, sin desinstalar. Cada variante informó su canal correcto. El aviso de la Pública se mostró una sola vez y la pantalla de Configuración fue revisada en modo oscuro.
-- Pública: 8.663.379 bytes, SHA-256 `459e7d84e03870d0e501e58cf5a918cd608f99fc303ff0e2afbfd746c50ef4d5`.
-- Beta: 8.663.383 bytes, SHA-256 `5a51b43287850fcb2ce772c943abb3c1ba8789e5d9bc7842982db57efef88747`.
+- La tanda final de Estable terminó OK en Android 16: 30 casos, con uno omitido por corresponder exclusivamente a la ayuda de Express. Cubrió sesión, archivo firmado, separación de versiones, actualización con el mismo código, errores sin acciones ficticias y home sin Express.
+- Dos casos de home Beta correctos: Express visible, mínimo vigente, ayuda y persistencia. La regresión integral histórica de Express llegó al recorrido Beta pero falló por una excepción de WebView en su fixture; no se corrigió Express en esta entrega y la versión se mantiene experimental.
+- Instalación real en el emulador: Estable → Beta → Estable con el mismo paquete, firma y código 49, sin desinstalar. La home Estable, el aviso de Beta y Configuración se revisaron en modo oscuro.
+- Estable: `boletera-0.2.31.apk`, 8.663.759 bytes, SHA-256 `328da77408505fd742a9e1123fd1f39aaa5559cfb34f932b85bea3d7248368ed`.
+- Beta: `boletera-beta-0.2.31-beta.1.apk`, 8.663.771 bytes, SHA-256 `e57bc17da066e5db4732dcc596c9908be92562250fbbebc4e2502ef70b540c57`.
 - Certificado SHA-256 de ambas: `547f110e5f633028151676a0c5d2536b80ee72a40810f6707a754cf2edccdab5`, igual al historial publicado.
 
 Límites: la recuperación silenciosa existe solo después de desbloquear el acceso durante esa ejecución; al morir el proceso vuelve a requerir huella. No se probaron credenciales reales ni se hizo ninguna recarga. La Beta conserva los riesgos conocidos de Express y no debe interpretarse como una corrección. Ver [alcance completo](CANALES-Y-SESION-0.2.31.md).
@@ -192,7 +192,7 @@ Android: seis pruebas en 360 × 640 dp con letra normal (12,736 s, `outputs/home
 
 La primera comprobación de home, todavía con el carrusel, detectó 29 dp de desplazamiento. La versión final lo elimina junto con el carrusel y el espacio vacío del host; las comprobaciones finales exigen desplazamiento máximo cero en tamaño normal. Se revisaron las capturas de home y error. Las capturas `*-normal-0.2.14.png` son del tema claro; el modo nocturno del emulador no reemplazaba la preferencia explícita de la app.
 
-La pantalla de error cubre fallos controlados del recorrido principal y de Prex. Clasifica según el mensaje conocido de la app, conserva detalle/referencia y nunca reintenta una recarga por sí sola. Enviar error al desarrollador permanece deshabilitado con Próximamente: no envía ni recopila nada adicional. No es recuperación de un cierre abrupto del proceso Android.
+La pantalla de error cubre fallos controlados del recorrido principal y de Prex. Clasifica según el mensaje conocido de la app, conserva detalle/referencia y nunca reintenta una recarga por sí sola. La versión 0.2.14 mostraba un reporte deshabilitado; se eliminó en 0.2.31 porque no realizaba ninguna acción. No es recuperación de un cierre abrupto del proceso Android.
 
 APK código 32, SHA-256 `8a57bcf3bb243b764dafc10aed349cbc19677664d23a4e72cbddc089867e9c44`, misma firma de las versiones anteriores. No se realizaron pagos reales ni se modificó el teléfono físico. Autorización/acreditación y experiencia en el teléfono quedan pendientes de comprobación humana.
 

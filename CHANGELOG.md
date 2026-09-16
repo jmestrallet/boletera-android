@@ -1,10 +1,11 @@
 # Cambios
 
-## 0.2.31 — canales Pública/Beta y recuperación silenciosa
+## 0.2.31 — versiones Estable/Beta y recuperación silenciosa
 
-- La variante Pública oculta Carga Express. La variante Beta conserva exactamente el Express de 0.2.30, sin intentar corregirlo en esta entrega.
-- Configuración permite elegir Pública o Beta. Cada canal consulta únicamente sus futuras publicaciones y descarga la variante firmada correspondiente; se puede volver al otro canal.
-- La primera apertura de esta Pública informa una sola vez que existe el canal Beta experimental.
+- **Boletera** es la versión estable y oculta Carga Express. **Boletera Beta** conserva exactamente el Express de 0.2.30, sin intentar corregirlo en esta entrega.
+- Configuración permite elegir Estable o Beta. Cada opción consulta únicamente sus futuras publicaciones y descarga la variante firmada correspondiente.
+- La primera apertura de la versión estable informa una sola vez que existe Boletera Beta.
+- Se eliminan el nombre «Boletera · Prueba», las referencias confusas a «Pública» y el botón deshabilitado para enviar errores. La versión se muestra como `0.2.31` o `0.2.31 Beta 1`.
 - Después de un ingreso autorizado con huella, las credenciales quedan cifradas solo en memoria durante esa ejecución. Si STM vence la sesión, Boletera vuelve a ingresar detrás de la pantalla y evita una segunda huella cuando es posible.
 - La recuperación descarta cualquier importe o avance de pago. No reenvía una recarga ni confirma operaciones.
 - Alcance y límites: [CANALES-Y-SESION-0.2.31](docs/CANALES-Y-SESION-0.2.31.md).
@@ -113,7 +114,7 @@
 - Un mismo icono de tarjeta sin contacto representa la boletera en toda la app.
 - Modo Express se llama Carga Express. La explicación aclara el mínimo variable por cuenta/consulta y usa el medio guardado; se elimina la expresión titular habitual.
 - Carga Express permite el medio guardado Prex o eBROU: Prex necesita los datos requeridos y eBROU necesita Chrome; no se piden perfiles Prex para el banco. Se conserva el recorrido bancario y su autorización humana.
-- Pantalla propia para errores controlados de conexión, servicio, datos o verificación, con detalle desplegable y salida. Enviar error al desarrollador queda deshabilitado, rotulado Próximamente.
+- Pantalla propia para errores controlados de conexión, servicio, datos o verificación, con detalle desplegable y salida. En esta versión histórica se mostraba un reporte deshabilitado; se eliminó en 0.2.31.
 
 ## 0.2.13-prueba — respuesta de Express y combinaciones de boletos
 

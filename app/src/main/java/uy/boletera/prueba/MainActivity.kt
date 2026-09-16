@@ -117,7 +117,7 @@ class MainActivity : FragmentActivity() {
         var showPaymentReview by remember {mutableStateOf(false)}
         val helpPreferences=remember { getSharedPreferences("feature_help",MODE_PRIVATE) }
         var showBetaIntro by rememberSaveable {
-            mutableStateOf(!BuildConfig.DEBUG && updates.installedChannel==UpdateChannel.PUBLIC && !helpPreferences.getBoolean("beta_channel_intro_v1",false))
+            mutableStateOf(!BuildConfig.DEBUG && updates.installedChannel==UpdateChannel.STABLE && !helpPreferences.getBoolean("beta_channel_intro_v1",false))
         }
         fun closeBetaIntro() {
             helpPreferences.edit().putBoolean("beta_channel_intro_v1",true).apply()
@@ -219,7 +219,7 @@ class MainActivity : FragmentActivity() {
                                 }
                                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
                                     AppGlyph(Glyph.Lock,Modifier.size(16.dp),tint=Muted)
-                                    Text("App independiente de STM · Versión de prueba",style=MaterialTheme.typography.bodySmall,color=Muted)
+                                    Text("Proyecto independiente y no oficial de STM",style=MaterialTheme.typography.bodySmall,color=Muted)
                                 }
                                 TextButton(onClick={showAccessGuide=true}) {Text("¿Es tu primer ingreso a STM?")}
                             }
@@ -228,7 +228,7 @@ class MainActivity : FragmentActivity() {
                                 onExpressHelp={if(!helpPreferences.getBoolean("express_skip_intro_v1",false))showExpressHelp=true},onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel,
                                 onPaymentReviewed={showPaymentReview=true})
                             "connecting" -> {
-                                LoadingState(if(state.recoveringSession)"Recuperando tu sesión" else if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(state.recoveringSession)"Estamos comprobando si podés volver a entrar sin identificarte otra vez." else if(engine.expressPreparing)"Ya podés soltar. Estamos preparando tu medio de pago." else "Estamos consultando el sitio. Tu información va a aparecer acá.",express=engine.expressPreparing)
+                                LoadingState(if(state.recoveringSession)"Volviendo a entrar" else if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(state.recoveringSession)"Tu sesión de STM venció. Estamos renovándola sin pedirte los datos otra vez." else if(engine.expressPreparing)"Ya podés soltar. Estamos preparando tu medio de pago." else "Estamos consultando STM. Tu información va a aparecer acá.",express=engine.expressPreparing)
                                 TextButton(onClick=::back) { Text("Cancelar") }
                             }
                             "accessHelp" -> {
@@ -309,10 +309,10 @@ class MainActivity : FragmentActivity() {
                 showExpressHelp=false
             })
         if(showBetaIntro)AlertDialog(onDismissRequest=::closeBetaIntro,
-            title={Text("Boletera ahora tiene canal Beta")},
-            text={Text("La versión pública queda estable y sin Carga Express. Si querés probar funciones experimentales, podés cambiar a Beta desde Configuración y recibir sus próximas actualizaciones. Podés volver a Pública cuando quieras.")},
-            confirmButton={TextButton(onClick={closeBetaIntro();updates.selectChannel(UpdateChannel.BETA);showSettings=true}){Text("Ver Beta")}},
-            dismissButton={TextButton(onClick=::closeBetaIntro){Text("Seguir en Pública")}})
+            title={Text("¿Querés probar Boletera Beta?")},
+            text={Text("Incluye funciones experimentales, como Carga Express, antes de llegar a la versión estable. Podés probarla desde Configuración y volver a la versión estable cuando quieras.")},
+            confirmButton={TextButton(onClick={closeBetaIntro();updates.selectChannel(UpdateChannel.BETA);showSettings=true}){Text("Ver Boletera Beta")}},
+            dismissButton={TextButton(onClick=::closeBetaIntro){Text("Ahora no")}})
         if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",state.diagnostic,
             onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall=updates::requestReview,onClose={showSettings=false},
             onTicketGuide={showSettings=false;showTicketGuide=true})
