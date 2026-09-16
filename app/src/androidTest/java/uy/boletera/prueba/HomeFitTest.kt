@@ -32,7 +32,8 @@ class HomeFitTest {
     }
     private fun verifyFit() {
         compose.onNodeWithContentDescription("Boletos y tarifas").assertIsDisplayed()
-        compose.onNodeWithText("Carga Express").assertIsDisplayed()
+        if(BuildConfig.DISTRIBUTION_CHANNEL=="beta")compose.onNodeWithText("Carga Express").assertIsDisplayed()
+        else compose.onNodeWithText("Carga Express").assertDoesNotExist()
         compose.onNodeWithText("Recargar boletera").assertIsDisplayed()
         val scrolls=compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)).fetchSemanticsNodes()
         for(node in scrolls)assertEquals("La home debe entrar completa sin desplazamiento",0f,node.config[SemanticsProperties.VerticalScrollAxisRange].maxValue(),0f)
@@ -47,9 +48,11 @@ class HomeFitTest {
         compose.onNodeWithTag("ticketBudget").assertDoesNotExist()
         compose.runOnIdle {state.value=state.value.copy(minimum=56400)}
         compose.onNodeWithText("$ 564").assertExists()
-        compose.onNodeWithText("Carga Express").performClick()
-        compose.onNodeWithText("Ahora es $ 564",substring=true).assertExists()
-        compose.onNodeWithText("Ahora no").performClick()
+        if(BuildConfig.DISTRIBUTION_CHANNEL=="beta") {
+            compose.onNodeWithText("Carga Express").performClick()
+            compose.onNodeWithText("Ahora es $ 564",substring=true).assertExists()
+            compose.onNodeWithText("Ahora no").performClick()
+        }
         compose.runOnIdle {state.value=state.value.copy(minimum=73100)}
         compose.onNodeWithText("$ 731").assertExists()
         verifyFit()
@@ -60,6 +63,7 @@ class HomeFitTest {
         compose.onNodeWithText("1 hora").assertExists()
     }
     @Test fun hiddenExpressHelpStaysHiddenAfterCancelledHoldAndActivityRecreation() {
+        org.junit.Assume.assumeTrue(BuildConfig.DISTRIBUTION_CHANNEL=="beta")
         val prefs=compose.activity.getSharedPreferences("feature_help",0)
         compose.runOnIdle {prefs.edit().remove("express_skip_intro_v1").commit()}
         try {

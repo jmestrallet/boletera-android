@@ -21,8 +21,14 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 
+enum class UpdateChannel(val key: String, val label: String) {
+    PUBLIC("public", "Pública"), BETA("beta", "Beta");
+    companion object { fun from(value: String?) = entries.firstOrNull { it.key == value } ?: PUBLIC }
+}
 internal data class UpdateNews(val version: String, val notes: List<String>)
-internal data class UpdateRelease(val version: String, val url: String, val size: Long, val sha256: String, val notes: List<String> = emptyList(), val history: List<UpdateNews> = emptyList())
+internal data class UpdateRelease(val version: String, val url: String, val size: Long, val sha256: String,
+    val notes: List<String> = emptyList(), val history: List<UpdateNews> = emptyList(),
+    val channel: UpdateChannel = UpdateChannel.PUBLIC, val packageVersion: String = "$version-publica")
 
 internal object UpdatePolicy {
     const val API = "https://api.github.com/repos/jmestrallet/boletera-android/releases?per_page=100"
@@ -37,37 +43,49 @@ internal object UpdatePolicy {
         return items.map { it.removePrefix("- ").replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1")
                 .replace(Regex("[*`_]"), "").replace(Regex("\\s+"), " ").trim() }.filter(String::isNotBlank)
     }
-    fun version(value: String): List<Int>? = Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-prueba)?$")
-        .matchEntire(value)?.groupValues?.drop(1)?.map { it.toIntOrNull() ?: return null }
-    fun newer(candidate: String, installed: String): Boolean {
-        val a = version(candidate) ?: return false
-        val b = version(installed) ?: return false
-        for (i in a.indices) if (a[i] != b[i]) return a[i] > b[i]
-        return false
+    private data class ParsedVersion(val core: List<Int>, val beta: Int?)
+    private fun parsed(value: String): ParsedVersion? {
+        val match=Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-(?:prueba|publica)|-beta\\.(\\d+))?$").matchEntire(value) ?: return null
+        val core=match.groupValues.slice(1..3).map {it.toIntOrNull() ?: return null}
+        return ParsedVersion(core,match.groupValues[4].takeIf(String::isNotBlank)?.toIntOrNull())
     }
-    fun select(json: String, installed: String): UpdateRelease? {
+    fun version(value: String): List<Int>? = parsed(value)?.core
+    fun channel(value: String): UpdateChannel = if(parsed(value)?.beta!=null)UpdateChannel.BETA else UpdateChannel.PUBLIC
+    fun newer(candidate: String, installed: String): Boolean {
+        val a = parsed(candidate) ?: return false
+        val b = parsed(installed) ?: return false
+        for (i in a.core.indices) if (a.core[i] != b.core[i]) return a.core[i] > b.core[i]
+        return a.beta!=null && b.beta!=null && a.beta>b.beta
+    }
+    fun select(json: String, installed: String, wanted: UpdateChannel = UpdateChannel.PUBLIC): UpdateRelease? {
         val releases = JSONArray(json)
+        val switching=channel(installed)!=wanted
         val candidates = (0 until releases.length()).mapNotNull { i ->
             val release = releases.getJSONObject(i)
             if (release.optBoolean("draft")) return@mapNotNull null
             val tag = release.optString("tag_name")
-            if (!tag.startsWith("v") || !newer(tag, installed)) return@mapNotNull null
+            if (!tag.startsWith("v") || channel(tag)!=wanted || (!switching && !newer(tag, installed))) return@mapNotNull null
             val v = tag.removePrefix("v")
-            if (version(v) == null || v.endsWith("-prueba")) return@mapNotNull null
+            if (version(v) == null || v.endsWith("-prueba") || v.endsWith("-publica")) return@mapNotNull null
             val assets = release.optJSONArray("assets") ?: return@mapNotNull null
-            val matching = (0 until assets.length()).map { assets.getJSONObject(it) }
-                .filter { it.optString("name") == "boletera-prueba-$v.apk" }
+            val acceptedNames=if(wanted==UpdateChannel.BETA)setOf("boletera-beta-$v.apk")
+                else setOf("boletera-publica-$v.apk","boletera-prueba-$v.apk")
+            val matching = (0 until assets.length()).map { assets.getJSONObject(it) }.filter {it.optString("name") in acceptedNames}
             if (matching.size != 1) return@mapNotNull null
             val asset = matching.single()
-            val url = "https://github.com/jmestrallet/boletera-android/releases/download/$tag/boletera-prueba-$v.apk"
+            val name=asset.optString("name")
+            val url = "https://github.com/jmestrallet/boletera-android/releases/download/$tag/$name"
             val digest = asset.optString("digest")
             val size = asset.optLong("size")
             if (asset.optString("browser_download_url") != url || size !in 1..MAX_APK ||
                 !Regex("sha256:[a-fA-F0-9]{64}").matches(digest)) return@mapNotNull null
-            UpdateRelease(v, url, size, digest.substringAfter(':').lowercase(), notes(release.optString("body")))
+            val packageVersion=if(wanted==UpdateChannel.BETA)v else "$v-prueba"
+            UpdateRelease(v, url, size, digest.substringAfter(':').lowercase(), notes(release.optString("body")),
+                channel=wanted,packageVersion=packageVersion)
         }
         val selected=candidates.reduceOrNull { best, next -> if (newer(next.version, best.version)) next else best } ?: return null
-        val history=candidates.distinctBy { it.version }.sortedWith { a,b -> when {newer(a.version,b.version)->-1;newer(b.version,a.version)->1;else->0} }
+        val historySource=if(switching)listOf(selected) else candidates
+        val history=historySource.distinctBy { it.version }.sortedWith { a,b -> when {newer(a.version,b.version)->-1;newer(b.version,a.version)->1;else->0} }
             .map { UpdateNews(it.version,it.notes) }
         return selected.copy(history=history)
     }
@@ -134,21 +152,23 @@ internal object UpdateFiles {
     }
 
     @Suppress("DEPRECATION")
-    fun verify(context: Context, file: File, expectedVersion: String) {
+    fun verify(context: Context, file: File, release: UpdateRelease) {
         val pm = context.packageManager
         val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
         val candidate = pm.getPackageArchiveInfo(file.absolutePath, flags) ?: error("El archivo no es una APK válida.")
         val installed = pm.getPackageInfo(context.packageName, flags)
-        verifyArchive(candidate, installed, context.packageName, expectedVersion)
+        verifyArchive(candidate, installed, context.packageName, release)
     }
 
     @Suppress("DEPRECATION")
-    fun verifyArchive(candidate: android.content.pm.PackageInfo, installed: android.content.pm.PackageInfo, packageName: String, expectedVersion: String) {
+    fun verifyArchive(candidate: android.content.pm.PackageInfo, installed: android.content.pm.PackageInfo, packageName: String, release: UpdateRelease) {
         check(candidate.packageName == packageName) { "La descarga no es Boletera." }
-        check(candidate.versionName == "$expectedVersion-prueba" && UpdatePolicy.newer(expectedVersion, installed.versionName ?: "")) { "La versión descargada no es una actualización." }
+        val installedName=installed.versionName ?: ""
+        val switching=UpdatePolicy.channel(installedName)!=release.channel
+        check(candidate.versionName == release.packageVersion && (switching || UpdatePolicy.newer(release.version,installedName))) { "La versión descargada no corresponde al canal elegido." }
         val candidateCode = if (Build.VERSION.SDK_INT >= 28) candidate.longVersionCode else candidate.versionCode.toLong()
         val installedCode = if (Build.VERSION.SDK_INT >= 28) installed.longVersionCode else installed.versionCode.toLong()
-        check(candidateCode > installedCode) { "La descarga no es más nueva que la app instalada." }
+        check(candidateCode > installedCode || switching && candidateCode == installedCode) { "La descarga no es compatible con la app instalada." }
         val own = if (Build.VERSION.SDK_INT >= 28) installed.signingInfo?.apkContentsSigners else installed.signatures
         val other = if (Build.VERSION.SDK_INT >= 28) candidate.signingInfo?.apkContentsSigners else candidate.signatures
         check(!own.isNullOrEmpty() && !other.isNullOrEmpty() && own.toSet() == other.toSet()) { "La firma de la descarga no coincide con Boletera." }
@@ -164,11 +184,20 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     var reviewRequested by mutableStateOf(false); private set
     var automaticNotice by mutableStateOf(false); private set
     private val preferences=application.getSharedPreferences("updates",Context.MODE_PRIVATE)
+    val installedChannel=UpdateChannel.from(BuildConfig.DISTRIBUTION_CHANNEL)
+    var channel by mutableStateOf(installedChannel); private set
     private var awaitingInstallPermission = false
     private val worker = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     private var closed = false
-    private val apk get() = File(getApplication<Application>().cacheDir, "updates/boletera.apk")
+    private val apk get() = File(getApplication<Application>().cacheDir, "updates/boletera-${channel.key}.apk")
+    init {
+        val priorArtifact=preferences.getString("installed_artifact",null)
+        channel=if(priorArtifact!=null && priorArtifact!=installedChannel.key)installedChannel
+            else UpdateChannel.from(preferences.getString("channel",installedChannel.key))
+        preferences.edit().putString("installed_artifact",installedChannel.key).putString("channel",channel.key).apply()
+        message="Canal ${channel.label}. Buscá una versión nueva sin salir de la app."
+    }
     private fun publish(action: () -> Unit) { main.post { if (!closed) action() } }
     private fun work(action: () -> Unit) {
         busy = true
@@ -179,8 +208,16 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         }
     }
     fun check() = checkRelease(false)
+    fun selectChannel(value: UpdateChannel) {
+        if(channel==value || busy)return
+        channel=value
+        preferences.edit().putString("channel",value.key).remove("last_attempt.${value.key}").apply()
+        installRequested=false;awaitingInstallPermission=false;reviewRequested=false;ready=false;release=null;automaticNotice=false
+        message="Buscando la versión ${value.label}…"
+        checkRelease(false)
+    }
     internal fun automaticCheckDue(now: Long = System.currentTimeMillis()): Boolean {
-        val previous=preferences.getLong("last_attempt",0)
+        val previous=preferences.getLong("last_attempt.${channel.key}",0)
         return !busy && !ready && !awaitingInstallPermission && (previous==0L || now<previous || now-previous>=6*60*60*1000L)
     }
     fun checkAutomatic() {
@@ -189,7 +226,8 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     fun dismissAutomaticNotice() { automaticNotice=false }
     private fun checkRelease(automatic: Boolean) {
         if (busy) return
-        preferences.edit().putLong("last_attempt",System.currentTimeMillis()).apply()
+        val requested=channel
+        preferences.edit().putLong("last_attempt.${channel.key}",System.currentTimeMillis()).apply()
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
         ready = false; release = null; message = "Buscando actualizaciones…"
         work {
@@ -198,27 +236,31 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                 val bytes = it.readBytesLimited(2 * 1024 * 1024)
                 String(bytes, Charsets.UTF_8)
             } } finally { connection.disconnect() }
-            val found = UpdatePolicy.select(json, BuildConfig.VERSION_NAME)
+            val found = UpdatePolicy.select(json, BuildConfig.VERSION_NAME,requested)
             publish {
+                if(channel!=requested)return@publish
                 release = found
                 automaticNotice = automatic && found!=null
-                message = if (found == null) "Ya tenés la versión más nueva disponible para esta app."
-                    else "Está disponible la versión ${found.version}."
+                message = if (found == null && channel==installedChannel) "Ya tenés la versión más nueva del canal ${channel.label}."
+                    else if(found==null)"Todavía no hay una versión ${channel.label} compatible para cambiar de canal."
+                    else if(channel!=installedChannel)"Está lista la versión ${channel.label} ${found.version} para cambiar de canal."
+                    else "Está disponible la versión ${found.version} del canal ${channel.label}."
             }
         }
     }
     fun download() {
         val selected = release ?: return
         if (busy) return
+        val destination=apk
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
         ready = false; message = "Descargando…"
         work {
-            apk.parentFile!!.mkdirs()
-            val partial = File(apk.parentFile, "boletera.part")
+            destination.parentFile!!.mkdirs()
+            val partial = File(destination.parentFile, "boletera-${selected.channel.key}.part")
             try {
                 UpdateFiles.download(selected, partial) { percent -> publish { message = "Descargando… $percent %" } }
-                UpdateFiles.verify(getApplication(), partial, selected.version)
-                check(partial.renameTo(apk)) { "No se pudo guardar la descarga." }
+                UpdateFiles.verify(getApplication(), partial, selected)
+                check(partial.renameTo(destination)) { "No se pudo guardar la descarga." }
                 publish { downloadReady() }
             } finally { partial.delete() }
         }

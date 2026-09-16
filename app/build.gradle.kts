@@ -9,6 +9,9 @@ val localSigning = Properties().apply {
     val file = rootProject.file(".tools/signing.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
+val distributionChannel = providers.gradleProperty("boleteraChannel").orElse("public").get().also {
+    require(it in setOf("public", "beta")) { "boleteraChannel must be public or beta" }
+}
 android {
     namespace = "uy.boletera.prueba"
     compileSdk = 35
@@ -16,8 +19,9 @@ android {
         applicationId = "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = 48
-        versionName = "0.2.30-prueba"
+        versionCode = 49
+        versionName = if (distributionChannel == "beta") "0.2.31-beta.1" else "0.2.31-prueba"
+        buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"$distributionChannel\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }

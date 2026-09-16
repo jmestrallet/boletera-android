@@ -206,6 +206,26 @@ import java.util.Locale
                     }
                 }
             }
+            Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                Text("Canal de actualizaciones",style=MaterialTheme.typography.titleMedium,color=Ink)
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    UpdateChannel.entries.forEach { option ->
+                        Surface(color=if(updates.channel==option)Lime else Panel,shape=RoundedCornerShape(22.dp),
+                            modifier=Modifier.weight(1f).selectable(updates.channel==option,enabled=!updates.busy,role=Role.RadioButton) {
+                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick);updates.selectChannel(option)
+                            }) {
+                            Column(Modifier.padding(vertical=14.dp,horizontal=8.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+                                Text(option.label,style=MaterialTheme.typography.titleSmall,
+                                    color=if(updates.channel==option)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
+                                Text(if(option==UpdateChannel.PUBLIC)"Estable" else "Experimental",style=MaterialTheme.typography.bodySmall,
+                                    color=if(updates.channel==option)MaterialTheme.colorScheme.onPrimaryContainer else Muted)
+                            }
+                        }
+                    }
+                }
+                Text("Instalada: ${updates.installedChannel.label}. Las próximas actualizaciones siguen el canal elegido.",style=MaterialTheme.typography.bodySmall,color=Muted)
+                if(updates.channel!=updates.installedChannel)Text("Instalá la versión encontrada para completar el cambio de canal.",style=MaterialTheme.typography.bodySmall,color=Muted)
+            }
             WhiteCard {
                 Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
                     AppGlyph(Glyph.Download,tint=MaterialTheme.colorScheme.primary)

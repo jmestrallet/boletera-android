@@ -24,6 +24,9 @@ class StmEngine(private val context: Context) {
     private val adapter = listOf("stm-session.js", "stm-adapter.js").joinToString("\n") { name -> context.assets.open(name).bufferedReader().use { it.readText() } }
     private var document: String? = null
     private var password: String? = null
+    private val sessionAccess = SessionAccess()
+    private var silentRelogin = false
+    private var silentReloginAttempted = false
     private var lastAction = ""
     private var actionStarted = 0L
     private var active = false
@@ -243,10 +246,13 @@ class StmEngine(private val context: Context) {
         return true
     }
 
-    fun connect(doc: String, pass: String) {
+    fun connect(doc: String, pass: String, rememberForSession: Boolean = false) {
         if (state.busy) return
         if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
         clearSecrets()
+        sessionAccess.clear()
+        if (rememberForSession) try { sessionAccess.remember(doc, pass) } catch (_: Exception) { sessionAccess.clear() }
+        silentRelogin = false; silentReloginAttempted = false
         recoveringSession = false; recoverySteps.clear(); pendingHttpError = null
         expressRequest = null
         prexPayment.reset()
@@ -307,6 +313,7 @@ class StmEngine(private val context: Context) {
         payerProfiles = emptyList()
         payerStoreAvailable = true
         choices.forgetAll()
+        sessionAccess.clear()
         expressRequest = null
         return true
     }
@@ -498,7 +505,7 @@ class StmEngine(private val context: Context) {
         passwordStepSeen = false
         recoveringSession = false; recoverySteps.clear(); paymentNeedsReview = false; pendingHttpError = null
         clearPaymentSession()
-        clearSecrets(); active = false; accountVerified = false; paymentInFlight = false; handler.removeCallbacks(poll)
+        clearSecrets(); sessionAccess.clear(); active = false; accountVerified = false; paymentInFlight = false; handler.removeCallbacks(poll)
         web.stopLoading(); web.loadUrl("about:blank"); host.crop = null
         prexPayment.reset()
         state = UiState(hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId)
@@ -534,7 +541,7 @@ class StmEngine(private val context: Context) {
         if (active) { handler.removeCallbacks(poll); handler.post(poll) }
     }
     fun destroy() {
-        destroyed = true; active = false; handler.removeCallbacksAndMessages(null); clearSecrets()
+        destroyed = true; active = false; handler.removeCallbacksAndMessages(null); clearSecrets(); sessionAccess.clear()
         (web.parent as? ViewGroup)?.removeView(web); web.destroy()
         paymentBrowser.close()
         prexPayment.destroy()
@@ -640,8 +647,17 @@ class StmEngine(private val context: Context) {
             if (recoveringSession) expired() else recoverSession()
             return
         }
-        if (recoveringSession && stage in setOf("document", "password", "signedOut")) { expired(); return }
+        if (recoveringSession && stage in setOf("document", "password", "signedOut")) {
+            if (!restoreSessionAccess()) { expired(); return }
+            if (stage == "signedOut") {
+                actionStarted = System.currentTimeMillis(); awaitingNavigation = true; navigationGeneration++
+                web.loadUrl(START)
+                return
+            }
+        }
         if (data.optString("authError") == "credentials" && !accountVerified && !paymentInFlight) {
+            if (silentRelogin) sessionAccess.clear()
+            silentRelogin = false
             pendingHttpError = null
             fail("Documento o contraseña incorrectos. Revisalos e intentá de nuevo.")
             return
@@ -718,6 +734,7 @@ class StmEngine(private val context: Context) {
                     catch (_: Exception) { payerProfiles = emptyList(); payerStoreAvailable = false }
                 }
                 accountVerified = true
+                silentRelogin = false; silentReloginAttempted = false
                 choices.rememberVerifiedSession()
                 CookieManager.getInstance().flush()
                 recoveringSession = false; recoverySteps.clear()
@@ -824,12 +841,14 @@ class StmEngine(private val context: Context) {
         sessionRequest++
         clearSecrets(); clearPaymentSession()
         recoveringSession = true; recoverySteps.clear(); pendingHttpError = null
+        silentRelogin = false; silentReloginAttempted = false
         accountVerified = false; choosingCard = false; providerSubmitted = false
         lastAction = ""; pageStage = ""; active = true; polling = false
         actionStarted = System.currentTimeMillis(); awaitingNavigation = true; navigationGeneration++
         host.crop = null
-        state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess,
-            accessRequestId = accessRequestId, recoveringSession = true, paymentNeedsReview = paymentNeedsReview)
+        state = state.copy(stage = "connecting", busy = true, amount = null, captcha = null, message = "",
+            activePayment = null, accessRequestId = accessRequestId, recoveringSession = true,
+            sessionExpired = false, paymentNeedsReview = paymentNeedsReview)
         web.stopLoading(); web.loadUrl(CARDS)
         handler.removeCallbacks(poll); handler.post(poll)
     }
@@ -838,6 +857,8 @@ class StmEngine(private val context: Context) {
         if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
         paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
         sessionRequest++; accessRequestId++
+        if (silentRelogin) sessionAccess.clear()
+        silentRelogin = false; silentReloginAttempted = false
         clearSecrets(); clearPaymentSession()
         active = false; accountVerified = false; recoveringSession = false; recoverySteps.clear()
         pendingHttpError = null; providerSubmitted = false; polling = false; awaitingNavigation = false
@@ -845,6 +866,18 @@ class StmEngine(private val context: Context) {
         handler.removeCallbacks(poll); host.crop = null; web.stopLoading(); web.loadUrl("about:blank")
         state = UiState(hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId,
             sessionExpired = true, paymentNeedsReview = paymentNeedsReview)
+    }
+
+    private fun restoreSessionAccess(): Boolean {
+        if (document != null && password != null) return true
+        silentReloginAttempted = true
+        val access = sessionAccess.open() ?: return false
+        document = access.first
+        password = access.second
+        secretsExpireAt = System.currentTimeMillis() + 180000
+        silentRelogin = true
+        state = state.copy(recoveringSession = true, busy = true, sessionExpired = false)
+        return true
     }
     companion object {
         const val START = "https://stm.gub.uy/app/mistm/cuenta/"

@@ -32,11 +32,13 @@ En **0.2.29**, Configuración tiene un interruptor propio de vibración, encendi
 
 En **0.2.30**, Express mantiene los 1,2 segundos, reconoce la tarjeta de la última recarga confirmada y puede confirmar y volver al saldo sin pasos adicionales. Conserva Google para completar la tarjeta y el CAPTCHA original. Al abrir la app intenta reutilizar la sesión STM antes de pedir huella; la contraseña sigue protegida por biometría. Los pagos inciertos mantienen un seguimiento cifrado que no desaparece por consultar el saldo. [Alcance, límites y comprobaciones](docs/EXPRESS-0.2.30.md).
 
+En **0.2.31** hay dos canales. **Pública** oculta Carga Express y avisa una sola vez que existe **Beta**. **Beta** conserva el Express de 0.2.30. El canal se cambia desde Configuración y las próximas actualizaciones siguen esa elección. Después del primer ingreso con huella, un vencimiento de STM puede reutilizar durante esa ejecución una copia cifrada solo en memoria, sin pedir otra huella ni repetir la recarga. [Canales y recuperación de sesión](docs/CANALES-Y-SESION-0.2.31.md).
+
 ## Probar en el celular
 
 **Estado actual:** el dueño reportó tres recargas reales con Prex y señaló esperas sin salida, un aviso transitorio, CVV vacío tras autocompletar y un toque adicional para regresar al saldo. La versión 0.1.8 incorpora Prex dentro de la app, apariencia propia y datos del titular guardados por perfil. No es una API de pago nativa: conserva la página y sus verificaciones. La 0.2.19 integra confirmación final, comprobante, resultado STM y regreso a la home. La 0.2.22 aborda esos puntos con pruebas ficticias. El CVV efectivamente entregado por Google depende del proveedor y de los datos guardados; se conserva el ingreso manual visible. Ver [investigación y evidencia](docs/INTEGRACION-NATIVA-PAGO.md).
 
-**[Descargar la versión 0.2.30](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.30)** · [Todas las versiones y APK históricos](https://github.com/jmestrallet/boletera-android/releases)
+**[Descargar la versión Pública 0.2.31](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.31)** · **[Descargar la Beta 0.2.31](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.31-beta.1)** · [Todas las versiones](https://github.com/jmestrallet/boletera-android/releases)
 
 El candidato local 0.1.11 reemplaza el resumen y los datos del titular por pantallas nativas. Mantiene la página del proveedor detrás y muestra el CAPTCHA original en un panel. Su validación del pago completo sigue pendiente; no se publicó una nueva versión remota. El archivo local es `outputs/boletera-prueba-0.1.11.apk`.
 
@@ -84,7 +86,7 @@ Desde 0.2.9, el formulario de tarjeta Prex también tiene interfaz nativa: núme
 
 La protección concreta de la clave depende del hardware del teléfono; no se afirma que todos los dispositivos tengan StrongBox. No hay alternativa que guarde texto plano. Si falta biometría compatible, queda el ingreso manual. Agregar/quitar biometría o cambiar la seguridad del dispositivo puede invalidar la clave; en ese caso hay que **Olvidar acceso guardado** y configurarlo de nuevo.
 
-Para enviar las credenciales al sitio, necesariamente existen brevemente descifradas en memoria. El motor descarta sus referencias al completar el ingreso, cancelar, pasar a segundo plano o superar tres minutos. No se registran en consola ni se guardan en estado restaurable. Desde 0.1.2 las capturas están habilitadas a pedido del usuario para reportar problemas. Antes de compartir una captura, revisá que no incluya datos personales o de tarjeta.
+Para enviar las credenciales al sitio, necesariamente existen brevemente descifradas en memoria. El motor descarta esas referencias al completar el ingreso, cancelar, pasar a segundo plano o superar tres minutos. Desde 0.2.31, un ingreso autorizado con huella deja además una copia cifrada solo en memoria hasta cerrar sesión, cancelar o terminar el proceso; permite renovar la sesión sin otra huella. No se registra ni se guarda en estado restaurable. Desde 0.1.2 las capturas están habilitadas a pedido del usuario para reportar problemas. Antes de compartir una captura, revisá que no incluya datos personales o de tarjeta.
 
 Un nuevo ingreso explícito limpia primero la sesión web local para no mostrar accidentalmente otra cuenta. **Cerrar sesión local** borra cookies/almacenamiento WebView pero conserva el acceso cifrado. **Olvidar acceso guardado** elimina ambos y las preferencias locales. La boletera y el medio elegidos se guardan separados por cuenta; el identificador de cuenta se deriva con una clave HMAC local no exportable de Android Keystore, sin guardar el documento en las preferencias. Si no se puede acceder a esa clave, la app mantiene la elección manual. El respaldo en la nube y la transferencia de datos de la aplicación están excluidos.
 
@@ -109,9 +111,11 @@ En esta PC las herramientas, SDK, emuladores y firma de prueba están en `.tools
 ```powershell
 npm ci --ignore-scripts
 ./build.ps1
+# Para compilar la variante experimental:
+./build.ps1 -Channel beta
 ```
 
-El script ejecuta pruebas JS, pruebas JVM y lint, compila la APK release **sin depurador**, firma con la clave local de prueba y la copia a `outputs/`. No publica ni instala en un teléfono.
+El script ejecuta pruebas JS, pruebas JVM y lint, compila la APK release **sin depurador**, firma con la clave local de prueba y la copia a `outputs/`. Pública es el canal predeterminado; `-Channel beta` genera la variante con Express. No publica ni instala en un teléfono.
 
 En otra máquina: instalá JDK 17/21 y SDK Android (plataforma 35, build-tools 35.0.0), configurá `local.properties` con `sdk.dir=...` y usá `./gradlew.bat :app:assembleDebug`. La variante debug es para desarrollo. Para la variante release, el archivo local `.tools/signing.properties` debe contener `password=...`, correspondiente al almacén `.tools/boletera-test.jks`, alias `boletera-test`. Ninguno se distribuye con el código fuente.
 

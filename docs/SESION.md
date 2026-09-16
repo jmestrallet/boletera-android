@@ -1,8 +1,8 @@
 # Recuperación de sesión · 0.2.21
 
-**Actualización 0.2.30:** el comportamiento vigente de Express, sesión y seguimiento de pagos está en [EXPRESS-0.2.30.md](EXPRESS-0.2.30.md). Las secciones siguientes describen las versiones indicadas y sus antecedentes.
+**Actualización 0.2.31:** después de un ingreso autorizado con huella, Boletera conserva una copia cifrada solo en memoria para reingresar si STM vence la sesión durante la misma ejecución. El proceso muere o un cierre explícito eliminan esa copia. El alcance vigente está en [CANALES-Y-SESION-0.2.31.md](CANALES-Y-SESION-0.2.31.md). Las secciones siguientes describen las versiones anteriores.
 
-La sesión de STM puede vencer mientras Boletera permanece abierta. La app no conserva una contraseña descifrada para renovar el acceso: el almacén de credenciales exige una autorización biométrica por uso.
+La sesión de STM puede vencer mientras Boletera permanece abierta. Hasta 0.2.30 la app no conservaba acceso utilizable para renovar la sesión y el almacén persistente exigía una autorización biométrica por uso.
 
 ## Detección y recuperación
 

@@ -96,7 +96,7 @@ class MainActivity : FragmentActivity() {
             vault.unlock { doc, pass ->
                 authenticating = false
                 if (!isDestroyed && !isFinishing && engine.state.stage=="welcome" && engine.state.accessRequestId==accessId) {
-                    if (doc != null && pass != null) engine.connect(doc, pass)
+                    if (doc != null && pass != null) engine.connect(doc, pass, rememberForSession = true)
                     else engine.notice("No se desbloqueó el acceso. Podés volver a intentar o ingresar manualmente.")
                 }
             }
@@ -116,6 +116,13 @@ class MainActivity : FragmentActivity() {
         var showExpressHelp by rememberSaveable { mutableStateOf(false) }
         var showPaymentReview by remember {mutableStateOf(false)}
         val helpPreferences=remember { getSharedPreferences("feature_help",MODE_PRIVATE) }
+        var showBetaIntro by rememberSaveable {
+            mutableStateOf(!BuildConfig.DEBUG && updates.installedChannel==UpdateChannel.PUBLIC && !helpPreferences.getBoolean("beta_channel_intro_v1",false))
+        }
+        fun closeBetaIntro() {
+            helpPreferences.edit().putBoolean("beta_channel_intro_v1",true).apply()
+            showBetaIntro=false
+        }
         fun requestExpress() {
             if(!engine.expressAvailable || state.busy)return
             engine.startExpress()
@@ -205,7 +212,7 @@ class MainActivity : FragmentActivity() {
                                             if(save) {
                                                 authenticating=true
                                                 vault.save(doc,pass) { ok -> authenticating=false;engine.savedAccess(vault.exists)
-                                                    if(ok)engine.connect(doc,pass) else engine.notice("No se guardó el acceso. Podés intentar de nuevo o ingresar sin guardarlo.") }
+                                                    if(ok)engine.connect(doc,pass,rememberForSession=true) else engine.notice("No se guardó el acceso. Podés intentar de nuevo o ingresar sin guardarlo.") }
                                             } else engine.connect(doc,pass)
                                         }
                                     }
@@ -217,7 +224,7 @@ class MainActivity : FragmentActivity() {
                                 TextButton(onClick={showAccessGuide=true}) {Text("¿Es tu primer ingreso a STM?")}
                             }
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
-                                onExpressCharge=if(engine.expressAvailable)::requestExpress else null,
+                                onExpressCharge=if(updates.installedChannel==UpdateChannel.BETA && engine.expressAvailable)::requestExpress else null,
                                 onExpressHelp={if(!helpPreferences.getBoolean("express_skip_intro_v1",false))showExpressHelp=true},onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel,
                                 onPaymentReviewed={showPaymentReview=true})
                             "connecting" -> {
@@ -295,12 +302,17 @@ class MainActivity : FragmentActivity() {
             text={Text("Confirmá solo después de revisar el pago en Prex o en tu banco. Esto habilita otra recarga; no cancela ni devuelve el pago anterior.")},
             confirmButton={TextButton(onClick={if(engine.acknowledgePaymentReviewed())showPaymentReview=false}) {Text("Sí, ya lo revisé")}},
             dismissButton={TextButton(onClick={showPaymentReview=false}) {Text("Volver")}})
-        if(showExpressHelp && stage=="balance")ExpressIntroDialog(state.minimum,
+        if(showExpressHelp && stage=="balance" && updates.installedChannel==UpdateChannel.BETA)ExpressIntroDialog(state.minimum,
             onSkipChanged={skip->helpPreferences.edit().putBoolean("express_skip_intro_v1",skip).apply()},
             onClose={showExpressHelp=false},onAccept={skip->
                 helpPreferences.edit().putBoolean("express_skip_intro_v1",skip).apply()
                 showExpressHelp=false
             })
+        if(showBetaIntro)AlertDialog(onDismissRequest=::closeBetaIntro,
+            title={Text("Boletera ahora tiene canal Beta")},
+            text={Text("La versión pública queda estable y sin Carga Express. Si querés probar funciones experimentales, podés cambiar a Beta desde Configuración y recibir sus próximas actualizaciones. Podés volver a Pública cuando quieras.")},
+            confirmButton={TextButton(onClick={closeBetaIntro();updates.selectChannel(UpdateChannel.BETA);showSettings=true}){Text("Ver Beta")}},
+            dismissButton={TextButton(onClick=::closeBetaIntro){Text("Seguir en Pública")}})
         if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",state.diagnostic,
             onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall=updates::requestReview,onClose={showSettings=false},
             onTicketGuide={showSettings=false;showTicketGuide=true})

@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.2.31 — canales Pública/Beta y recuperación silenciosa
+
+- La variante Pública oculta Carga Express. La variante Beta conserva exactamente el Express de 0.2.30, sin intentar corregirlo en esta entrega.
+- Configuración permite elegir Pública o Beta. Cada canal consulta únicamente sus futuras publicaciones y descarga la variante firmada correspondiente; se puede volver al otro canal.
+- La primera apertura de esta Pública informa una sola vez que existe el canal Beta experimental.
+- Después de un ingreso autorizado con huella, las credenciales quedan cifradas solo en memoria durante esa ejecución. Si STM vence la sesión, Boletera vuelve a ingresar detrás de la pantalla y evita una segunda huella cuando es posible.
+- La recuperación descarta cualquier importe o avance de pago. No reenvía una recarga ni confirma operaciones.
+- Alcance y límites: [CANALES-Y-SESION-0.2.31](docs/CANALES-Y-SESION-0.2.31.md).
+
 ## 0.2.30-prueba — Express y sesión vigente
 
 - Se conservan los 1,2 segundos. La ayuda no interrumpe el inicio ni inicia pagos al cerrarla.

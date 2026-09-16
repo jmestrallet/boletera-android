@@ -1,3 +1,21 @@
+# Validación 0.2.31 — canales y recuperación silenciosa
+
+Fecha: 16/9/2026. Código 49 en ambas variantes. Resultado de laboratorio; todavía no comprobado con una cuenta real en el teléfono del dueño.
+
+- Pública: `0.2.31-prueba`, sin acceso a Carga Express desde la home. Beta: `0.2.31-beta.1`, con el Express de 0.2.30 sin cambios funcionales.
+- Compilaciones Pública y Beta firmadas. Release y lint de Pública correctos; Beta release correcta. Diez pruebas JVM correctas, incluidas dos del acceso cifrado temporal.
+- Android 16 con identidad, STM y proveedores interceptados: ocho recorridos de sesión correctos. El caso nuevo vence la sesión después de un ingreso autorizado, conserva saldo y boletera, reingresa con la copia cifrada en memoria, no incrementa la solicitud biométrica y no visita el límite de pago.
+- La tanda final de Pública terminó OK en 28,676 s: once casos ejecutados y uno omitido por corresponder exclusivamente a la ayuda de Express. Cubrió sesión, archivo firmado, separación de feeds, cambio con el mismo código y home sin Express.
+- Dos casos de home Beta correctos: Express visible, mínimo vigente, ayuda y persistencia. La regresión integral histórica de Express llegó al recorrido Beta pero falló por una excepción de WebView en su fixture; no se corrigió Express en esta entrega y el canal se mantiene experimental.
+- Instalación real en el emulador: Pública → Beta → Pública con el mismo paquete, firma y código 49, sin desinstalar. Cada variante informó su canal correcto. El aviso de la Pública se mostró una sola vez y la pantalla de Configuración fue revisada en modo oscuro.
+- Pública: 8.663.379 bytes, SHA-256 `459e7d84e03870d0e501e58cf5a918cd608f99fc303ff0e2afbfd746c50ef4d5`.
+- Beta: 8.663.383 bytes, SHA-256 `5a51b43287850fcb2ce772c943abb3c1ba8789e5d9bc7842982db57efef88747`.
+- Certificado SHA-256 de ambas: `547f110e5f633028151676a0c5d2536b80ee72a40810f6707a754cf2edccdab5`, igual al historial publicado.
+
+Límites: la recuperación silenciosa existe solo después de desbloquear el acceso durante esa ejecución; al morir el proceso vuelve a requerir huella. No se probaron credenciales reales ni se hizo ninguna recarga. La Beta conserva los riesgos conocidos de Express y no debe interpretarse como una corrección. Ver [alcance completo](CANALES-Y-SESION-0.2.31.md).
+
+---
+
 # Validación 0.2.30 — Express y sesión vigente
 
 Fecha: 12/9/2026. Código 48. Resultado de laboratorio; todavía no comprobado con una recarga real en el teléfono del dueño.

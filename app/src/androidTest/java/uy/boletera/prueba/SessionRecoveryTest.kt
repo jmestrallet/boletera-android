@@ -33,7 +33,7 @@ class SessionRecoveryTest {
         "/app/mistm/cuenta/pages/session-ended.xhtml" -> {authenticated=false;"<div role='alert'>Tu sesión ha expirado.</div>"}
         else -> "<p>Destino no esperado en el caso ficticio.</p>"
     }
-    private fun setup() {
+    private fun setup(rememberForSession:Boolean=false) {
         compose.runOnIdle {
             engine=MainActivity::class.java.getDeclaredField("engine").apply{isAccessible=true}.get(compose.activity) as StmEngine
             engine.forgetChoices()
@@ -66,7 +66,7 @@ class SessionRecoveryTest {
                 override fun onReceivedHttpError(view:WebView,request:WebResourceRequest,errorResponse:WebResourceResponse)=delegate.onReceivedHttpError(view,request,errorResponse)
                 override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest)=delegate.shouldOverrideUrlLoading(view,request)
             }
-            engine.connect("00000000","synthetic-session-password")
+            engine.connect("00000000","synthetic-session-password",rememberForSession)
         }
         home()
     }
@@ -141,6 +141,22 @@ class SessionRecoveryTest {
         compose.runOnIdle {assertEquals(0,engine.state.accessRequestId);assertFalse(engine.state.sessionExpired);assertEquals(82400L,engine.state.balance);assertNull(engine.state.activePayment)}
         assertEquals(0,hits["/app/mistm/cuenta/pages/recarga2.xhtml"]?.get()?:0)
         compose.runOnIdle {engine.forgetChoices()}
+    }
+    @Test fun biometricAuthorizedAccessRelogsSilentlyAfterSessionExpiry() {
+        setup(rememberForSession=true);ssoAlive=false
+        val before=hits["/login"]?.get()?:0
+        expireMarkup(login)
+        compose.waitUntil(20000){engine.state.recoveringSession}
+        compose.runOnIdle {assertEquals(82400L,engine.state.balance);assertEquals("ABCD1234",engine.state.selectedCard)}
+        home()
+        compose.runOnIdle {
+            assertTrue((hits["/login"]?.get()?:0)>before)
+            assertEquals(0,engine.state.accessRequestId);assertFalse(engine.state.sessionExpired)
+            assertNull(StmEngine::class.java.getDeclaredField("document").apply{isAccessible=true}.get(engine))
+            assertNull(StmEngine::class.java.getDeclaredField("password").apply{isAccessible=true}.get(engine))
+            engine.forgetChoices()
+        }
+        assertEquals(0,hits["/app/mistm/cuenta/pages/recarga2.xhtml"]?.get()?:0)
     }
     @Test fun loginOnAmountPageShowsSessionRecoveryAndManualLoginReturnsToFreshHome() {
         setup();ssoAlive=false

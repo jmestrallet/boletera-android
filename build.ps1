@@ -1,4 +1,7 @@
-param([switch]$SkipChecks)
+param(
+    [switch]$SkipChecks,
+    [ValidateSet('public','beta')][string]$Channel = 'public'
+)
 $ErrorActionPreference = 'Stop'
 $taskRoot = $PSScriptRoot
 Push-Location $taskRoot
@@ -15,9 +18,10 @@ try {
     if (-not (Test-Path '.tools/signing.properties')) { throw 'Falta la firma local de prueba. Consultá README.md.' }
     $tasks = @(':app:assembleRelease')
     if (-not $SkipChecks) { $tasks += ':app:testDebugUnitTest', ':app:lintDebug' }
-    & $gradle --no-daemon --console=plain @tasks
+    & $gradle --no-daemon --console=plain "-PboleteraChannel=$Channel" @tasks
     if ($LASTEXITCODE -ne 0) { throw 'Falló la compilación o sus comprobaciones.' }
     New-Item -ItemType Directory -Force outputs | Out-Null
-    Copy-Item app/build/outputs/apk/release/app-release.apk outputs/boletera-prueba-0.2.30.apk -Force
-    Get-FileHash outputs/boletera-prueba-0.2.30.apk -Algorithm SHA256
+    $output = if ($Channel -eq 'beta') { 'outputs/boletera-beta-0.2.31-beta.1.apk' } else { 'outputs/boletera-prueba-0.2.31.apk' }
+    Copy-Item app/build/outputs/apk/release/app-release.apk $output -Force
+    Get-FileHash $output -Algorithm SHA256
 } finally { Pop-Location }

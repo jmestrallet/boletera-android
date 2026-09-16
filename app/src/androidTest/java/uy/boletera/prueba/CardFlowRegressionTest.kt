@@ -227,6 +227,10 @@ class CardFlowRegressionTest {
                 assertEquals(2,paymentLoads[newLink]?.get())
             }
             compose.onNodeWithText("Recargar boletera").assertExists()
+            if(BuildConfig.DISTRIBUTION_CHANNEL!="beta") {
+                compose.onNodeWithText("Carga Express").assertDoesNotExist()
+                return
+            }
             compose.onNodeWithText("Carga Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
             compose.onNodeWithText("Así funciona Carga Express").assertIsDisplayed()
             compose.runOnIdle { assertEquals("balance",engine.state.stage);assertEquals(2,paymentLoads[newLink]?.get()) }

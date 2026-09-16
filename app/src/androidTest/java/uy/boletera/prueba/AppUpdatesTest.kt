@@ -40,9 +40,10 @@ class AppUpdatesTest {
         val updates=androidx.lifecycle.ViewModelProvider(compose.activity)[AppUpdates::class.java]
         compose.waitUntil(45000){!updates.busy}
         val prefs=compose.activity.getSharedPreferences("updates",android.content.Context.MODE_PRIVATE)
-        val previous=prefs.getLong("last_attempt",0)
+        val key="last_attempt.${updates.channel.key}"
+        val previous=prefs.getLong(key,0)
         try {
-            prefs.edit().putLong("last_attempt",1000).commit()
+            prefs.edit().putLong(key,1000).commit()
             assertFalse(updates.automaticCheckDue(1001))
             assertFalse(updates.automaticCheckDue(1000+6*60*60*1000L-1))
             assertTrue(updates.automaticCheckDue(1000+6*60*60*1000L))
@@ -50,7 +51,7 @@ class AppUpdatesTest {
             assertFalse(updates.automaticCheckDue(1000+12*60*60*1000L))
             compose.runOnIdle {updates.checkAutomatic()}
             assertTrue(updates.ready);assertFalse(updates.busy);assertFalse(updates.installRequested)
-        } finally {prefs.edit().putLong("last_attempt",previous).commit()}
+        } finally {prefs.edit().putLong(key,previous).commit()}
     }
     @Test fun accumulatedPopupScrollsAndKeepsInstallActionsVisible() {
         val history=(25 downTo 21).map { UpdateNews("0.2.$it",listOf("Primera mejora de esta versión.","Segunda mejora de esta versión.","Tercera mejora de esta versión.")) }
@@ -108,6 +109,8 @@ class AppUpdatesTest {
     }
     private fun fixture(version: String, draft: Boolean = false, digest: String = "sha256:" + "a".repeat(64), host: String = "github.com") =
         """{"tag_name":"v$version","draft":$draft,"prerelease":true,"assets":[{"name":"boletera-prueba-$version.apk","size":8000,"digest":"$digest","browser_download_url":"https://$host/jmestrallet/boletera-android/releases/download/v$version/boletera-prueba-$version.apk"}]}"""
+    private fun betaFixture(version:String) =
+        """{"tag_name":"v$version","draft":false,"prerelease":true,"assets":[{"name":"boletera-beta-$version.apk","size":8000,"digest":"sha256:${"b".repeat(64)}","browser_download_url":"https://github.com/jmestrallet/boletera-android/releases/download/v$version/boletera-beta-$version.apk"}]}"""
 
     @Test fun selectsNewerPrereleasesWithoutDowngradesOrForeignAssets() {
         assertTrue(UpdatePolicy.newer("0.1.15", "0.1.9-prueba"))
@@ -124,6 +127,17 @@ class AppUpdatesTest {
         assertFalse(UpdatePolicy.allowed(URL("https://user@github.com/test")))
     }
 
+    @Test fun publicAndBetaFeedsStaySeparateAndAllowAChannelSwitchAtTheSameBaseVersion() {
+        val json="[${fixture("0.2.31")},${betaFixture("0.2.31-beta.1")},${betaFixture("0.2.32-beta.2")}]"
+        assertEquals("0.2.31",UpdatePolicy.select(json,"0.2.30-prueba",UpdateChannel.PUBLIC)?.version)
+        assertEquals("0.2.32-beta.2",UpdatePolicy.select(json,"0.2.31-publica",UpdateChannel.BETA)?.version)
+        val publicSwitch=UpdatePolicy.select(json,"0.2.31-beta.1",UpdateChannel.PUBLIC)
+        assertEquals("0.2.31",publicSwitch?.version)
+        assertEquals(listOf("0.2.31"),publicSwitch?.history?.map {it.version})
+        assertNull(UpdatePolicy.select("[${betaFixture("0.2.31-beta.1")} ]","0.2.31-beta.1",UpdateChannel.BETA))
+        assertTrue(UpdatePolicy.newer("0.2.31-beta.2","0.2.31-beta.1"))
+    }
+
     @Suppress("DEPRECATION")
     @Test fun archiveRequiresSamePackageSignatureAndHigherVersionCode() {
         val context = compose.activity
@@ -132,22 +146,28 @@ class AppUpdatesTest {
         val source = context.applicationInfo.sourceDir
         val candidate = pm.getPackageArchiveInfo(source, flags)!!
         val baseline = pm.getPackageArchiveInfo(source, flags)!!
-        baseline.versionName = "0.1.14-prueba"; baseline.longVersionCode = BuildConfig.VERSION_CODE.toLong() - 1
-        UpdateFiles.verifyArchive(candidate, baseline, context.packageName, BuildConfig.VERSION_NAME.removeSuffix("-prueba"))
+        baseline.versionName = "0.2.30-prueba"; baseline.longVersionCode = BuildConfig.VERSION_CODE.toLong() - 1
+        val publicRelease=UpdateRelease("0.2.31","",1,"",packageVersion=candidate.versionName!!)
+        UpdateFiles.verifyArchive(candidate, baseline, context.packageName, publicRelease)
+        baseline.versionName="0.2.31-prueba";baseline.longVersionCode=BuildConfig.VERSION_CODE.toLong()
+        candidate.versionName="0.2.31-beta.1";candidate.longVersionCode=BuildConfig.VERSION_CODE.toLong()
+        UpdateFiles.verifyArchive(candidate,baseline,context.packageName,
+            UpdateRelease("0.2.31-beta.1","",1,"",channel=UpdateChannel.BETA,packageVersion="0.2.31-beta.1"))
+        candidate.versionName=publicRelease.packageVersion;baseline.versionName="0.2.30-prueba";baseline.longVersionCode=BuildConfig.VERSION_CODE.toLong()-1
         candidate.longVersionCode = BuildConfig.VERSION_CODE.toLong() - 1
-        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, BuildConfig.VERSION_NAME.removeSuffix("-prueba")) }
+        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, publicRelease) }
         candidate.longVersionCode = BuildConfig.VERSION_CODE.toLong()
         candidate.packageName = "another.app"
-        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, BuildConfig.VERSION_NAME.removeSuffix("-prueba")) }
+        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, publicRelease) }
         candidate.packageName = context.packageName
         candidate.signingInfo = null
-        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, BuildConfig.VERSION_NAME.removeSuffix("-prueba")) }
+        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate, baseline, context.packageName, publicRelease) }
     }
 
     @Test fun settingsCanCheckPublicGithubAndKeepInstalledNewerVersion() {
         compose.onNodeWithContentDescription("Configuración").performClick()
         compose.onNodeWithText("Buscar actualizaciones").performScrollTo().performClick()
-        compose.waitUntil(45_000) { compose.onAllNodesWithText("Ya tenés la versión más nueva disponible para esta app.").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(45_000) { compose.onAllNodesWithText("Ya tenés la versión más nueva del canal Pública.").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Descargar actualización").assertDoesNotExist()
     }
 
@@ -159,7 +179,7 @@ class AppUpdatesTest {
         try {
             UpdateFiles.download(release, file) {}
             assertEquals(release.size, file.length())
-            assertThrows(IllegalStateException::class.java) { UpdateFiles.verify(compose.activity, file, release.version) }
+            assertThrows(IllegalStateException::class.java) { UpdateFiles.verify(compose.activity, file, release) }
             assertThrows(IllegalStateException::class.java) { UpdateFiles.download(release.copy(sha256 = "0".repeat(64)), file) {} }
             assertFalse(file.exists())
         } finally { file.delete() }
