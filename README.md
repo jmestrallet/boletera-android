@@ -21,6 +21,24 @@
 > [!NOTE]
 > Boletera es un proyecto independiente y no oficial, sin vínculo con STM, la Intendencia de Montevideo ni gub.uy.
 
+## La hice porque me cansé de dar vueltas
+
+La hice primero para mí. Estaba cansado de que cargar la STM desde la web implicara pasar siempre por un montón de pantallas. Quería abrir una app, ver el saldo y llegar al pago sin tantas vueltas.
+
+Como habitualmente entro con **Usuario gub.uy** y recargo con **Prex**, eso fue lo primero que hice funcionar. Después decidí abrir el código para que le pueda servir a más gente y para que cualquiera pueda revisar exactamente qué hace la app.
+
+## Compatibilidad actual
+
+> [!IMPORTANT]
+> Hoy Boletera está pensada principalmente para **ingresar con Usuario gub.uy y recargar con Prex**. Es la combinación que uso habitualmente y la que más probé.
+
+- **Ingreso:** actualmente sólo es compatible con Usuario gub.uy.
+- **Prex:** es el medio de pago que uso y la parte que más probé. Se completaron recargas reales de esta forma.
+- **eBROU:** el traspaso al banco está disponible, pero todavía no fue probado lo suficiente de principio a fin. Consideralo experimental.
+- **Otros métodos:** todavía no están implementados.
+
+Si usás otra forma de ingreso o de pago, probablemente Boletera todavía no te sirva. Si empieza a usarla más gente y llega feedback, iré agregando otras opciones de a poco y con pruebas reales.
+
 ## Cómo funciona
 
 Boletera no reemplaza a STM ni usa una API paralela. Trabaja sobre el mismo sitio oficial: lo abre por detrás y traduce el recorrido a una interfaz Android más clara, pensada para consultar el saldo y preparar una recarga con menos vueltas.
@@ -32,7 +50,6 @@ La app reconoce las pantallas conocidas y automatiza acciones mecánicas, como n
 - Saldo disponible y mínimo de recarga informado por STM.
 - Selección de boletera, importe y medio de pago.
 - Interfaz nativa para el acceso, la recarga y Prex.
-- eBROU abierto en Chrome para conservar el entorno del banco.
 - Tema claro, oscuro o automático.
 - Actualizaciones firmadas desde la propia app.
 
@@ -58,17 +75,23 @@ La app puede preparar una recarga real. Revisá siempre el importe y la tarjeta 
 
 ## Privacidad y seguridad
 
-- El acceso guardado se cifra con Android Keystore y requiere tu huella para desbloquearse.
-- El número de tarjeta, el vencimiento y el CVV no se guardan.
-- No hay anuncios, analítica, seguimiento remoto ni un servidor propio.
+No hay una cuenta de Boletera ni un servidor propio. La información no se envía al desarrollador: la conexión ocurre entre tu teléfono y los servicios oficiales que intervienen en el recorrido.
+
+- El documento y la contraseña de gub.uy se guardan únicamente si elegís **Guardar acceso con huella**. Quedan cifrados en el teléfono con una clave de Android Keystore y requieren la biometría fuerte del dispositivo para desbloquearse.
+- Los perfiles opcionales de titular para Prex también se cifran localmente.
+- El número de tarjeta, el vencimiento y el CVV se usan de forma temporal para completar el formulario original. Boletera no los guarda en su almacenamiento y los limpia al salir del formulario.
+- Si una recarga queda pendiente, se conserva localmente un registro cifrado del importe y su estado para evitar que la repitas por error. Ese registro no contiene los datos de la tarjeta.
+- No hay anuncios, analítica ni seguimiento remoto.
 - La navegación se limita a los sitios verificados de STM, gub.uy y los proveedores de pago.
 - Una conexión insegura, una pantalla desconocida o un importe ilegible detienen el recorrido.
 
-La implementación y sus límites están explicados en [Arquitectura](docs/ARQUITECTURA.md), [sesión y versiones](docs/CANALES-Y-SESION-0.2.31.md) e [integración de pagos](docs/INTEGRACION-NATIVA-PAGO.md).
+Todo el código es público para que cualquiera pueda verificar qué se guarda, cómo se cifra y a qué sitios se conecta. La implementación y sus límites están explicados en [Arquitectura](docs/ARQUITECTURA.md), [sesión y versiones](docs/CANALES-Y-SESION-0.2.31.md) e [integración de pagos](docs/INTEGRACION-NATIVA-PAGO.md).
 
-## Estado del proyecto
+## Feedback y próximos pasos
 
-La app está en desarrollo activo. Se comprobaron recargas reales con Prex, pero cada cambio de STM, gub.uy o Sistarbanc puede exigir una actualización. La versión Beta conserva funciones experimentales que todavía no se recomiendan para el uso habitual.
+La app sigue en desarrollo y hoy resuelve principalmente mi propio recorrido. Si la usás, encontrás un problema o querés que sume otro método, podés [abrir un issue](https://github.com/jmestrallet/boletera-android/issues) o escribirme por Telegram: [@mestrallet](https://t.me/mestrallet).
+
+Cada cambio en los sitios oficiales puede exigir una actualización. La versión Beta conserva funciones experimentales que todavía no recomiendo para el uso habitual.
 
 - [Validación y evidencia](docs/VALIDACION.md)
 - [Compatibilidad de pagos](docs/COMPATIBILIDAD-PAGO.md)
