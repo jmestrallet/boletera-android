@@ -19,7 +19,7 @@
 </p>
 
 > [!NOTE]
-> Boletera es un proyecto independiente y no oficial. No pertenece a STM, la Intendencia de Montevideo, gub.uy, Prex, Sistarbanc ni BROU.
+> Boletera es un proyecto independiente y no oficial, sin vínculo con STM, la Intendencia de Montevideo ni gub.uy.
 
 ## Cómo funciona
 
