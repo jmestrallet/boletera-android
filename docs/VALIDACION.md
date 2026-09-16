@@ -19,6 +19,19 @@ Límites: Android o Google decide qué tarjetas ofrece y cuándo muestra la huel
 
 ---
 
+## Reparación del salto desde 0.2.30-prueba
+
+Fecha: 16/9/2026. Se reprodujo el reporte con el APK publicado `boletera-prueba-0.2.30.apk` en un emulador Android 16 limpio. El actualizador antiguo ignoraba las releases nuevas porque exigía el nombre `boletera-prueba-X.Y.Z.apk`, retirado al separar Estable y Beta.
+
+- Se compiló desde `2f418ba` un puente con paquete `uy.boletera.prueba`, `versionName 0.2.31-prueba`, código 49 y la firma histórica. El modo normal de compilación conservó `0.2.32`, código 50.
+- El puente aprobó 62 pruebas JavaScript, las pruebas JVM, lint y release. APK: `boletera-prueba-0.2.31.apk`, 8.647.383 bytes, SHA-256 `9dd317f4858e515c11420623bfbec1a8352666b2cbf23e010e1eb981f7dfab2c`; certificado SHA-256 `547f110e5f633028151676a0c5d2536b80ee72a40810f6707a754cf2edccdab5`.
+- El archivo se agregó a la release pública `v0.2.31`. La instalación original `0.2.30-prueba` mostró automáticamente **Hay una nueva versión de Boletera** y en Configuración **Está disponible la versión 0.2.31**.
+- La descarga realizada por la propia `0.2.30-prueba` superó tamaño, SHA-256, paquete, versión, código y firma, y llegó al diálogo **Actualización lista**. Luego de instalar el mismo puente conservando los datos, Configuración mostró **Hay una nueva versión estable: 0.2.32**.
+
+No se necesitó cambiar ni volver a publicar `0.2.30-prueba`. No se tocó STM, no se usaron credenciales y no se inició una recarga. La confirmación final del instalador de Android sigue siendo humana.
+
+---
+
 ## Versión anterior: 0.2.31 — versiones, textos y recuperación silenciosa
 
 Fecha: 16/9/2026. Código 49 en ambas variantes. Resultado de laboratorio; todavía no comprobado con una cuenta real en el teléfono del dueño.
