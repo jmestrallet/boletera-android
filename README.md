@@ -21,6 +21,12 @@
 > [!NOTE]
 > Boletera es un proyecto independiente y no oficial. No pertenece a STM, la Intendencia de Montevideo, gub.uy, Prex, Sistarbanc ni BROU.
 
+## Cómo funciona
+
+Boletera no reemplaza a STM ni usa una API paralela. Trabaja sobre el mismo sitio oficial: lo abre por detrás y traduce el recorrido a una interfaz Android más clara, pensada para consultar el saldo y preparar una recarga con menos vueltas.
+
+La app reconoce las pantallas conocidas y automatiza acciones mecánicas, como navegar entre pasos, elegir la boletera y completar campos que ya autorizaste. El ingreso de Usuario gub.uy, los CAPTCHA y la confirmación final del pago siguen bajo tu control. Si STM o un proveedor muestra una pantalla que Boletera no reconoce, el recorrido se detiene.
+
 ## Todo lo importante, en un solo lugar
 
 - Saldo disponible y mínimo de recarga informado por STM.
