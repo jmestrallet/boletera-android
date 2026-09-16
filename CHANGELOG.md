@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.2.32 — Carga Express de un toque
+
+- En Boletera Beta, Carga Express empieza con un toque. Se elimina la pulsación de 1,2 segundos y la explicación previa.
+- Usa el mínimo vigente, la boletera habitual, Prex y el titular conocido; eBROU queda en el recorrido común porque abre su autorización bancaria fuera de Boletera.
+- Al llegar a la tarjeta, Boletera enfoca el número y solicita el proveedor de autocompletado de Android. La elección de tarjeta y la huella quedan bajo control de Android o Google.
+- Si Android entrega número, vencimiento y CVV válidos, continúa automáticamente. Boletera no guarda esos datos; si falta el CVV o aparece un CAPTCHA, pide solamente esa intervención.
+- Una tarjeta ya verificada conserva el cierre automático de Express. Una tarjeta distinta mantiene la confirmación final para evitar autorizar la equivocada.
+- Se corrige un callback tardío de Prex que podía fallar cuando el navegador interno ya no estaba visible.
+- Alcance y límites: [EXPRESS-0.2.32](docs/EXPRESS-0.2.32.md).
+
 ## 0.2.31 — versiones Estable/Beta y recuperación silenciosa
 
 - **Boletera** es la versión estable y oculta Carga Express. **Boletera Beta** conserva exactamente el Express de 0.2.30, sin intentar corregirlo en esta entrega.

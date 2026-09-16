@@ -27,7 +27,7 @@ class ExpressFeedbackTest {
         File(compose.activity.getExternalFilesDir(null),name).outputStream().use {shot.compress(Bitmap.CompressFormat.PNG,100,it)}
         shot.recycle()
     }
-    @Test fun completionAcknowledgesImmediatelyAndReleaseDoesNotRestart() {
+    @Test fun singleTapAcknowledgesImmediatelyAndPreparingBlocksDuplicates() {
         var starts=0
         var preparing by mutableStateOf(false)
         compose.activity.setContent {BoleteraTheme("dark") {Surface {
@@ -35,18 +35,14 @@ class ExpressFeedbackTest {
                 ExpressShortcut(26000,!preparing,preparing=preparing) {starts++;preparing=true}
             }
         }}}
-        compose.onNodeWithTag("expressShortcut").performTouchInput {down(center);advanceEventTime(700)}
-        assertEquals(0,starts)
-        assertTrue(compose.onNodeWithTag("expressShortcut").fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo].current<1f)
-        compose.onNodeWithTag("expressShortcut").performTouchInput {up()}
-        assertEquals(0,starts)
-        compose.onNodeWithTag("expressShortcut").performTouchInput {longClick(durationMillis=1250)}
+        assertEquals(0f,compose.onNodeWithTag("expressShortcut").fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo].current)
+        compose.onNodeWithTag("expressShortcut").performClick()
         assertEquals(1,starts)
         compose.onNodeWithText("Preparando tu recarga").assertIsDisplayed()
-        compose.onNodeWithText("Ya podés soltar",substring=true).assertIsDisplayed()
+        compose.onNodeWithText("Abriendo Prex",substring=true).assertIsDisplayed()
         assertEquals(1f,compose.onNodeWithTag("expressShortcut").fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo].current)
         screenshot("express-preparing.png")
-        compose.onNodeWithTag("expressShortcut").performTouchInput {longClick(durationMillis=1500)}
+        compose.onNodeWithTag("expressShortcut").performClick()
         assertEquals(1,starts)
     }
 }

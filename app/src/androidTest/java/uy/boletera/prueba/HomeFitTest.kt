@@ -48,11 +48,7 @@ class HomeFitTest {
         compose.onNodeWithTag("ticketBudget").assertDoesNotExist()
         compose.runOnIdle {state.value=state.value.copy(minimum=56400)}
         compose.onNodeWithText("$ 564").assertExists()
-        if(BuildConfig.DISTRIBUTION_CHANNEL=="beta") {
-            compose.onNodeWithText("Carga Express").performClick()
-            compose.onNodeWithText("Ahora es $ 564",substring=true).assertExists()
-            compose.onNodeWithText("Ahora no").performClick()
-        }
+        if(BuildConfig.DISTRIBUTION_CHANNEL=="beta")compose.onNodeWithTag("expressShortcut").assertTextContains("$ 564",substring=true)
         compose.runOnIdle {state.value=state.value.copy(minimum=73100)}
         compose.onNodeWithText("$ 731").assertExists()
         verifyFit()
@@ -61,25 +57,5 @@ class HomeFitTest {
         verifyFit();screenshot("home-fit-negative.png")
         compose.onNodeWithContentDescription("Boletos y tarifas").performClick()
         compose.onNodeWithText("1 hora").assertExists()
-    }
-    @Test fun hiddenExpressHelpStaysHiddenAfterCancelledHoldAndActivityRecreation() {
-        org.junit.Assume.assumeTrue(BuildConfig.DISTRIBUTION_CHANNEL=="beta")
-        val prefs=compose.activity.getSharedPreferences("feature_help",0)
-        compose.runOnIdle {prefs.edit().remove("express_skip_intro_v1").commit()}
-        try {
-            prepare()
-            compose.onNodeWithText("Carga Express").performScrollTo().performClick()
-            compose.onNodeWithText("No volver a mostrar").performScrollTo().performClick()
-            compose.onNodeWithText("Ahora no").performClick()
-            compose.runOnIdle {assertTrue(prefs.getBoolean("express_skip_intro_v1",false))}
-            compose.onNodeWithTag("expressShortcut").performScrollTo().performTouchInput {down(center);advanceEventTime(700);up()}
-            compose.onNodeWithText("Así funciona Carga Express").assertDoesNotExist()
-            prepare() // Recreates the real activity; the choice must survive.
-            compose.onNodeWithTag("expressShortcut").performScrollTo().performTouchInput {down(center);advanceEventTime(700);up()}
-            compose.onNodeWithText("Así funciona Carga Express").assertDoesNotExist()
-            compose.onNodeWithTag("expressShortcut").performTouchInput {click()}
-            compose.onNodeWithText("Así funciona Carga Express").assertDoesNotExist()
-            compose.runOnIdle {assertEquals("balance",state.value.stage);assertFalse(state.value.busy)}
-        } finally {compose.runOnIdle {prefs.edit().remove("express_skip_intro_v1").commit()}}
     }
 }

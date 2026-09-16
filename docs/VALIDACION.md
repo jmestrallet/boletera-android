@@ -1,4 +1,25 @@
-# Validación 0.2.31 — versiones, textos y recuperación silenciosa
+# Validación 0.2.32 — Carga Express de un toque
+
+Fecha: 16/9/2026. Código 50 en ambas variantes. Resultado de laboratorio; falta la comprobación con Google y huella en el teléfono del dueño.
+
+- Estable: `0.2.32`, nombre visible **Boletera**, sin acceso a Carga Express desde la home. Beta: `0.2.32-beta.1`, nombre visible **Boletera Beta**, con el nuevo Express.
+- Un toque inicia una sola vez. El atajo usa el mínimo vigente y sólo aparece con una boletera operativa, Prex y un titular válido. eBROU ya no habilita Express.
+- El recorrido ficticio integral llegó desde la home hasta la tarjeta, seleccionó importe/proveedor/titular sin toques extra y dejó enfocado el número al completar la fase automática.
+- Un proveedor de autocompletado descartable recibió, sin otro toque en el campo, una solicitud con los tres tipos de Android: número, vencimiento y código de seguridad.
+- La entrega ficticia conjunta mediante la entrada real `View.autofill` completó los tres campos y avanzó una sola vez. Entregas parciales, valores inválidos y escritura manual no se interpretaron como un lote completo.
+- La regresión integral de Prex aprobó luego de corregir la resolución ambigua del callback tardío del navegador interno.
+- Aprobadas las 62 pruebas JavaScript, las 10 JVM, lint y las compilaciones release de ambas variantes. También aprobaron 10 casos Android dirigidos de Beta, 5 de Estable y la comprobación externa del proveedor de autocompletado.
+- Revisión visual en Android 16: home completa sin desplazamiento, texto de toque único y estado Preparando tu recarga. Capturas locales con datos ficticios: `outputs/express-shortcut-0.2.32.png` y `outputs/express-preparing-0.2.32.png`.
+- La tanda histórica completa bajo la configuración Beta no quedó verde: 84 de 91 casos aprobaron, 2 se omitieron y 5 fallaron. Incluyen una expectativa escrita para el canal Estable, una precondición de permiso de instalación dependiente del orden, el toque de un fixture CAPTCHA afectado por el WebView actual y dos aserciones visuales históricas. Los casos modificados o directamente vinculados a Express aprobaron aislados; esta tanda no se presenta como cierre general de toda la app.
+- Estable: `boletera-0.2.32.apk`, 8.647.375 bytes, SHA-256 `8565c6d1729262970d9284b499694d330d266eb2d2c8f17719e4445b6b61dcb0`.
+- Beta: `boletera-beta-0.2.32-beta.1.apk`, 8.647.387 bytes, SHA-256 `bc317e5ab014bfd959cd60d68ef27af66d5d730ceff2c30a218d290b2a082e3e`.
+- Certificado SHA-256 de ambas: `547f110e5f633028151676a0c5d2536b80ee72a40810f6707a754cf2edccdab5`, igual al historial publicado.
+
+Límites: Android o Google decide qué tarjetas ofrece y cuándo muestra la huella; Boletera no puede elegir una tarjeta ni desbloquear el depósito privado de otro proveedor. STM, Sistarbanc, la red, CAPTCHA o verificaciones adicionales pueden impedir llegar a la tarjeta en cinco segundos. No se ingresaron credenciales reales ni se inició o autorizó una recarga. Ver [alcance completo](EXPRESS-0.2.32.md).
+
+---
+
+## Versión anterior: 0.2.31 — versiones, textos y recuperación silenciosa
 
 Fecha: 16/9/2026. Código 49 en ambas variantes. Resultado de laboratorio; todavía no comprobado con una cuenta real en el teléfono del dueño.
 

@@ -223,14 +223,14 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                             view.evaluateJavascript("window.BoleteraExpress && window.BoleteraExpress.start($amount,${profile.json()})",null)
                         }
                     }
-                    handler.removeCallbacks(profileStatus)
-                    if(visible && !suspended)handler.post(profileStatus)
+                    this@EmbeddedPrexPayment.handler.removeCallbacks(profileStatus)
+                    if(visible && !suspended)this@EmbeddedPrexPayment.handler.post(profileStatus)
                 } else {
                     view.evaluateJavascript(returnScript + ";window.BoleteraNative ? window.BoleteraNative.snapshot().stage : 'original'") { raw ->
                         if (!destroyed && url == view.url) {
                             nativeStage = try { org.json.JSONTokener(raw).nextValue() as? String ?: "original" } catch (_: Exception) { "original" }
-                            handler.removeCallbacks(profileStatus)
-                            if (visible) handler.post(profileStatus)
+                            this@EmbeddedPrexPayment.handler.removeCallbacks(profileStatus)
+                            if (visible) this@EmbeddedPrexPayment.handler.post(profileStatus)
                         }
                     }
                 }

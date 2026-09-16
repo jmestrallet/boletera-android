@@ -2,8 +2,7 @@ package uy.boletera.prueba
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -18,70 +17,43 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.ViewConfiguration
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
 
 /** A one-shot shortcut. No activation preference, configuration screen, or change to ordinary recharge. */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable internal fun ExpressShortcut(amount: Long?, enabled: Boolean, onExplain: (() -> Unit)? = null, preparing: Boolean = false, providerName: String = "Medio guardado", onStart: () -> Unit) {
+@Composable internal fun ExpressShortcut(amount: Long?, enabled: Boolean, preparing: Boolean = false, providerName: String = "Prex", onStart: () -> Unit) {
     val interaction=remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    var fired by remember { mutableStateOf(false) }
-    var progress by remember { mutableFloatStateOf(0f) }
     val haptic=LocalHapticFeedback.current
-    LaunchedEffect(pressed,enabled,preparing) {
-        if(!pressed) fired=false
-        if(preparing)progress=1f
-        else if(pressed && enabled) {
-            // Elapsed hold time is functional feedback, independent of Android's animation speed.
-            val started=android.os.SystemClock.uptimeMillis()
-            var pulses=0
-            while(!fired) {
-                val elapsed=android.os.SystemClock.uptimeMillis()-started
-                // Only the gesture's actual acceptance may finish the circle.
-                progress=(elapsed/1200f).coerceIn(0f,0.98f)
-                val due=(elapsed/400).toInt().coerceAtMost(2)
-                if(due>pulses){haptic.performHapticFeedback(HapticFeedbackType.ContextClick);pulses=due}
-                delay(16)
-            }
-        } else progress=0f
-    }
     val scale by animateFloatAsState(if(pressed)0.97f else 1f,spring(dampingRatio=0.65f,stiffness=450f),label="express press")
-    val configuration=LocalViewConfiguration.current
-    val hold=remember(configuration) { object:ViewConfiguration by configuration { override val longPressTimeoutMillis=1200L } }
     val ink=MaterialTheme.colorScheme.primary
-    fun start() { if(enabled && !preparing && !fired) { fired=true;progress=1f;onStart() } }
-    CompositionLocalProvider(LocalViewConfiguration provides hold) {
-        Surface(color=Panel,shape=RoundedCornerShape(24.dp),modifier=Modifier.fillMaxWidth()
-            .graphicsLayer { scaleX=scale;scaleY=scale;shape=RoundedCornerShape(24.dp);clip=true }
-            .combinedClickable(interactionSource=interaction,indication=ripple(),enabled=enabled,
-                onClick={if(!preparing){haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onExplain?.invoke()}},
-                onLongClickLabel="Recargar el mínimo con $providerName",onLongClick=::start)
-            .testTag("expressShortcut")
-            .semantics {
-                progressBarRangeInfo=ProgressBarRangeInfo(progress,0f..1f)
-                stateDescription=if(preparing)"Preparando la recarga. Ya podés soltar." else if(fired)"Pulsación aceptada" else "Mantené apretado para recargar"
-                if(enabled && !preparing) customActions=listOf(CustomAccessibilityAction("Recargar ${Amounts.format(amount)} con $providerName") { start();true })
-            }) {
-            Row(Modifier.padding(horizontal=18.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
-                ExpressEnergy(progress,preparing,ink,Modifier.size(56.dp))
-                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)) {
-                    Text(if(preparing)"Preparando tu recarga" else "Carga Express",style=MaterialTheme.typography.titleMedium,color=ink)
-                    Text(when {preparing->"Ya podés soltar · conectando con STM";fired->"Listo · ya podés soltar";pressed->"Soltá antes de completar para cancelar";else->"$providerName · ${Amounts.format(amount)} · mantené apretado"},style=MaterialTheme.typography.bodySmall,color=Muted)
-                }
+    val progress=if(preparing)1f else 0f
+    Surface(color=Panel,shape=RoundedCornerShape(24.dp),modifier=Modifier.fillMaxWidth()
+        .graphicsLayer { scaleX=scale;scaleY=scale;shape=RoundedCornerShape(24.dp);clip=true }
+        .clickable(interactionSource=interaction,indication=ripple(),enabled=enabled&&!preparing,role=Role.Button,
+            onClickLabel="Recargar ${Amounts.format(amount)} con $providerName") {
+                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                onStart()
+            }
+        .testTag("expressShortcut")
+        .semantics {
+            progressBarRangeInfo=ProgressBarRangeInfo(progress,0f..1f)
+            stateDescription=if(preparing)"Preparando la recarga" else "Tocá una vez para recargar el mínimo"
+        }) {
+        Row(Modifier.padding(horizontal=18.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
+            ExpressEnergy(progress,preparing,ink,Modifier.size(56.dp))
+            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(2.dp)) {
+                Text(if(preparing)"Preparando tu recarga" else "Carga Express",style=MaterialTheme.typography.titleMedium,color=ink)
+                Text(if(preparing)"Abriendo Prex y completando tus datos" else "$providerName · ${Amounts.format(amount)} · tocá para empezar",style=MaterialTheme.typography.bodySmall,color=Muted)
             }
         }
     }

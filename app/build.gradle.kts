@@ -20,10 +20,10 @@ android {
         applicationId = "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = 49
-        versionName = if (isBeta) "0.2.31-beta.1" else "0.2.31"
+        versionCode = 50
+        versionName = if (isBeta) "0.2.32-beta.1" else "0.2.32"
         buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"$distributionChannel\"")
-        buildConfigField("String", "DISPLAY_VERSION", if (isBeta) "\"0.2.31 Beta 1\"" else "\"0.2.31\"")
+        buildConfigField("String", "DISPLAY_VERSION", if (isBeta) "\"0.2.32 Beta 1\"" else "\"0.2.32\"")
         resValue("string", "app_name", if (isBeta) "Boletera Beta" else "Boletera")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

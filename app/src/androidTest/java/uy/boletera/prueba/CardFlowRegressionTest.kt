@@ -8,6 +8,7 @@ import android.webkit.WebResourceResponse
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onRoot
@@ -16,6 +17,8 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertTextContains
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
@@ -231,40 +234,29 @@ class CardFlowRegressionTest {
                 compose.onNodeWithText("Carga Express").assertDoesNotExist()
                 return
             }
-            compose.onNodeWithText("Carga Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
-            compose.onNodeWithText("Así funciona Carga Express").assertIsDisplayed()
-            compose.runOnIdle { assertEquals("balance",engine.state.stage);assertEquals(2,paymentLoads[newLink]?.get()) }
-            compose.onNodeWithText("No volver a mostrar").performScrollTo().performClick()
-            compose.onNodeWithText("Ahora no").performClick()
-            compose.runOnIdle {
-                assertEquals("balance",engine.state.stage)
-                assertTrue(compose.activity.getSharedPreferences("feature_help",0).getBoolean("express_skip_intro_v1",false))
-            }
-            compose.onNodeWithText("Carga Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
-            compose.onNodeWithText("Así funciona Carga Express").assertDoesNotExist()
+            compose.onNodeWithText("Carga Express").performScrollTo().performClick()
             compose.runOnIdle { engine.startExpress() } // Duplicate cannot initiate another submission.
-            compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" }
+            compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" && engine.prexPayment.expressPhase=="done" }
             compose.onNodeWithText("Número de tarjeta").assertExists()
+            compose.onNodeWithTag("cardNumber").assertIsFocused()
+            compose.onNodeWithTag("cardAutofillPrompt").assertTextContains("huella",substring=true)
             assertEquals("1",paymentJs("window.summaryClicks"));assertEquals("1",paymentJs("window.payerClicks"))
             assertEquals("0",paymentJs("window.cardClicks"));assertEquals("true",paymentJs("window.chosenPayer"))
             compose.runOnIdle {
                 assertEquals(56400L,engine.state.activePayment?.amount)
                 assertEquals(firstPayer.id,engine.state.activePayment?.payerProfileId)
                 assertEquals(3,paymentLoads[newLink]?.get())
-                assertTrue(compose.activity.getSharedPreferences("feature_help",0).getBoolean("express_skip_intro_v1",false))
             }
             compose.onNodeWithContentDescription("Volver").performClick()
             compose.waitUntil(15000) { engine.state.stage=="balance" && !engine.state.busy }
-            compose.onNodeWithText("Carga Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
-            compose.onNodeWithText("Así funciona Carga Express").assertDoesNotExist()
-            compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" }
+            compose.onNodeWithText("Carga Express").performScrollTo().performClick()
+            compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" && engine.prexPayment.expressPhase=="done" }
             assertEquals(4,paymentLoads[newLink]?.get())
         } finally {
             instrumentation.removeMonitor(monitor)
             compose.runOnIdle {
                 engine.cancel()
                 engine.forgetChoices()
-                compose.activity.getSharedPreferences("feature_help",0).edit().clear().commit()
             }
         }
     }

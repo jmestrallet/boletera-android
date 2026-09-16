@@ -2,8 +2,8 @@
 
 ## 1. Elegí una versión
 
-- **Estable:** `boletera-0.2.31.apk`. Es la recomendada y no incluye Carga Express.
-- **Beta:** `boletera-beta-0.2.31-beta.1.apk`. Conserva Carga Express como función experimental.
+- **Estable:** `boletera-0.2.32.apk`. Es la recomendada y no incluye Carga Express.
+- **Beta:** `boletera-beta-0.2.32-beta.1.apk`. Incluye Carga Express como función experimental.
 
 Ambas requieren Android 8 o posterior. Instalá el APK encima de una versión anterior para conservar los datos guardados.
 
@@ -25,6 +25,8 @@ Elegí el importe y el medio de pago:
 - **eBROU** se abre en Chrome.
 
 La solicitud puede ser real. Revisá el importe, la tarjeta y cualquier verificación antes de confirmar. Boletera no resuelve CAPTCHA ni aprueba pagos por vos.
+
+En la Beta, **Carga Express** empieza con un toque, usa el mínimo vigente, la boletera habitual, Prex y el titular conocido. Al llegar a la tarjeta solicita el autocompletado de Android. Elegí la tarjeta guardada y autorizá con la huella si tu proveedor la pide; si Android entrega número, vencimiento y CVV, Boletera continúa sin otro toque. El tiempo depende de STM, Sistarbanc y la conexión.
 
 ## 5. Comprobá el resultado
 

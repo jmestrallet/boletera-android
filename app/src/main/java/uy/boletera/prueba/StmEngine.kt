@@ -462,13 +462,9 @@ class StmEngine(private val context: Context) {
     }
 
     private val expressProvider: String? get()=choices.successfulProvider ?: choices.provider
-    val expressProviderName: String get() = when(expressProvider) {"1033"->"Prex";"1002"->"eBROU";else->"Medio guardado"}
-    val expressPaymentLabel: String get()=expressProviderName + if(expressProvider=="1033")choices.successfulCardSuffix?.let {" · •••• $it"}.orEmpty() else ""
-    private val expressProviderReady: Boolean get() = when(expressProvider) {
-        "1033" -> payerStoreAvailable && expressPayer()!=null
-        "1002" -> paymentBrowser.available()
-        else -> false
-    }
+    val expressProviderName: String get() = if(expressProvider=="1033")"Prex" else "Medio guardado"
+    val expressPaymentLabel: String get()=expressProviderName + choices.successfulCardSuffix?.let {" · •••• $it"}.orEmpty()
+    private val expressProviderReady: Boolean get() = expressProvider=="1033" && payerStoreAvailable && expressPayer()!=null
     val expressAvailable: Boolean get() = accountVerified && !paymentNeedsReview && !journalUnavailable && expressProviderReady &&
         choices.card==state.selectedCard &&
         state.selectedCard!=null && state.cards.any { it.id==state.selectedCard && it.active } &&
@@ -480,7 +476,8 @@ class StmEngine(private val context: Context) {
         if(!accountVerified || state.busy || state.stage!="balance" || pageStage!="amount" || state.activePayment!=null || expressRequest!=null) return
         if(!expressAvailable)return
         val provider=expressProvider ?: return
-        val payer=if(provider=="1033")expressPayer() ?: return else null
+        if(provider!="1033")return
+        val payer=expressPayer() ?: return
         if(state.cards.none { it.id==card && it.active })return
         if(!Amounts.valid(amount,state.minimum))return
         expressRequest=ExpressChoice(card,provider,payer?.id)
@@ -810,9 +807,9 @@ class StmEngine(private val context: Context) {
                 val express=expressRequest
                 expressRequest=null // Consume once, before initiating any provider navigation.
                 if(express!=null) {
-                    val valid=accountVerified && express.card==state.selectedCard &&
+                    val valid=accountVerified && express.provider=="1033" && express.card==state.selectedCard &&
                         list.any { it.id==express.provider } &&
-                        (express.provider!="1033" || payerProfiles.any { it.id==express.payerId && it.valid() })
+                        payerProfiles.any { it.id==express.payerId && it.valid() }
                     if(valid) {
                         state=state.copy(selectedProvider=express.provider,payerProfileId=express.payerId)
                         beginPayment()

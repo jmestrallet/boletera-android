@@ -60,7 +60,7 @@ Configuración incorpora Probar vibración con el pulso largo nativo. Se informa
 
 ## Express como atajo · 0.2.10
 
-Recargar boletera conserva la jerarquía principal. El control secundario Carga Express se ubica debajo y aparece solo con los datos habituales completos. Una pulsación de 1,2 s llena un anillo, comprime el control y emite pulsos; soltar antes cancela. Al terminar inicia esa recarga directamente, sin pantalla de configuración, activación persistente ni confirmación del modo. [Recorrido y condiciones](MODO-EXPRESS.md). Las capturas de `ExpressDemo` usan componentes de producción con datos ficticios; no representan una operación bancaria.
+Recargar boletera conserva la jerarquía principal. El control secundario Carga Express se ubica debajo y aparece solo con los datos habituales completos. Un toque comprime el control, emite un pulso e inicia esa recarga directamente; durante la preparación muestra el anillo y las líneas animadas. No tiene pantalla de configuración, activación persistente ni explicación previa. [Recorrido y condiciones](MODO-EXPRESS.md). Las capturas de `ExpressDemo` usan componentes de producción con datos ficticios; no representan una operación bancaria.
 
 ## Home y errores — 0.2.14
 

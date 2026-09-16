@@ -56,7 +56,7 @@ import java.util.Locale
 }
 
 @Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit,
-    onExpressCharge: (() -> Unit)? = null, onExpressHelp: (() -> Unit)? = null, onTicketGuide: (() -> Unit)? = null, expressPreparing: Boolean = false, expressProvider: String = "Medio guardado",
+    onExpressCharge: (() -> Unit)? = null, onTicketGuide: (() -> Unit)? = null, expressPreparing: Boolean = false, expressProvider: String = "Prex",
     onPaymentReviewed: (() -> Unit)? = null) {
     val colors=MaterialTheme.colorScheme
     val haptic=LocalHapticFeedback.current
@@ -89,7 +89,7 @@ import java.util.Locale
                 }
             }
             Primary("Recargar boletera",enabled=!state.busy && !state.paymentNeedsReview && state.minimum!=null,action=onCharge)
-            if(onExpressCharge!=null) ExpressShortcut(state.minimum,enabled=!state.busy,onExplain=onExpressHelp,preparing=expressPreparing,providerName=expressProvider,onStart=onExpressCharge)
+            if(onExpressCharge!=null) ExpressShortcut(state.minimum,enabled=!state.busy,preparing=expressPreparing,providerName=expressProvider,onStart=onExpressCharge)
         Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Surface(color=Panel,shape=RoundedCornerShape(24.dp)) {
                 Row(Modifier.fillMaxWidth().padding(20.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {

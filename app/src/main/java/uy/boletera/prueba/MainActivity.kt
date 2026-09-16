@@ -113,7 +113,6 @@ class MainActivity : FragmentActivity() {
         var showSettings by rememberSaveable { mutableStateOf(false) }
         var showTicketGuide by rememberSaveable { mutableStateOf(false) }
         var showAccessGuide by rememberSaveable { mutableStateOf(false) }
-        var showExpressHelp by rememberSaveable { mutableStateOf(false) }
         var showPaymentReview by remember {mutableStateOf(false)}
         val helpPreferences=remember { getSharedPreferences("feature_help",MODE_PRIVATE) }
         var showBetaIntro by rememberSaveable {
@@ -156,14 +155,14 @@ class MainActivity : FragmentActivity() {
         var editingPayer by remember { mutableStateOf<PayerProfile?>(null) }
         LaunchedEffect(state.sessionExpired, state.recoveringSession) {
             if(state.sessionExpired || state.recoveringSession) {
-                showAmount=false; showPayerPicker=false; showPayerEditor=false; showExpressHelp=false
+                showAmount=false; showPayerPicker=false; showPayerEditor=false
                 showSettings=false; document=""; password=""; revealPassword=false; manual=false
             }
         }
         val stage = if(state.stage=="connecting" && state.selectedCard!=null && state.balance!=null && state.amount==null) "balance" else state.stage
         val scroll = rememberScrollState()
         val pullState = rememberPullToRefreshState()
-        LaunchedEffect(stage) { scroll.scrollTo(0);if(stage!="balance")showExpressHelp=false }
+        LaunchedEffect(stage) { scroll.scrollTo(0) }
         fun back() {
             document=""; password=""
             if(engine.returnFromCardPicker())return
@@ -225,10 +224,10 @@ class MainActivity : FragmentActivity() {
                             }
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
                                 onExpressCharge=if(updates.installedChannel==UpdateChannel.BETA && engine.expressAvailable)::requestExpress else null,
-                                onExpressHelp={if(!helpPreferences.getBoolean("express_skip_intro_v1",false))showExpressHelp=true},onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel,
+                                onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel,
                                 onPaymentReviewed={showPaymentReview=true})
                             "connecting" -> {
-                                LoadingState(if(state.recoveringSession)"Volviendo a entrar" else if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(state.recoveringSession)"Tu sesión de STM venció. Estamos renovándola sin pedirte los datos otra vez." else if(engine.expressPreparing)"Ya podés soltar. Estamos preparando tu medio de pago." else "Estamos consultando STM. Tu información va a aparecer acá.",express=engine.expressPreparing)
+                                LoadingState(if(state.recoveringSession)"Volviendo a entrar" else if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(state.recoveringSession)"Tu sesión de STM venció. Estamos renovándola sin pedirte los datos otra vez." else if(engine.expressPreparing)"Estamos abriendo Prex y completando los datos conocidos." else "Estamos consultando STM. Tu información va a aparecer acá.",express=engine.expressPreparing)
                                 TextButton(onClick=::back) { Text("Cancelar") }
                             }
                             "accessHelp" -> {
@@ -302,12 +301,6 @@ class MainActivity : FragmentActivity() {
             text={Text("Confirmá solo después de revisar el pago en Prex o en tu banco. Esto habilita otra recarga; no cancela ni devuelve el pago anterior.")},
             confirmButton={TextButton(onClick={if(engine.acknowledgePaymentReviewed())showPaymentReview=false}) {Text("Sí, ya lo revisé")}},
             dismissButton={TextButton(onClick={showPaymentReview=false}) {Text("Volver")}})
-        if(showExpressHelp && stage=="balance" && updates.installedChannel==UpdateChannel.BETA)ExpressIntroDialog(state.minimum,
-            onSkipChanged={skip->helpPreferences.edit().putBoolean("express_skip_intro_v1",skip).apply()},
-            onClose={showExpressHelp=false},onAccept={skip->
-                helpPreferences.edit().putBoolean("express_skip_intro_v1",skip).apply()
-                showExpressHelp=false
-            })
         if(showBetaIntro)AlertDialog(onDismissRequest=::closeBetaIntro,
             title={Text("¿Querés probar Boletera Beta?")},
             text={Text("Incluye funciones experimentales, como Carga Express, antes de llegar a la versión estable. Podés probarla desde Configuración y volver a la versión estable cuando quieras.")},

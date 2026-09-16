@@ -22,7 +22,7 @@ class CardAutofillTest {
     private var allowed by mutableStateOf(true)
     private var challenge by mutableStateOf(false)
     private var error by mutableStateOf(false)
-    private fun setup() {
+    private fun setup(focusCard: Boolean = false) {
         compose.activity.setContent { BoleteraTheme { Surface {
             host=LocalView.current
             NativeCardForm(false,allowed,error,challenge,{pan,expiry,cvv->
@@ -30,9 +30,15 @@ class CardAutofillTest {
                 assertEquals("12/39",expiry)
                 assertEquals("123",cvv)
                 submits++
-            },{})
+            },{},focusCard=focusCard)
         } } }
         compose.waitForIdle()
+    }
+    @Test fun expressArrivalFocusesCardAndRequestsSystemAuthorizationWithoutAnotherFieldTap() {
+        setup(focusCard=true)
+        compose.onNodeWithTag("cardNumber").assertIsFocused()
+        compose.onNodeWithTag("cardAutofillPrompt").assertTextContains("huella",substring=true)
+        assertEquals(0,submits)
     }
     private fun fill(vararg entries: Pair<String,String>) {
         val values=SparseArray<AutofillValue>()

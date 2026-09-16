@@ -37,14 +37,7 @@ class ExpressDemo {
         android.os.SystemClock.sleep(700)
         val shot=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         File(compose.activity.getExternalFilesDir(null),"express-shortcut.png").outputStream().use {shot.compress(Bitmap.CompressFormat.PNG,100,it)};shot.recycle()
-        compose.mainClock.autoAdvance=false
-        compose.onNodeWithText("Carga Express").performTouchInput { down(center) }
-        repeat(50){compose.mainClock.advanceTimeBy(16);android.os.SystemClock.sleep(16)}
-        val held=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-        File(compose.activity.getExternalFilesDir(null),"express-shortcut-held.png").outputStream().use {held.compress(Bitmap.CompressFormat.PNG,100,it)};held.recycle()
-        repeat(45){compose.mainClock.advanceTimeBy(16);android.os.SystemClock.sleep(16)}
-        compose.onRoot().performTouchInput { up() }
-        compose.mainClock.autoAdvance=true
+        compose.onNodeWithText("Carga Express").performClick()
         compose.onNodeWithText("Número de tarjeta").assertExists()
         assertTrue(started)
     }

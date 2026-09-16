@@ -37,14 +37,6 @@ class TicketGuideTest {
         compose.onNodeWithText("Boletos y tarifas").assertDoesNotExist()
         assertFalse(show)
     }
-    @Test fun acceptingWithoutOptOutDoesNotSilentlySelectIt() {
-        var accepted: Boolean?=null
-        compose.activity.setContent { BoleteraTheme("light") { ExpressIntroDialog(26000,{}, {accepted=it}) } }
-        screenshot("express-intro-light.png")
-        compose.onNodeWithText("No volver a mostrar").performScrollTo().assertIsOff()
-        compose.onNodeWithText("Entendido").performClick()
-        assertEquals(false,accepted)
-    }
     @Test fun guideIsAvailableFromSettingsWithoutLoginAndReturnsToSettingsAccess() {
         compose.onNodeWithContentDescription("Configuración").performClick()
         compose.onNodeWithText("Boletos y tarifas").performScrollTo().performClick()

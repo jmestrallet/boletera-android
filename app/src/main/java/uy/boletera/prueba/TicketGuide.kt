@@ -4,37 +4,17 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
-
-@Composable internal fun ExpressIntroDialog(amount: Long?, onClose: () -> Unit, onAccept: (Boolean) -> Unit, onSkipChanged: (Boolean) -> Unit = {}) {
-    var skip by rememberSaveable { mutableStateOf(false) }
-    AlertDialog(onDismissRequest=onClose,containerColor=Paper,
-        icon={AppGlyph(Glyph.Arrow,tint=MaterialTheme.colorScheme.primary)},
-        title={Text("Así funciona Carga Express")},
-        text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            Text("Recargá el mínimo que informa STM para esta boletera. Puede cambiar entre cuentas y consultas. Ahora es ${Amounts.format(amount)}.")
-            Text("Usá el medio de tu última recarga exitosa. Google puede completar la tarjeta; si falta el CVV, ingresalo y tocá Listo.")
-            Text("Mantené presionado Carga Express durante 1,2 segundos. Si soltás antes, se cancela el atajo.")
-            Text("Si Boletera reconoce la misma tarjeta, confirma y vuelve al saldo automáticamente. La primera vez o con otra tarjeta, te pide confirmación. Cualquier verificación adicional queda a tu cargo.")
-            Row(Modifier.fillMaxWidth().toggleable(skip,role=Role.Checkbox,onValueChange={skip=it;onSkipChanged(it)}),verticalAlignment=Alignment.CenterVertically) {
-                Checkbox(skip,onCheckedChange=null)
-                Text("No volver a mostrar",modifier=Modifier.weight(1f))
-            }
-        }},
-        confirmButton={TextButton(onClick={onAccept(skip)}) {Text("Entendido")}},
-        dismissButton={TextButton(onClick=onClose) {Text("Ahora no")}})
-}
 
 private const val FARES="https://montevideo.gub.uy/tipo/area-tematica/sistema-de-transporte-metropolitano/tarifas-del-transporte-colectivo-urbano"
 private const val TYPES="https://montevideo.gub.uy/areas-tematicas/sistema-de-transporte-metropolitano/tipos-de-viaje"
