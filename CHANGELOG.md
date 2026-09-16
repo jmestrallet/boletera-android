@@ -1,5 +1,10 @@
 # Cambios
 
+## Compatibilidad de actualización desde 0.2.30-prueba
+
+- La release `v0.2.31` suma un APK puente con el nombre histórico que reconoce `0.2.30-prueba`.
+- El puente mantiene paquete, firma y versión interna compatibles; después puede avanzar al canal Estable actual sin reinstalar ni borrar los datos locales.
+
 ## 0.2.32 — Carga Express de un toque
 
 - En Boletera Beta, Carga Express empieza con un toque. Se elimina la pulsación de 1,2 segundos y la explicación previa.

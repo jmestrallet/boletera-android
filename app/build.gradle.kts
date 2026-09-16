@@ -13,6 +13,11 @@ val distributionChannel = providers.gradleProperty("boleteraChannel").orElse("pu
     require(it in setOf("public", "beta")) { "boleteraChannel must be public or beta" }
 }
 val isBeta = distributionChannel == "beta"
+val legacyUpdateBridge = providers.gradleProperty("boleteraLegacyUpdateBridge").orElse("false").get().let {
+    it.toBooleanStrictOrNull() ?: error("boleteraLegacyUpdateBridge must be true or false")
+}.also { enabled ->
+    require(!enabled || !isBeta) { "The legacy update bridge must use the public channel" }
+}
 android {
     namespace = "uy.boletera.prueba"
     compileSdk = 35
@@ -20,10 +25,18 @@ android {
         applicationId = "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = 50
-        versionName = if (isBeta) "0.2.32-beta.1" else "0.2.32"
+        versionCode = if (legacyUpdateBridge) 49 else 50
+        versionName = when {
+            legacyUpdateBridge -> "0.2.31-prueba"
+            isBeta -> "0.2.32-beta.1"
+            else -> "0.2.32"
+        }
         buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"$distributionChannel\"")
-        buildConfigField("String", "DISPLAY_VERSION", if (isBeta) "\"0.2.32 Beta 1\"" else "\"0.2.32\"")
+        buildConfigField("String", "DISPLAY_VERSION", when {
+            legacyUpdateBridge -> "\"0.2.31\""
+            isBeta -> "\"0.2.32 Beta 1\""
+            else -> "\"0.2.32\""
+        })
         resValue("string", "app_name", if (isBeta) "Boletera Beta" else "Boletera")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

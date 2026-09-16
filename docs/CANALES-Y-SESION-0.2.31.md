@@ -10,6 +10,12 @@ La versión estable 0.2.31 muestra una sola vez un aviso sobre Boletera Beta. **
 
 Las publicaciones estables usan etiquetas `vX.Y.Z`. Las Beta usan `vX.Y.Z-beta.N`. Cada búsqueda ignora las publicaciones de la otra versión. Ambos APK comparten `applicationId`, firma y código base para poder reemplazarse sin borrar los datos de Boletera.
 
+### Puente desde 0.2.30-prueba
+
+El actualizador incluido en `0.2.30-prueba` reconoce únicamente archivos con el nombre histórico `boletera-prueba-X.Y.Z.apk`. La separación posterior entre Estable y Beta cambió ese nombre y dejó a esas instalaciones sin una coincidencia, aunque existieran versiones nuevas.
+
+La publicación `v0.2.31` incluye por compatibilidad `boletera-prueba-0.2.31.apk`: conserva el paquete, la firma, el código superior y el nombre de versión que el verificador antiguo exige. Su código ya entiende los nombres actuales. El recorrido esperado es `0.2.30-prueba` → `0.2.31-prueba` → versión estable vigente, sin borrar los datos locales.
+
 ## Sesión vencida sin otra huella
 
 `AccessVault` conserva su diseño: el documento y la contraseña persistentes siguen cifrados con Android Keystore y cada lectura desde disco exige biometría fuerte. Al completar ese primer desbloqueo, 0.2.31 crea además una copia AES-GCM con clave aleatoria que vive únicamente en la memoria del proceso.
