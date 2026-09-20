@@ -1,4 +1,20 @@
-# Validación 0.2.32 — Carga Express de un toque
+# Validación 0.2.33 Beta 1 — lectura de STM después de elegir boletera
+
+Fecha: 20/9/2026. Código 51. Corrección publicada primero en el canal Beta.
+
+- La pantalla de recarga espera hasta ocho segundos si STM todavía no completó el saldo o el mínimo; no habilita una recarga con valores inferidos.
+- El lector acepta variantes seguras de rótulo, identificador de campo y texto monetario sin inspeccionar el campo editable del importe.
+- El caso Android reproduce la pantalla vacía y la actualización posterior por JavaScript. Aprobó el recorrido completo hasta el importe.
+- La misma prueba aprobó con Chrome deshabilitado y `com.google.android.webview` activo. Chrome sigue siendo requisito únicamente para abrir eBROU.
+- Aprobadas las 63 pruebas JavaScript, las 10 JVM, lint, release y el caso Android dirigido.
+- Beta: `boletera-beta-0.2.33-beta.1.apk`, versión interna `0.2.33-beta.1`, código 51 y certificado histórico sin cambios.
+- La actualización `0.2.32` → `0.2.33` se instaló encima de la versión anterior en Android 16.
+
+La comprobación pendiente es repetir el recorrido con la cuenta STM que originó el reporte. No se ingresaron credenciales reales ni se inició una recarga durante esta validación.
+
+---
+
+## Versión anterior: 0.2.32 — Carga Express de un toque
 
 Fecha: 16/9/2026. Código 50 en ambas variantes. Resultado de laboratorio; falta la comprobación con Google y huella en el teléfono del dueño.
 
