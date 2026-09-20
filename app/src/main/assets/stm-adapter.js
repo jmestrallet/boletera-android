@@ -34,6 +34,25 @@
     const value = Number(raw);
     return Number.isFinite(value) ? Math.round(value * 100) : null;
   };
+  const fieldMoney = el => {
+    if (!el) return null;
+    return money('value' in el ? el.value : text(el));
+  };
+  const associatedField = labelRe => {
+    const label = [...document.querySelectorAll('label')].filter(visible).find(el => labelRe.test(text(el)));
+    if (!label) return null;
+    const id = label.htmlFor || label.getAttribute('for');
+    return id ? document.getElementById(id) : label.querySelector('input, output');
+  };
+  const nearbyCurrency = (labelRe, stopRe) => {
+    const page = text(document.body), start = page.search(labelRe);
+    if (start < 0) return null;
+    let fragment = page.slice(start, start + 180);
+    const stop = fragment.search(stopRe);
+    if (stop > 0) fragment = fragment.slice(0, stop);
+    const match = fragment.match(/\$\s*-?\s*\d[\d.,]*/);
+    return match ? money(match[0]) : null;
+  };
   const captchaFrame = () => {
     const frames = [...document.querySelectorAll('iframe')].filter(el => {
       try {
@@ -115,15 +134,18 @@
     }
     if (path.endsWith('principal.xhtml')) {
       const s = text(document.body);
-      const match = s.match(/Saldo disponible\*?\s*:\s*(-?\s*\$?\s*-?\s*\d[\d.,]*)/i);
+      const match = s.match(/Saldo\s+(?:disponible|actual)\*?\s*:?\s*(-?\s*\$?\s*-?\s*\d[\d.,]*)/i);
       return { ...base, stage: 'balance', balance: match ? money(match[1]) : null };
     }
     if (path.endsWith('recarga1.xhtml')) {
-      const s = text(document.body), match = s.match(/recarga m[ií]nima deber[aá] ser de\s*([^\n]+?)(?=Saldo actual|$)/i);
-      // Only this read-only balance field is read. Never inspect credential or payment values.
-      const balanceField = document.getElementById('recarga1:saldoActual');
-      return { ...base, stage: 'amount', minimum: match ? money(match[1]) : null,
-        balance: balanceField ? money(balanceField.value) : null };
+      const minimum = nearbyCurrency(/recarga\s+m[ií]nima|m[ií]nimo\s+de\s+recarga/i, /Saldo\s+actual/i);
+      // Only a specifically named or labelled read-only balance field is read. Never inspect the amount entry.
+      const balanceField = document.getElementById('recarga1:saldoActual') ||
+        [...document.querySelectorAll('input, output')].find(el => /(?:^|:)saldoActual$/i.test([el.id, el.name].join(' '))) ||
+        associatedField(/^Saldo\s+actual\b/i);
+      const balance = fieldMoney(balanceField) ?? nearbyCurrency(/Saldo\s+actual/i, /(?:Monto|Importe|Continuar)/i);
+      return { ...base, stage: 'amount', minimum, balance,
+        minimumReady: minimum !== null, balanceReady: balance !== null };
     }
     if (path.endsWith('recarga2.xhtml')) {
       // IDs and names verified against the live STM logos; list only options present now.

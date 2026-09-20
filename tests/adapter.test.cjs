@@ -62,6 +62,22 @@ test('minimum comes from the site including debt, never inferred', () => {
   assert.equal(adapter.command('amount', '56400'), false);
   assert.equal(clicks, 1);
 });
+test('amount page accepts safe STM wording and field variants', () => {
+  const variants = [
+    `<p>La recarga mínima es de $ 104.</p><label for="form:saldoActual">Saldo actual</label><input id="form:saldoActual" value="$ 52">`,
+    `<div>El mínimo de recarga será de $ 260</div><label>Saldo actual <output>$ -52</output></label>`,
+    `<p>Recarga mínima equivalente a 5 viajes: $ 260</p><span>Saldo actual: $ 314</span>`
+  ];
+  for (const html of variants) {
+    const snapshot = page('app/mistm/cuenta/pages/recarga1.xhtml', `${html}<input id="recarga1:monto_input"><button>CONTINUAR</button>`).adapter.snapshot();
+    assert.equal(snapshot.minimumReady, true, html);
+    assert.equal(snapshot.balanceReady, true, html);
+  }
+  assert.equal(
+    page('app/mistm/cuenta/pages/principal.xhtml', '<p>Saldo disponible $ 314</p><button>Recargar</button>').adapter.snapshot().balance,
+    31400
+  );
+});
 test('unrecognized minimum fails closed', () => {
   const { adapter } = page('app/mistm/cuenta/pages/recarga1.xhtml', '<p>Nueva pantalla</p><input id="recarga1:monto_input"><button>CONTINUAR</button>');
   assert.equal(adapter.snapshot().minimum, null);

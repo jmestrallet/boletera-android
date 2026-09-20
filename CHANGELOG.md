@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.33 - Lectura confiable después de elegir boletera
+
+- Espera hasta ocho segundos si STM abre la recarga antes de completar el saldo o el mínimo.
+- Reconoce variantes seguras de texto y campos usadas por distintas cuentas STM.
+- Conserva el saldo ya leído de la boletera seleccionada mientras STM completa la pantalla siguiente.
+- Si STM sigue sin informar un dato, se detiene sin habilitar la recarga e indica cuál faltó.
+
 ## Compatibilidad de actualización desde 0.2.30-prueba
 
 - La release `v0.2.31` suma un APK puente con el nombre histórico que reconoce `0.2.30-prueba`.

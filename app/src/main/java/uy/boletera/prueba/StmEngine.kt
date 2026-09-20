@@ -759,10 +759,39 @@ class StmEngine(private val context: Context) {
                 if (lastAction != "minimum") act("minimum")
             }
             "amount" -> {
-                state = state.copy(stage = "balance", balance = cents("balance"), minimum = cents("minimum"), consultedAt = System.currentTimeMillis())
-                if (state.minimum == null || state.balance == null) {
-                    fail("No pudimos leer el saldo o el mínimo con certeza. No se habilitó la recarga.")
-                } else {
+                val pageBalance = cents("balance")
+                val resolvedBalance = pageBalance ?: state.balance
+                val minimum = cents("minimum")
+                if (minimum == null || resolvedBalance == null) {
+                    state = state.copy(
+                        stage = "connecting",
+                        busy = true,
+                        balance = resolvedBalance,
+                        minimum = minimum,
+                        message = "Esperando que STM termine de mostrar el saldo y el mínimo."
+                    )
+                    if (System.currentTimeMillis() - actionStarted > 8000) {
+                        val missing = listOfNotNull(
+                            if (resolvedBalance == null) "saldo" else null,
+                            if (minimum == null) "mínimo" else null
+                        ).joinToString(" y ")
+                        state = state.copy(
+                            diagnostic = state.diagnostic +
+                                " · datos: saldo=${if (resolvedBalance != null) 1 else 0}, mínimo=${if (minimum != null) 1 else 0}"
+                        )
+                        fail("STM mostró la pantalla de recarga, pero faltó el $missing. No se habilitó la recarga.")
+                    }
+                    return
+                }
+                state = state.copy(
+                    stage = "balance",
+                    busy = false,
+                    balance = resolvedBalance,
+                    minimum = minimum,
+                    consultedAt = System.currentTimeMillis(),
+                    message = ""
+                )
+                run {
                     val record=paymentRecord
                     if(record?.phase in setOf("credited","rejected") && record?.card==state.selectedCard) {
                         val account=choices.accountKey

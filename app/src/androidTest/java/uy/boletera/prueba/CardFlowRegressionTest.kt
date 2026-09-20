@@ -97,7 +97,8 @@ class CardFlowRegressionTest {
                             <p>Saldo disponible*: ${'$'} -304</p><button onclick="location.href='${root}recarga1.xhtml'">Recargar</button>
                         """.trimIndent()
                         "/app/mistm/cuenta/pages/recarga1.xhtml" -> """
-                            <p>Tu recarga mínima deberá ser de ${'$'} 564 .</p><label>Saldo actual *</label><input id="recarga1:saldoActual" value="${'$'} -304"><input id="recarga1:monto_input"><button onclick="location.href='${root}recarga2.xhtml'">CONTINUAR</button>
+                            <p id="minimum">Preparando recarga…</p><label for="form:saldoActual">Saldo actual *</label><input id="form:saldoActual"><input id="recarga1:monto_input"><button onclick="location.href='${root}recarga2.xhtml'">CONTINUAR</button>
+                            <script>setTimeout(()=>{document.getElementById('minimum').textContent='La recarga mínima es de ${'$'} 564.';document.getElementById('form:saldoActual').value='${'$'} -304'},700)</script>
                         """.trimIndent()
                         "/app/mistm/cuenta/pages/recarga2.xhtml" -> "<div class='banco' id='id-1033' onclick=\"this.classList.add('selected')\">Prex</div><div class='banco' id='id-1002'>BROU</div><button onclick=\"location.href='https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago?id=SYNTHETIC-NEW-FLOW'\">Continuar</button>"
                         else -> ""
