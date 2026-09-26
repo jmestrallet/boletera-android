@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.39 Beta 1 - Un solo Listo para CVV y verificación
+
+- En Express, Listo en el teclado conserva la solicitud mientras se completa la verificación. Después de que Sistarbanc la acepta, continúa sin exigir otro toque. También sirve cuando Android entrega la tarjeta pero hay que escribir el CVV.
+- Escribir datos por sí solo no solicita el envío. Editarlos, elegir otra tarjeta, un error o salir de la app descarta la solicitud pendiente.
+- El avance diferido vuelve a comprobar la aceptación del proveedor antes de enviar. La recarga común conserva su continuación manual después de la verificación.
+
 ## 0.2.38 Beta 1 - Continuar después de la verificación
 
 - Express continúa con el titular conocido o la tarjeta completamente autocompletada cuando Sistarbanc confirma la verificación. Evita otro toque en Continuar en ese recorrido.

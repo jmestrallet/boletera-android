@@ -1,4 +1,18 @@
-# Validación 0.2.38 Beta 1 — Continuación después de verificar
+# Validación 0.2.39 Beta 1 — CVV y Listo en Express
+
+Fecha: 26/9/2026. Código 57.
+
+- La prueba nueva de CVV parcial + Listo + aceptación falló con 0.2.38: nunca se producía el avance posterior. Informe previo conservado localmente en `.tools/express39-before.xml`.
+- Con el cambio pasaron 20 casos Android: 11 de autocompletado/formulario, seis del recorrido de casilla/continuación y tres de finalización. Sin fallos ni omisiones.
+- Se comprobó que Listo solicita un solo avance después de verificar, que editar cancela el pedido, que error y segundo plano lo descartan y que la recarga común no adquiere este comportamiento Express.
+- El recorrido integrado usa los controles nativos, el autocompletado de Android y la página interceptada: escribir CVV no envía; Listo muestra la casilla; varias lecturas sin aceptación no avanzan; la aceptación produce una sola continuación. Todos los datos son ficticios y no se efectuó un pago.
+- 74 pruebas JavaScript y 12 JVM aprobadas; lint con 0 errores y 44 advertencias.
+
+Pendiente: uso real en el teléfono del dueño, medición de tiempos y proporción de verificaciones que pasan sin fotos. Las imágenes/audio siguen manuales. Esta entrega reduce una intervención concreta; no acredita esas mediciones.
+
+---
+
+## Versión anterior: 0.2.38 Beta 1 — Continuación después de verificar
 
 Fecha: 26/9/2026. Código 56.
 

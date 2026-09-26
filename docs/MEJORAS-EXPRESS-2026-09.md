@@ -73,4 +73,12 @@ El titular conocido y la tarjeta completamente autocompletada pueden continuar d
 
 Se comprobaron en Android espera, pausa, reanudación y envío único. No se resolvieron imágenes/audio ni se realizó una recarga real. El objetivo de experiencia final sigue abierto hasta comprobar el teléfono del dueño y medir el tiempo y las aprobaciones sin fotos durante su uso normal.
 
-Esto avanza el punto 3, pero no lo cierra: falta una señal fiable de aceptación del proveedor para continuar automáticamente y medir el comportamiento en el teléfono del dueño. No se reemplaza ese requisito por el éxito de un clic sintético.
+Esto avanza el punto 3, pero no lo cierra: la señal está implementada para la versión inspeccionada del proveedor; falta comprobar su comportamiento en el teléfono del dueño. No se reemplaza ese requisito por el éxito de un clic sintético.
+
+## Sexta entrega: 0.2.39 Beta 1
+
+Se encontró otra intervención redundante: un CVV escrito a mano seguido de Listo mostraba la verificación, pero olvidaba la intención de continuar. La prueba nueva reprodujo la falta de avance en 0.2.38 aun después de informar aceptación.
+
+Express conserva ahora ese pedido explícito mientras espera la aceptación. El envío diferido usa nuevamente la comprobación del proveedor. Cambiar datos, solicitar otra tarjeta, un error o salir cancela el pedido. El texto de ayuda explica que después de verificar seguirá solo. La escritura sin Listo sigue sin enviar y la recarga común mantiene su comportamiento.
+
+La prueba del teléfono y las mediciones de uso real siguen pendientes. Esta mejora elimina una interacción identificada; no demuestra un tiempo total ni una tasa de CAPTCHA sin fotos.

@@ -80,6 +80,55 @@ class CardAutofillTest {
         assertEquals(1,submits)
         assertEquals(1,manualAdvances)
     }
+    private fun partialCardThenDone() {
+        fill("Número de tarjeta" to "4111111111111111","Vencimiento" to "12/39")
+        compose.onNodeWithText("CVV").performTextInput("123")
+        assertEquals(0,submits)
+        compose.onNodeWithText("CVV").performImeAction()
+        compose.waitUntil(5000) { verificationShown>0 }
+        assertEquals(0,submits)
+    }
+    @Test fun expressDoneRemembersTheRequestUntilVerificationIsAcceptedOnce() {
+        verificationRequired=true;setup(focusCard=true)
+        partialCardThenDone()
+        compose.runOnIdle { verificationRequired=false }
+        compose.waitUntil(5000) { submits==1 }
+        assertEquals(1,manualAdvances)
+        compose.runOnIdle { verificationRequired=true }
+        compose.runOnIdle { verificationRequired=false }
+        assertEquals(1,submits)
+        compose.onNodeWithText("CVV").assertTextEquals("CVV","")
+    }
+    @Test fun editingAfterDoneCancelsTheDeferredRequest() {
+        verificationRequired=true;setup(focusCard=true)
+        partialCardThenDone()
+        compose.onNodeWithText("CVV").performTextClearance()
+        compose.onNodeWithText("CVV").performTextInput("123")
+        compose.runOnIdle { verificationRequired=false }
+        compose.waitForIdle();assertEquals(0,submits)
+        assertEquals(0,manualAdvances)
+    }
+    @Test fun errorAndBackgroundCancelTheDeferredRequest() {
+        verificationRequired=true;setup(focusCard=true)
+        partialCardThenDone()
+        compose.runOnIdle { error=true }
+        compose.waitForIdle()
+        compose.runOnIdle { error=false;verificationRequired=false }
+        compose.waitForIdle();assertEquals(0,submits)
+        compose.runOnIdle { verificationRequired=true }
+        compose.onNodeWithText("CVV").performImeAction()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.runOnIdle { verificationRequired=false }
+        compose.waitForIdle();assertEquals(0,submits)
+        compose.onNodeWithText("CVV").assertTextEquals("CVV","")
+    }
+    @Test fun ordinaryDoneDoesNotScheduleExpressContinuation() {
+        verificationRequired=true;setup()
+        partialCardThenDone()
+        compose.runOnIdle { verificationRequired=false }
+        compose.waitForIdle();assertEquals(0,submits)
+    }
     @Test fun completeAutofillWaitsForVisibleVerificationAndAnExplicitContinue() {
         verificationRequired=true;allowed=false;setup(focusCard=true)
         assertEquals(0,verificationShown)

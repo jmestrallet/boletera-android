@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.webkit.*
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.*
 import androidx.compose.ui.platform.LocalView
 import org.junit.Assert.*
 import org.junit.Rule
@@ -60,9 +60,9 @@ class ExpressCheckboxTest {
             compose.activity.setContent {autofillHost=LocalView.current;BoleteraTheme("dark"){EmbeddedPrexScreen(payment,null,{})}}
         }
     }
-    private fun fillCard() {
+    private fun fillCard(includeCvv:Boolean=true) {
         val values=android.util.SparseArray<android.view.autofill.AutofillValue>()
-        listOf("Número de tarjeta" to "4111111111111111","Vencimiento" to "12/39","CVV" to "123").forEach {(label,value)->
+        (listOf("Número de tarjeta" to "4111111111111111","Vencimiento" to "12/39")+if(includeCvv)listOf("CVV" to "123") else emptyList()).forEach {(label,value)->
             values.put(compose.onNodeWithText(label).fetchSemanticsNode().id,android.view.autofill.AutofillValue.forText(value))
         }
         compose.runOnIdle {autofillHost.autofill(values)}
@@ -130,6 +130,21 @@ class ExpressCheckboxTest {
             js("window.acceptProvider()")
             assertEquals("0",js("window.continues"))
             compose.runOnIdle {payment.resume()}
+            compose.waitUntil(10000){js("window.continues")=="1"}
+            waitForThreeSnapshots();assertEquals("1",js("window.continues"))
+        } finally {compose.runOnIdle{payment.destroy()}}
+    }
+    @Test fun partialAutofillAndDoneContinueOnceAfterProviderAcceptance() {
+        setup(true,card=true,knownProvider=true)
+        try {
+            compose.waitUntil(15000){payment.nativeStage=="card" && payment.challenge!=null}
+            fillCard(includeCvv=false)
+            compose.onNodeWithText("CVV").performTextInput("123")
+            waitForThreeSnapshots();assertEquals("0",js("window.continues"))
+            compose.onNodeWithText("CVV").performImeAction()
+            compose.waitUntil(10000){js("window.hits")=="1"}
+            waitForThreeSnapshots();assertEquals("0",js("window.continues"))
+            js("window.acceptProvider()")
             compose.waitUntil(10000){js("window.continues")=="1"}
             waitForThreeSnapshots();assertEquals("1",js("window.continues"))
         } finally {compose.runOnIdle{payment.destroy()}}
