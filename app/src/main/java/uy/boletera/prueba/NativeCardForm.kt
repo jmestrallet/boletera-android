@@ -1,7 +1,5 @@
 package uy.boletera.prueba
 
-import android.os.Build
-import android.view.autofill.AutofillManager as PlatformAutofillManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -19,7 +17,6 @@ import androidx.compose.ui.platform.LocalAutofillManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.onAutofillText
@@ -67,7 +64,8 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     val autofill=LocalAutofillManager.current
     val focus=LocalFocusManager.current
     val keyboard=LocalSoftwareKeyboardController.current
-    val hostView=LocalView.current
+    val cardAutofill=remember { CardAutofillRequester() }
+    var autofillRequested by remember { mutableStateOf(false) }
     val lifecycle=LocalLifecycleOwner.current.lifecycle
     val numberFocus=remember { FocusRequester() }
     val expiryFocus=remember { FocusRequester() }
@@ -115,12 +113,11 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
         return true
     }
     LaunchedEffect(focusCard,expandedChallenge) {
-        if(focusCard&&!expandedChallenge) {
-            // Focusing enters Compose's virtual card field. The explicit platform request makes
-            // Android surface the user's selected autofill provider without another field tap.
+        if(focusCard&&!expandedChallenge&&!autofillRequested) {
+            autofillRequested=true
+            // Request the same virtual field that receives focus and the returned dataset.
             numberFocus.requestFocus();numberView.bringIntoView();delay(120)
-            if(Build.VERSION.SDK_INT>=26)hostView.context.getSystemService(PlatformAutofillManager::class.java)
-                ?.takeIf {it.isEnabled}?.requestAutofill(hostView)
+            cardAutofill.request()
             keyboard?.show()
         }
     }
@@ -149,11 +146,15 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
             ProgressSteps(2,listOf("Recarga","Titular","Tarjeta"))
             Text("Tu tarjeta",style=MaterialTheme.typography.headlineMedium,color=Ink)
             if(!expandedChallenge) {
-                Text(if(focusCard)"Elegí tu tarjeta guardada y autorizá con tu huella. Si Android entrega todos los datos, seguimos solos." else "Si Android completa todos los datos, avanzás automáticamente. También podés ingresarlos a mano.",color=Muted,
+                Text(if(focusCard)"Elegí tu tarjeta guardada. Si falta el CVV, completalo y tocá Listo en el teclado." else "Si Android completa todos los datos, avanzás automáticamente. También podés ingresarlos a mano.",color=Muted,
                     modifier=Modifier.testTag("cardAutofillPrompt"))
+                TextButton(enabled=!busy,onClick={
+                    numberFocus.requestFocus()
+                    scope.launch { numberView.bringIntoView();cardAutofill.request();keyboard?.show() }
+                },modifier=Modifier.testTag("requestCardAutofill")) { Text("Tarjetas guardadas") }
                 OutlinedTextField(value=pan,onValueChange={filledFields=0;pan=it.filter { c -> c in '0'..'9' }.take(16)},
                     label={Text("Número de tarjeta")},singleLine=true,enabled=!busy,
-                    modifier=Modifier.fillMaxWidth().bringIntoViewRequester(numberView).focusRequester(numberFocus).testTag("cardNumber").semantics { contentType=ContentType.CreditCardNumber;onAutofillText { fill(1,it.text) } },
+                    modifier=Modifier.fillMaxWidth().bringIntoViewRequester(numberView).focusRequester(numberFocus).cardAutofill(cardAutofill).testTag("cardNumber").semantics { contentType=ContentType.CreditCardNumber;onAutofillText { fill(1,it.text) } },
                     visualTransformation=remember { CardGrouping(4,' ') },
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
                     keyboardActions=KeyboardActions(onNext={if(!focusMissing())keyboard?.hide()}),

@@ -220,7 +220,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                         view.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.use(${profile.json()}); }", null)
                         expressAmount?.let { amount ->
                             expressAmount=null // One document only; navigation never restarts the shortcut.
-                            view.evaluateJavascript("window.BoleteraExpress && window.BoleteraExpress.start($amount,${profile.json()})",null)
+                            view.evaluateJavascript("window.BoleteraExpress && window.BoleteraExpress.start($amount,${profile.json()});window.BoleteraExpress?.suspend(${suspended || !visible})",null)
                         }
                     }
                     this@EmbeddedPrexPayment.handler.removeCallbacks(profileStatus)
@@ -254,6 +254,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         if (originalLink == url) {
             if (payer?.id != profile?.id) return false
             visible = true
+            web.evaluateJavascript("window.BoleteraExpress?.suspend($suspended)",null)
             handler.removeCallbacks(profileStatus)
             handler.post(profileStatus)
             return true
@@ -345,7 +346,10 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         return true
     }
 
-    fun hide() { visible = false; handler.removeCallbacks(profileStatus) }
+    fun hide() {
+        visible = false; handler.removeCallbacks(profileStatus)
+        if(!destroyed)web.evaluateJavascript("window.BoleteraExpress?.suspend(true)",null)
+    }
     fun pause() {
         if(!suspended)suspendedAt=clock()
         suspended=true;handler.removeCallbacks(profileStatus)
@@ -358,7 +362,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     fun resume() {
         if(suspended) {progressSince+=clock()-suspendedAt;failureSince+=clock()-suspendedAt}
         suspended=false
-        if(!destroyed)web.evaluateJavascript("window.BoleteraExpress?.suspend(false)",null)
+        if(!destroyed)web.evaluateJavascript("window.BoleteraExpress?.suspend(${!visible})",null)
         if(visible && originalLink!=null) {handler.removeCallbacks(profileStatus);handler.post(profileStatus)}
     }
 

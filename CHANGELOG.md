@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.34 Beta 1 - Express y tarjetas guardadas
+
+- Solicita el autocompletado al campo de tarjeta correcto y permite reintentarlo desde la pantalla nativa.
+- Avanza al terminar los cambios del formulario de Prex, sin esperar siempre al siguiente chequeo de Android.
+- Espera la validación asíncrona del titular sin abandonar Express prematuramente.
+- Suspende esos avances al ocultar el pago o enviar la app al fondo; conserva una sola solicitud al volver.
+- Evidencia y trabajo pendiente: [mejora integral de Express](docs/MEJORAS-EXPRESS-2026-09.md).
+
 ## 0.2.33 - Lectura confiable después de elegir boletera
 
 - Espera hasta ocho segundos si STM abre la recarga antes de completar el saldo o el mínimo.

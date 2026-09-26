@@ -1,6 +1,8 @@
 # Carga Express — atajo puntual
 
-**Comportamiento vigente desde 0.2.32:** el alcance y la validación están en [EXPRESS-0.2.32.md](EXPRESS-0.2.32.md). El recorrido anterior de 0.2.30 se conserva como [evidencia histórica](EXPRESS-0.2.30.md).
+**Mejoras desde 0.2.34 Beta 1:** solicitud de tarjetas guardadas al campo correcto, reacción inmediata al formulario y espera de validación asíncrona. Ver [evidencia y trabajo pendiente](MEJORAS-EXPRESS-2026-09.md).
+
+**Base del recorrido desde 0.2.32:** el alcance y la validación están en [EXPRESS-0.2.32.md](EXPRESS-0.2.32.md). El recorrido anterior de 0.2.30 se conserva como [evidencia histórica](EXPRESS-0.2.30.md).
 
 La recarga común mantiene el botón principal **Recargar boletera**, con elección de importe y medio. Debajo aparece **Carga Express** únicamente en Boletera Beta y cuando la cuenta ya tiene todo lo necesario. No hay configuración, encendido persistente, explicación previa ni pulsación larga.
 

@@ -54,3 +54,40 @@ test('suspension preserves the same request but cannot advance until resumed',()
   w.BoleteraExpress.stop();w.BoleteraExpress.suspend(false);w.BoleteraExpress.tick();assert.equal(clicks,1);
  }finally{dom.window.close();}
 });
+
+const nextRender=()=>new Promise(resolve=>setTimeout(resolve,30));
+test('Express follows completed renders without waiting for Android polling',async()=>{
+ const dom=setup();try {
+  const w=dom.window,d=w.document;let summaries=0,payers=0,cards=0;
+  d.querySelector('button').onclick=()=>{
+   summaries++;payer(dom);d.querySelector('form').className='ng-pending';
+   d.querySelector('button').onclick=()=>{
+    payers++;d.querySelector('stepper-pago').innerHTML='<alta-tarjeta><input formcontrolname="nroTarjetaControl"><input formcontrolname="expiracionControl"><input formcontrolname="cvvControl"><button type="button">Continuar</button></alta-tarjeta>';
+    d.querySelector('button').onclick=()=>cards++;
+   };
+  };
+  w.BoleteraExpress.start(56400,person);
+  await nextRender();assert.equal(summaries,1);assert.equal(payers,0);
+  d.querySelector('form').className='ng-valid';
+  await nextRender();assert.equal(payers,1);assert.equal(cards,0);
+  assert.equal(w.BoleteraExpress.tick(),'done');
+  d.querySelector('button').disabled=false;await nextRender();assert.equal(payers,1);
+ }finally{dom.window.close();}
+});
+test('pending validation remains bounded and never overrides errors or suspension',async()=>{
+ for(const mode of ['pause','stop','error','changed','timeout']) {
+  const dom=setup();try {
+   const w=dom.window,d=w.document;let clicks=0;payer(dom);
+   d.querySelector('form').className='ng-pending';d.querySelector('button').onclick=()=>clicks++;
+   w.BoleteraExpress.start(56400,person);w.BoleteraExpress.tick();
+   if(mode==='pause')w.BoleteraExpress.suspend(true);
+   if(mode==='stop')w.BoleteraExpress.stop();
+   if(mode==='error')d.querySelector('form').insertAdjacentHTML('beforeend','<mat-error>Error del proveedor</mat-error>');
+   if(mode==='changed')d.querySelector('input').value='Otra persona';
+   if(mode==='timeout'){const now=w.Date.now();w.Date.now=()=>now+21000;}
+   d.querySelector('form').className='ng-valid';await nextRender();
+   assert.equal(clicks,0,mode);
+   if(mode==='pause'){w.BoleteraExpress.suspend(false);await nextRender();assert.equal(clicks,1);}
+  }finally{dom.window.close();}
+ }
+});

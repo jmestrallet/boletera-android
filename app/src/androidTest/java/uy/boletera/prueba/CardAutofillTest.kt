@@ -37,7 +37,9 @@ class CardAutofillTest {
     @Test fun expressArrivalFocusesCardAndRequestsSystemAuthorizationWithoutAnotherFieldTap() {
         setup(focusCard=true)
         compose.onNodeWithTag("cardNumber").assertIsFocused()
-        compose.onNodeWithTag("cardAutofillPrompt").assertTextContains("huella",substring=true)
+        compose.onNodeWithTag("cardAutofillPrompt").assertTextContains("CVV",substring=true)
+        compose.onNodeWithTag("requestCardAutofill").performClick()
+        compose.onNodeWithTag("cardNumber").assertIsFocused()
         assertEquals(0,submits)
     }
     private fun fill(vararg entries: Pair<String,String>) {

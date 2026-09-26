@@ -2,6 +2,13 @@
   const trusted=()=>location.origin==='https://pasarelaspe.sistarbanc.com.uy'&&location.pathname.startsWith('/v2/')&&window.top===window.self;
   if(!trusted()||window.BoleteraExpress)return;
   let plan=null,phase='off',lastStage='',stageSince=0,pausedAt=null;
+  let scheduled=null,observer=null;
+  const cancelScheduled=()=>{if(scheduled!==null)clearTimeout(scheduled);scheduled=null;};
+  function wake() {
+    if(!plan||pausedAt!==null||scheduled!==null)return;
+    // Coalesce a render's mutations. The existing one-shot guards still own every navigation.
+    scheduled=setTimeout(()=>{scheduled=null;window.BoleteraExpress.tick();},0);
+  }
   const visible=e=>{
     if(!e||!e.getClientRects().length||e.closest('[hidden],[aria-hidden="true"],.mat-horizontal-stepper-content[aria-expanded="false"]'))return false;
     for(let p=e;p;p=p.parentElement){const s=getComputedStyle(p);if(s.display==='none'||s.visibility==='hidden'||s.opacity==='0')return false;}
@@ -17,16 +24,26 @@
     const amount=Number(whole)*100+Number(decimal.padEnd(2,'0'));
     return Number.isSafeInteger(amount)?amount:null;
   }
-  function stop(next='manual'){plan=null;phase=next;return phase;}
+  function stop(next='manual'){
+    plan=null;phase=next;cancelScheduled();observer?.disconnect();observer=null;
+    document.removeEventListener('input',wake,true);
+    document.removeEventListener('change',wake,true);
+    return phase;
+  }
   window.BoleteraExpress={
     start(amount,payer) {
       if(phase!=='off'||!Number.isSafeInteger(amount)||amount<=0||!payer)return false;
-      plan={amount,payer};phase='advancing';return true;
+      plan={amount,payer};phase='advancing';
+      observer=new MutationObserver(wake);
+      observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,
+        attributeFilter:['class','disabled','aria-disabled','aria-hidden','aria-expanded','hidden']});
+      document.addEventListener('input',wake,true);document.addEventListener('change',wake,true);
+      wake();return true;
     },
     stop(){return stop();},
     suspend(paused) {
-      if(paused && pausedAt===null)pausedAt=Date.now();
-      else if(!paused && pausedAt!==null) {stageSince+=Date.now()-pausedAt;pausedAt=null;}
+      if(paused && pausedAt===null){pausedAt=Date.now();cancelScheduled();}
+      else if(!paused && pausedAt!==null) {stageSince+=Date.now()-pausedAt;pausedAt=null;wake();}
     },
     tick() {
       if(pausedAt!==null)return phase;
@@ -73,7 +90,9 @@
         // The provider's Continue can be enabled BEFORE CAPTCHA validation. An enabled button or
         // ng-valid form is not a success signal; preserve the human continuation for a visible widget.
         if(state.challenge||[...root.querySelectorAll('angular-recaptcha')].some(visible))return phase='verification';
-        if(!form.classList.contains('ng-valid'))return stop();
+        // Angular may validate asynchronously after the known fields were filled. Wait for
+        // its result; errors, changed values, extra controls and timeout still stop above.
+        if(!form.classList.contains('ng-valid'))return phase='advancing';
         phase='advancing';if(state.canContinue)window.BoleteraNative.advance('payer');return phase;
       }
       return stop();

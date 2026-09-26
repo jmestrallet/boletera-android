@@ -1,4 +1,14 @@
-# Validación 0.2.33 Beta 1 — lectura de STM después de elegir boletera
+# Validación 0.2.34 Beta 1 — Express y autocompletado
+
+Fecha: 26/9/2026. Código 52. Primera entrega de la [mejora integral de Express](MEJORAS-EXPRESS-2026-09.md), que detalla evidencia, fuentes y trabajo pendiente.
+
+Se aprobaron 65 pruebas JavaScript, 10 JVM, lint y 12 casos Android dirigidos. La comprobación del autocompletado incluye un servicio real del sistema con metadatos ficticios: llegada y reintento apuntan al campo virtual de tarjeta. La prueba del formulario demorado conserva Express durante la validación y no avanza mientras el panel está oculto. Los casos de finalización conservan el envío único y la confirmación humana para una tarjeta distinta.
+
+No se prueba con esto la oferta de tarjetas de Google en un teléfono particular ni una recarga real. El tiempo total y la experiencia de CAPTCHA siguen bajo investigación.
+
+---
+
+## Versión anterior: 0.2.33 Beta 1 — lectura de STM después de elegir boletera
 
 Fecha: 20/9/2026. Código 51. Corrección publicada primero en el canal Beta.
 
