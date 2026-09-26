@@ -32,6 +32,19 @@ test('visible CAPTCHA stops before payer continuation; no response or iframe con
  w.BoleteraExpress.stop();assert.equal(w.BoleteraNative.advance('payer'),true);assert.equal(clicks,1);
  }finally{dom.window.close();}
 });
+
+test('accepted provider verification advances payer once; Google presence alone and pause do not',()=>{
+ const dom=setup();try {
+  const w=dom.window,d=w.document;let accepted=false,clicks=0;payer(dom);
+  d.querySelector('alta-cliente').insertAdjacentHTML('beforeend','<angular-recaptcha></angular-recaptcha>');
+  w.BoleteraProviderVerification={accepted:()=>accepted};
+  w.eval(fs.readFileSync('app/src/main/assets/prex-completion.js','utf8'));
+  d.querySelector('button').onclick=()=>clicks++;w.BoleteraExpress.start(56400,person);
+  assert.equal(w.BoleteraExpress.tick(),'verification');assert.equal(clicks,0);
+  w.BoleteraExpress.suspend(true);accepted=true;w.BoleteraExpress.tick();assert.equal(clicks,0);
+  w.BoleteraExpress.suspend(false);w.BoleteraExpress.tick();w.BoleteraExpress.tick();assert.equal(clicks,1);
+ }finally{dom.window.close()}
+});
 test('unexpected amount, currency, consents or changed payer do not advance',()=>{
  for(const mutation of [d=>d.querySelectorAll('p')[1].textContent='565,00',d=>d.querySelector('p').textContent='USD',d=>d.querySelector('form').insertAdjacentHTML('beforeend','<input type="checkbox">')]) {
  const dom=setup();try {let clicks=0;mutation(dom.window.document);dom.window.document.querySelector('button').onclick=()=>clicks++;dom.window.BoleteraExpress.start(56400,person);assert.equal(dom.window.BoleteraExpress.tick(),'manual');assert.equal(clicks,0);}finally{dom.window.close();}}

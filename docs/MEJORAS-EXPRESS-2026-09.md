@@ -24,7 +24,7 @@ La ampliación pedida por el dueño revisa foros, clic automático, Buster y mod
 
 Google documenta reCAPTCHA v2, verificación invisible y callbacks de resolución/expiración. La selección y configuración pertenecen al sitio que verifica la operación. No hay evidencia en esta revisión de que Boletera pueda cambiar la configuración de gub.uy o Sistarbanc. Tampoco se identificó una API pública de recarga STM con tokenización delegada que permita reemplazar el recorrido de Prex.
 
-No se presenta un botón habilitado, `ng-valid` o el cierre de un desafío como prueba de resolución: el sitio puede habilitar Continuar antes de verificarlo. La investigación de una continuación confiable después de la intervención humana sigue pendiente. No se han integrado proveedores externos de resolución ni transferido sesiones o datos de pago a terceros.
+No se presenta un botón habilitado, `ng-valid` o el cierre de un desafío como prueba de resolución: el sitio puede habilitar Continuar antes de verificarlo. La quinta entrega incorpora la lectura de la aceptación del proveedor en la versión inspeccionada; falta comprobarla en una recarga real. No se han integrado proveedores externos de resolución ni transferido sesiones o datos de pago a terceros.
 
 Fuentes consultadas el 26/9/2026:
 
@@ -66,5 +66,11 @@ También se corrige la hora de consulta: una lectura repetida de la misma págin
 ## Cuarta entrega: 0.2.37 Beta 1
 
 Primer intento de la casilla de Google desde Android, una vez por etapa de Express. Las imágenes/audio y la continuación posterior siguen manuales. El prototipo activó la demo pública real y Google pidió imágenes; no se obtuvo aprobación sin intervención en ese caso. Se conservan configuración de cookies e identidad de navegador. Ver [alcance, evidencia y pendientes](CAPTCHA-ALTERNATIVAS.md).
+
+## Quinta entrega: 0.2.38 Beta 1
+
+El titular conocido y la tarjeta completamente autocompletada pueden continuar después de reconocer la aceptación del servidor en el componente visible del proveedor. La estructura se comprobó contra su runtime público en Android y la lógica de aceptación se ejecutó con servicios ficticios. Ante cambios del sitio o falta de evidencia, el avance sigue manual. No se equipara una respuesta de Google con una autorización.
+
+Se comprobaron en Android espera, pausa, reanudación y envío único. No se resolvieron imágenes/audio ni se realizó una recarga real. El objetivo de experiencia final sigue abierto hasta comprobar el teléfono del dueño y medir el tiempo y las aprobaciones sin fotos durante su uso normal.
 
 Esto avanza el punto 3, pero no lo cierra: falta una señal fiable de aceptación del proveedor para continuar automáticamente y medir el comportamiento en el teléfono del dueño. No se reemplaza ese requisito por el éxito de un clic sintético.

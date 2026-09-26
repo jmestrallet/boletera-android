@@ -21,7 +21,7 @@ class ExpressCheckboxTest {
         compose.runOnIdle {payment.web.evaluateJavascript(code){value.set(it)}}
         compose.waitUntil(5000){value.get()!=null};return value.get()!!
     }
-    private fun setup(express:Boolean,card:Boolean=false) {
+    private fun setup(express:Boolean,card:Boolean=false,knownProvider:Boolean=false) {
         compose.runOnIdle {
             payment=EmbeddedPrexPayment(compose.activity)
             val delegate=payment.web.webViewClient
@@ -34,12 +34,21 @@ class ExpressCheckboxTest {
                       <button onclick="parent.postMessage('checkbox','https://pasarelaspe.sistarbanc.com.uy')">✓</button>
                     """ else """
                       <style>body{margin:0}iframe{border:0}alta-cliente,alta-tarjeta,angular-recaptcha{display:block}</style>
+                      ${if(knownProvider)"<script type='application/json' src='/v2/main-es2015.c4dd4374250f3678bcc8.js'></script><app-root ng-version='11.2.14'>" else ""}
                       <stepper-pago><$root><form class="ng-valid">
                       ${fields.joinToString(""){ "<input formcontrolname='$it'>" }}
                       <button type="button" onclick="window.continues++">Continuar</button></form>
-                      <angular-recaptcha><iframe width="304" height="78" src="https://www.google.com/recaptcha/api2/anchor?size=normal"></iframe><textarea name="g-recaptcha-response" style="display:none"></textarea></angular-recaptcha>
+                      <angular-recaptcha><re-captcha><iframe width="304" height="78" src="https://www.google.com/recaptcha/api2/anchor?size=normal"></iframe><textarea name="g-recaptcha-response" style="display:none"></textarea></re-captcha></angular-recaptcha>
                       </$root></stepper-pago>
+                      ${if(knownProvider)"</app-root>" else ""}
                       <script>window.hits=0;window.continues=0;addEventListener('message',e=>{if(e.origin==='https://www.google.com'&&e.data==='checkbox'){window.hits++;document.querySelector('textarea').value='synthetic-provider-pending'}})</script>
+                      ${if(knownProvider) """<script>
+                        function bindFixture(host,selector){class Component{};Component['\u0275cmp']={type:Component,selectors:[[selector]]};const instance=new Component(),child=[];child[0]=host;child[1]={};child[8]=instance;const parent=[];parent[1]={components:[20]};parent[20]=child;host.__ngContext__=parent;return instance}
+                        bindFixture(document.querySelector('app-root'),'app-root');
+                        const verificationFixture=bindFixture(document.querySelector('angular-recaptcha'),'angular-recaptcha');
+                        verificationFixture.recaptchaSuccess=false;verificationFixture.recaptchaRef={elementRef:{nativeElement:document.querySelector('re-captcha')}};
+                        window.acceptProvider=()=>verificationFixture.recaptchaSuccess=true;
+                      </script>""" else ""}
                     """
                     return WebResourceResponse("text/html","UTF-8",("<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'>"+body).byteInputStream())
                 }
@@ -50,6 +59,17 @@ class ExpressCheckboxTest {
             assertTrue(payment.open("https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago?id=SYNTHETIC-CHECKBOX",profile,if(express)26000L else null,26000L))
             compose.activity.setContent {autofillHost=LocalView.current;BoleteraTheme("dark"){EmbeddedPrexScreen(payment,null,{})}}
         }
+    }
+    private fun fillCard() {
+        val values=android.util.SparseArray<android.view.autofill.AutofillValue>()
+        listOf("Número de tarjeta" to "4111111111111111","Vencimiento" to "12/39","CVV" to "123").forEach {(label,value)->
+            values.put(compose.onNodeWithText(label).fetchSemanticsNode().id,android.view.autofill.AutofillValue.forText(value))
+        }
+        compose.runOnIdle {autofillHost.autofill(values)}
+    }
+    private fun waitForThreeSnapshots() {
+        js("window.snapshots=0;const originalSnapshot=window.BoleteraNative.snapshot;window.BoleteraNative.snapshot=()=>{window.snapshots++;return originalSnapshot()}")
+        compose.waitUntil(7000){js("window.snapshots>=3")=="true"}
     }
     @Test fun expressAttemptsOnceAndNeverTreatsCheckboxResponseAsProviderApproval() {
         setup(true)
@@ -79,14 +99,39 @@ class ExpressCheckboxTest {
             js("window.snapshots=0;const old=window.BoleteraNative.snapshot;window.BoleteraNative.snapshot=()=>{window.snapshots++;return old()}")
             compose.waitUntil(7000){js("window.snapshots>=3")=="true"}
             assertEquals("0",js("window.hits"))
-            val values=android.util.SparseArray<android.view.autofill.AutofillValue>()
-            listOf("Número de tarjeta" to "4111111111111111","Vencimiento" to "12/39","CVV" to "123").forEach {(label,value)->
-                values.put(compose.onNodeWithText(label).fetchSemanticsNode().id,android.view.autofill.AutofillValue.forText(value))
-            }
-            compose.runOnIdle {autofillHost.autofill(values)}
+            fillCard()
             compose.waitUntil(10000){js("window.hits")=="1"}
             assertEquals("0",js("window.continues"))
             assertEquals("card",payment.nativeStage)
+        } finally {compose.runOnIdle{payment.destroy()}}
+    }
+    @Test fun acceptedPayerContinuesOnceAfterServerSignalAndOnlyWhenResumed() {
+        setup(true,knownProvider=true)
+        try {
+            compose.waitUntil(15000){payment.nativeStage=="payer" && payment.challenge!=null}
+            compose.waitUntil(10000){js("window.hits")=="1"}
+            waitForThreeSnapshots();assertEquals("0",js("window.continues"))
+            compose.runOnIdle {payment.pause()}
+            js("window.acceptProvider();window.BoleteraExpress.tick()")
+            assertEquals("0",js("window.continues"))
+            compose.runOnIdle {payment.resume()}
+            compose.waitUntil(10000){js("window.continues")=="1"}
+            waitForThreeSnapshots();assertEquals("1",js("window.continues"))
+        } finally {compose.runOnIdle{payment.destroy()}}
+    }
+    @Test fun acceptedCardAutofillContinuesOnceWithoutManualContinue() {
+        setup(true,card=true,knownProvider=true)
+        try {
+            compose.waitUntil(15000){payment.nativeStage=="card" && payment.challenge!=null}
+            fillCard()
+            compose.waitUntil(10000){js("window.hits")=="1"}
+            waitForThreeSnapshots();assertEquals("0",js("window.continues"))
+            compose.runOnIdle {payment.pause()}
+            js("window.acceptProvider()")
+            assertEquals("0",js("window.continues"))
+            compose.runOnIdle {payment.resume()}
+            compose.waitUntil(10000){js("window.continues")=="1"}
+            waitForThreeSnapshots();assertEquals("1",js("window.continues"))
         } finally {compose.runOnIdle{payment.destroy()}}
     }
 }

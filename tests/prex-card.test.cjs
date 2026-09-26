@@ -10,6 +10,22 @@ function setup(url='https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago') {
  dom.window.eval(script);dom.window.eval(native);return dom;
 }
 const settle=()=>new Promise(r=>setTimeout(r,15));
+
+test('automatic card submission waits for provider acceptance and rechecks before its delayed click',async()=>{
+ for(const expire of [false,true]) {
+  const dom=setup();try {
+   const w=dom.window,d=w.document;let accepted=false,clicks=0;
+   d.querySelector('alta-tarjeta').insertAdjacentHTML('beforeend','<angular-recaptcha></angular-recaptcha>');
+   w.BoleteraProviderVerification={accepted:()=>accepted};d.querySelector('button').onclick=()=>clicks++;
+   assert.equal(w.BoleteraCard.submit('4111111111111111','12/39','123',true),false);
+   assert.equal(d.querySelector('input').value,'');
+   accepted=true;assert.equal(w.BoleteraCard.submit('4111111111111111','12/39','123',true),true);
+   if(expire)accepted=false;
+   await settle();assert.equal(clicks,expire?0:1);
+   assert.equal(w.BoleteraCard.snapshot().error,expire);
+  }finally{dom.window.close()}
+ }
+});
 test('visible verification is required before its iframe loads and never reads responses',()=>{
  const dom=setup();try {
   const d=dom.window.document,api=dom.window.BoleteraNative;

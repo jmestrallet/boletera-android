@@ -44,9 +44,14 @@
   }
   window.BoleteraCard = {
     snapshot,
-    submit(pan, expiry, cvv) {
+    submit(pan, expiry, cvv, automatic=false) {
       const current=snapshot(),r=root();
       if(!r||!current.canContinue||!valid(pan,expiry,cvv))return false;
+      const verificationReady=()=>{
+        const stage=window.BoleteraNative?.snapshot();
+        return stage?.stage==='card' && (!stage.verificationRequired || window.BoleteraProviderVerification?.accepted(r)===true);
+      };
+      if(automatic&&!verificationReady())return false;
       const inputs=fields(r),action=button(r);
       if(inputs.some(e=>e.disabled||e.readOnly))return false;
       state='preparing';errorSince=null;
@@ -59,7 +64,7 @@
       // Let Angular settle its existing validators. No HTTP client, token access or alternate payment API.
       setTimeout(()=>{
         if(root()!==r || owner!==r || state!=='preparing')return;
-        if(!ready(r)||inputs.some(e=>!e.checkValidity()||e.classList.contains('ng-invalid'))||r.querySelector('form.ng-invalid')) {state='rejected';return;}
+        if(!ready(r)||(automatic&&!verificationReady())||inputs.some(e=>!e.checkValidity()||e.classList.contains('ng-invalid'))||r.querySelector('form.ng-invalid')) {state='rejected';return;}
         state='submitted';
         action.click(); // Exactly one original action per explicit native Continue.
       },0);

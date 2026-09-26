@@ -39,9 +39,10 @@
     const expanded = !!challenge && /\/bframe/.test(challenge.src);
     const r = challenge?.getBoundingClientRect();
     const measurable = r && r.width > 0 && r.height > 0;
+    const verificationRequired=!!(client||card) && (frames.length>0 || [...root.querySelectorAll('angular-recaptcha,re-captcha')].some(visible));
     return {stage, rows, values, submitted: sentStep === stage, canContinue: card ? cardState.canContinue : ready(button(root)) && sentStep !== stage,
       cardBusy:!!card && cardState.busy, cardError:!!card && cardState.error,
-      verificationRequired:!!(client||card) && (frames.length>0 || [...root.querySelectorAll('angular-recaptcha,re-captcha')].some(visible)),
+      verificationRequired, verificationApproved:verificationRequired && window.BoleteraProviderVerification?.accepted(root)===true,
       challenge: measurable ? {x:r.x,y:r.y,width:r.width,height:r.height} : null, viewportWidth:innerWidth, expanded:!!measurable && expanded};
   }
   window.BoleteraNative = {
@@ -53,10 +54,11 @@
       frame?.scrollIntoView({block:'center',inline:'center'});
     },
     restoreVerification() { window.BoleteraVerification?.restore(); },
-    advance(expected) {
+    advance(expected, automatic=false) {
       const state = snapshot();
       if (!['summary','payer'].includes(expected) || state.stage !== expected || !state.canContinue) return false;
       const root = single(expected === 'summary' ? 'stepper-pago confirmar-pago' : 'stepper-pago alta-cliente');
+      if(automatic && expected==='payer' && state.verificationRequired && window.BoleteraProviderVerification?.accepted(root)!==true)return false;
       const action = root && button(root);
       if (!ready(action)) return false;
       sentStep = expected;

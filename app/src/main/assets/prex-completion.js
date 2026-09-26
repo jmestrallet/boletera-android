@@ -56,8 +56,8 @@
       completionNotice:pending?pending.slice(0,160):'',canContinue:!returnSent&&ready(action(root,'volver a la pagina inicial')),submitted:returnSent};
   }
   window.BoleteraCompletion={configure(amount,submitted=false){expected=amount;finalSent=finalSent||submitted;}};
-  window.BoleteraNative={...base,snapshot,advance(stage){
-    if(!['finalConfirmation','receipt','paymentRejected','paymentPending'].includes(stage))return base.advance(stage);
+  window.BoleteraNative={...base,snapshot,advance(stage,automatic=false){
+    if(!['finalConfirmation','receipt','paymentRejected','paymentPending'].includes(stage))return base.advance(stage,automatic);
     const state=snapshot();if(state.stage!==stage||!state.canContinue)return false;
     const root=single(stage==='finalConfirmation'?'stepper-pago finalizar-pago':'resultado-pago');
     const button=root&&action(root,stage==='finalConfirmation'?'confirmar':'volver a la pagina inicial');

@@ -3,7 +3,7 @@
 ## 1. Elegí una versión
 
 - **Estable:** `boletera-0.2.32.apk`. Es la recomendada y no incluye Carga Express.
-- **Beta:** `boletera-beta-0.2.37-beta.1.apk`. Incluye Carga Express, medición local de sus etapas y un intento automático de la casilla de Google.
+- **Beta:** `boletera-beta-0.2.38-beta.1.apk`. Incluye Carga Express, medición local de sus etapas y un intento automático de la casilla de Google.
 
 Ambas requieren Android 8 o posterior. Instalá el APK encima de una versión anterior para conservar los datos guardados.
 
@@ -26,7 +26,7 @@ Elegí el importe y el medio de pago:
 
 La solicitud puede ser real. Revisá el importe, la tarjeta y cualquier verificación antes de confirmar. Boletera no resuelve CAPTCHA ni aprueba pagos por vos.
 
-En la Beta, **Carga Express** empieza con un toque, usa el mínimo vigente, la boletera habitual, Prex y el titular conocido. Al llegar a la tarjeta solicita el autocompletado de Android. Elegí la tarjeta guardada y autorizá con la huella si tu proveedor la pide; si Android entrega número, vencimiento y CVV válidos y no aparece una verificación, Boletera continúa sin otro toque. Si aparece un CAPTCHA, el teclado se oculta para dejarlo a la vista; completalo y tocá Continuar. El tiempo depende de STM, Sistarbanc y la conexión.
+En la Beta, **Carga Express** empieza con un toque, usa el mínimo vigente, la boletera habitual, Prex y el titular conocido. Al llegar a la tarjeta solicita el autocompletado de Android. Elegí la tarjeta guardada y autorizá con la huella si tu proveedor la pide; si Android entrega número, vencimiento y CVV válidos, Boletera continúa cuando no hay verificación pendiente. Si aparece un CAPTCHA, el teclado se oculta para dejarlo a la vista. Resolvé las imágenes si las pide; Express continúa cuando reconoce la aceptación de Sistarbanc. Si no continúa, conservás el botón Continuar. El tiempo depende de STM, Sistarbanc y la conexión.
 
 ## 5. Comprobá el resultado
 
@@ -39,6 +39,6 @@ Después de usar Express, abrí **Configuración → Información de ayuda → C
 Las capturas están habilitadas. Compartí la versión, el paso, el mensaje visible y el modelo de teléfono. Ocultá contraseñas, números de tarjeta, CVV y enlaces de pago.
 
 Las pruebas automatizadas usan datos ficticios y no acreditan una recarga real. Ver [validación](VALIDACION.md) y [compatibilidad de pagos](COMPATIBILIDAD-PAGO.md).
-## Prueba del intento de CAPTCHA en 0.2.37 Beta 1
+## Prueba del intento de CAPTCHA en 0.2.38 Beta 1
 
-En Carga Express, observá si la casilla normal se activa sola. Si Google pide imágenes, completalas como antes y tocá Continuar. Anotá por separado «casilla activada», «pasó sin fotos» y «llegó a tarjeta»: no son el mismo resultado. Si no se activa, podés tocarla normalmente. No repitas recargas para medirlo; alcanza con registrar el uso normal.
+En Carga Express, observá si la casilla normal se activa sola y si continúa después de que Sistarbanc la acepta. Si Google pide imágenes, completalas como antes. Anotá por separado «casilla activada», «pasó sin fotos», «continuó solo» y «llegó a tarjeta»: no son el mismo resultado. Si no se activa o no continúa, podés usar los controles manuales. No repitas recargas para medirlo; alcanza con registrar el uso normal.

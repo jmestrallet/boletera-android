@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.38 Beta 1 - Continuar después de la verificación
+
+- Express continúa con el titular conocido o la tarjeta completamente autocompletada cuando Sistarbanc confirma la verificación. Evita otro toque en Continuar en ese recorrido.
+- La lectura está limitada a la versión del sitio inspeccionada y al componente del widget visible. Una respuesta de Google, por sí sola, no habilita el avance; si el sitio cambia o no se reconoce la señal, conserva el recorrido manual.
+- Comprueba nuevamente la aceptación antes de avanzar. Pausa y segundo plano suspenden el envío; volver no lo duplica. Las imágenes/audio siguen manuales y no se modifica la regla de confirmación final de la tarjeta.
+- Pruebas locales y de Android aprobadas; pendiente comprobar el recorrido en un teléfono con una cuenta real. No se afirma una proporción de aprobaciones sin fotos.
+
 ## 0.2.37 Beta 1 - Primer intento automático de la casilla
 
 - Carga Express intenta tocar una sola vez la casilla normal de reCAPTCHA cuando reconoce su origen, tamaño y posición visible. Las imágenes y el audio permanecen disponibles para resolver a mano.

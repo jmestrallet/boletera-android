@@ -42,6 +42,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         private set
     var verificationRequired by mutableStateOf(false)
         private set
+    var verificationApproved by mutableStateOf(false)
+        private set
     var cssViewportWidth by mutableStateOf(0f)
         private set
     val chosenPayer get() = payer
@@ -130,6 +132,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
                         verificationRequired = state.optBoolean("verificationRequired") || challenge != null
+                        verificationApproved = expressJourney && state.optBoolean("verificationApproved")
                         timingObserver(when {
                             cardError || slowStep || message.isNotBlank() || expressPhase=="manual" -> ExpressTiming.Phase.REVIEW
                             completionSubmitted && !returningToWallet -> ExpressTiming.Phase.PREX
@@ -189,6 +192,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     private val cardScript = context.assets.open("prex-card.js").bufferedReader().use { it.readText() }
     private val expressScript = context.assets.open("prex-express.js").bufferedReader().use { it.readText() }
     private val verificationScript = context.assets.open("prex-verification.js").bufferedReader().use { it.readText() }
+    private val providerVerificationScript = context.assets.open("prex-provider-verification.js").bufferedReader().use { it.readText() }
     private val checkboxScript = context.assets.open("prex-checkbox.js").bufferedReader().use { it.readText() }
     private val payerScript = context.assets.open("prex-payer.js").bufferedReader().use { it.readText() }
     val web: WebView = WebView(context).apply {
@@ -250,7 +254,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                 if (url == null || url != view.url || !allowedDestination(url)) return
                 busy = false
                 if (PaymentPolicy.gateway(url)) {
-                    view.evaluateJavascript(verificationScript + "\n" + checkboxScript + "\n" + cardScript + "\n" + nativeScript + "\n" + completionScript + "\n" + payerScript + "\n" + expressScript, null)
+                    view.evaluateJavascript(verificationScript + "\n" + providerVerificationScript + "\n" + checkboxScript + "\n" + cardScript + "\n" + nativeScript + "\n" + completionScript + "\n" + payerScript + "\n" + expressScript, null)
                     view.evaluateJavascript("window.BoleteraVerification?.nativeMask($nativeMask)",null)
                     view.evaluateJavascript("window.BoleteraCompletion?.configure(${expectedAmount ?: "null"},$finalSubmitted)",null)
                     payer?.let { profile ->
@@ -356,7 +360,9 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         if (!destroyed && visible && nativeStage in listOf("payer","card")) web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.showVerification()", null)
     }
 
-    fun submitCard(pan: String, expiry: String, cvv: String) {
+    fun submitCard(pan: String, expiry: String, cvv: String) = submitCard(pan,expiry,cvv,automatic=false)
+    fun submitAutofilledCard(pan: String, expiry: String, cvv: String) = submitCard(pan,expiry,cvv,automatic=true)
+    private fun submitCard(pan: String, expiry: String, cvv: String, automatic: Boolean) {
         if(destroyed || !visible || suspended || nativeStage!="card" || cardBusy || !canContinue)return
         enteredCardIdentity=identifyCard(pan)
         enteredCardSuffix=pan.takeLast(4)
@@ -365,7 +371,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         progressSince=clock();slowStep=false
         val version=navigationVersion
         // Literal escaping only; never log this command or retain its arguments in engine state.
-        web.evaluateJavascript("window.BoleteraCard && window.BoleteraCard.submit(${org.json.JSONObject.quote(pan)},${org.json.JSONObject.quote(expiry)},${org.json.JSONObject.quote(cvv)})") { raw ->
+        web.evaluateJavascript("window.BoleteraCard && window.BoleteraCard.submit(${org.json.JSONObject.quote(pan)},${org.json.JSONObject.quote(expiry)},${org.json.JSONObject.quote(cvv)},$automatic)") { raw ->
             if(!destroyed && version==navigationVersion && raw!="true") { cardBusy=false;cardError=true }
         }
     }
@@ -462,6 +468,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         expressPhase = "off"
         challenge = null
         verificationRequired = false
+        verificationApproved = false
         expandedChallenge = false
         payer = null
         payerLabel = ""

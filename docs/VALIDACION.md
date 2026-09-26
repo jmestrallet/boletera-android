@@ -1,4 +1,19 @@
-# Validación 0.2.37 Beta 1 — Intento de casilla en Express
+# Validación 0.2.38 Beta 1 — Continuación después de verificar
+
+Fecha: 26/9/2026. Código 56.
+
+- 74 pruebas JavaScript y 12 JVM aprobadas. Lint: 0 errores, 44 advertencias.
+- 16 casos Android dirigidos aprobados, sin omisiones: cinco de casilla/continuación Express, siete de autocompletado, tres de finalización y uno del recorrido de tarjeta.
+- Las nuevas pruebas de titular y tarjeta autocompletada esperan varias lecturas con respuesta de Google presente, sin avanzar. Una señal ficticia de aceptación del proveedor habilita una única continuación; durante una pausa no se envía y la reanudación no duplica el envío.
+- Los casos JavaScript rechazan versiones o componentes desconocidos, indicadores de otro tipo, vinculación incorrecta, respuestas vacías y vencimiento entre preparar y enviar la tarjeta. No acceden a autenticación ni almacenamiento ni reemplazan callbacks.
+- Una prueba pública Android separada verificó Angular 11.2.14 y la vinculación del componente raíz del sitio actual. Bloqueó todas las APIs, destinos externos y métodos distintos de GET. No abrió una recarga ni aprobó un CAPTCHA. Informe local: `outputs/gateway-verification-runtime.txt`.
+- El script `scripts/check-provider-verification.cjs` ejecutó la clase real extraída del bundle inspeccionado con servicios ficticios: aceptación, vencimiento, rechazo y error. No tuvo red ni credenciales reales. Informe local: `outputs/provider-verification-logic.json`.
+
+Queda pendiente validar el recorrido en el teléfono del dueño y medir la proporción de aprobaciones sin fotos. Las imágenes/audio siguen manuales. El adaptador depende de la versión del proveedor inspeccionada; si no la reconoce, conserva Continuar manual. [Detalle y fuentes](CAPTCHA-ALTERNATIVAS.md).
+
+---
+
+## Versión anterior: 0.2.37 Beta 1 — Intento de casilla en Express
 
 Fecha: 26/9/2026. Código 55.
 

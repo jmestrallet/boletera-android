@@ -86,15 +86,14 @@
           const allowed=plan.payer.documentType==='PAS'?['pas','pasaporte']:['ci','cedula de identidad','cedula uruguaya'];
           if(!allowed.includes(selected))return stop();
         }
-        // Android may attempt the ordinary checkbox once. Image/audio challenges remain manual.
-        // This controller never interprets a Google response as the provider's authorization.
-        // The provider's Continue can be enabled BEFORE CAPTCHA validation. An enabled button or
-        // ng-valid form is not a success signal; preserve the human continuation for a visible widget.
-        if(state.challenge||[...root.querySelectorAll('angular-recaptcha')].some(visible))return phase='verification';
+        // Google response presence alone is insufficient. Only the bound provider component's
+        // server-acceptance signal allows automatic continuation; unknown versions stay manual.
+        if((state.verificationRequired||state.challenge||[...root.querySelectorAll('angular-recaptcha')].some(visible)) &&
+          window.BoleteraProviderVerification?.accepted(root)!==true)return phase='verification';
         // Angular may validate asynchronously after the known fields were filled. Wait for
         // its result; errors, changed values, extra controls and timeout still stop above.
         if(!form.classList.contains('ng-valid'))return phase='advancing';
-        phase='advancing';if(state.canContinue)window.BoleteraNative.advance('payer');return phase;
+        phase='advancing';if(state.canContinue)window.BoleteraNative.advance('payer',true);return phase;
       }
       return stop();
     }

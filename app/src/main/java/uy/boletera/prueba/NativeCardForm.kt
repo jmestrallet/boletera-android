@@ -54,6 +54,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
 @Composable internal fun NativeCardForm(busy: Boolean, canContinue: Boolean, providerError: Boolean,
     expandedChallenge: Boolean, onSubmit: (String,String,String)->Unit, onOriginal: ()->Unit,
     focusCard: Boolean = false, verificationRequired: Boolean = false, onManualContinue: () -> Unit = {}, onVerificationShown: () -> Unit = {},
+    onAutomaticSubmit: ((String,String,String)->Unit)? = null,
     verification: @Composable ()->Unit = {}) {
     var pan by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
@@ -80,7 +81,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
         if(manual)onManualContinue()
         autoConsumed=true;filledFields=0
         autofill?.cancel();keyboard?.hide();focus.clearFocus()
-        onSubmit(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
+        (if(manual)onSubmit else onAutomaticSubmit?:onSubmit)(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
         cvv="";attempted=false
     }
     fun fill(field: Int, value: String): Boolean {
