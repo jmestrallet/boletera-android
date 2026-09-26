@@ -14,7 +14,7 @@ Se ingresó a la cuenta autorizada desde Edge y se abrió **Movimientos** de la 
 
 No se obtuvo una tabla real de viajes, recargas o devoluciones. Tampoco se comprobó un campo oficial de viajes computables ni su correspondencia con el programa de Montevideo. El acceso denegado no significa que no existan movimientos.
 
-**No publicar esta rama como funcionalidad terminada.** El acceso nuevo está habilitado únicamente en compilaciones de desarrollo (`BuildConfig.DEBUG`). La Beta 0.2.39 publicada sigue siendo la versión para uso normal.
+**No publicar esta rama como funcionalidad terminada.** El acceso nuevo está habilitado en Alpha y compilaciones de desarrollo (`BuildConfig.DEBUG`). La Beta 0.2.39 publicada sigue siendo la versión para uso normal.
 
 ## Implementado para preparar y revisar
 
@@ -48,3 +48,7 @@ No se obtuvo una tabla real de viajes, recargas o devoluciones. Tampoco se compr
 - [Nivel de seguridad de ID Uruguay](https://www.gub.uy/identificacion-digital/nivel-de-seguridad). El ingreso puede requerir identidad validada y segundo factor; no se modificó la seguridad de la cuenta.
 
 La fórmula preparada corresponde al programa de Montevideo, no a cualquier régimen STM. No se confirma una devolución hasta leer evidencia oficial de su estado.
+
+## Canal Alpha
+
+A pedido del dueño, 0.2.40 Alpha 1 distribuye este trabajo incompleto explícitamente como Alpha. Beta 0.2.40 es un puente con selector de canales, sin Actividad. Ambas usan código de instalación 58 y la misma firma para permitir el cambio entre ellas sin borrar datos.
