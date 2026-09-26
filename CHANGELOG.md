@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.40 Beta 1 - Puente al canal Alpha
+
+- Configuración permite elegir Estable, Beta o Alpha. Alpha se ofrece únicamente cuando se elige ese canal.
+- Permite cambiar entre Beta 0.2.40 y Alpha 0.2.40 con la misma firma y código de instalación, conservando datos.
+- Esta Beta no incluye Actividad ni Usuario frecuente: continúan en la rama desarrollo y la primera Alpha.
+
+
 ## 0.2.39 Beta 1 - Un solo Listo para CVV y verificación
 
 - En Express, Listo en el teclado conserva la solicitud mientras se completa la verificación. Después de que Sistarbanc la acepta, continúa sin exigir otro toque. También sirve cuando Android entrega la tarjeta pero hay que escribir el CVV.
