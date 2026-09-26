@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.35 Beta 1 - Esperas y verificación sin intentos prematuros
+
+- Mantiene «preparando» mientras STM responde, aunque siga mostrando la pantalla anterior. Los toques repetidos no reemplazan ni cancelan la recarga en curso.
+- Si el proveedor exige una verificación, completar la tarjeta con Android lleva a ese paso en vez de enviarla antes de tiempo. El teclado se oculta y los datos permanecen en el formulario durante esa intervención.
+- Ante un error del proveedor, el botón principal permite revisar su respuesta; deja de ofrecer un Continuar sin efecto.
+- El avance automático de una tarjeta completa sigue disponible cuando no hay una verificación visible.
+
 ## 0.2.34 Beta 1 - Express y tarjetas guardadas
 
 - Solicita el autocompletado al campo de tarjeta correcto y permite reintentarlo desde la pantalla nativa.

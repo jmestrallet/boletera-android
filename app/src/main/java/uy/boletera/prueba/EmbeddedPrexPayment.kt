@@ -40,6 +40,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         private set
     var expandedChallenge by mutableStateOf(false)
         private set
+    var verificationRequired by mutableStateOf(false)
+        private set
     var cssViewportWidth by mutableStateOf(0f)
         private set
     val chosenPayer get() = payer
@@ -114,6 +116,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                         expressPhase = state.optString("expressPhase","off")
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
+                        verificationRequired = state.optBoolean("verificationRequired") || challenge != null
                         cssViewportWidth = state.optDouble("viewportWidth", 0.0).toFloat()
                         if(nativeStage=="finalConfirmation")verifiedCardSuffix=summaryRows.firstOrNull {
                             it.first.trim().trimEnd(':').equals("Medio de pago",true)
@@ -205,6 +208,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                 }
                 currentHost = android.net.Uri.parse(url).host.orEmpty()
                 nativeStage = "loading"
+                verificationRequired = false
                 canContinue = false
                 busy = true
                 message = ""
@@ -411,6 +415,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         expressAmount = null
         expressPhase = "off"
         challenge = null
+        verificationRequired = false
         expandedChallenge = false
         payer = null
         payerLabel = ""

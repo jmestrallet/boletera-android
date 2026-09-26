@@ -4,12 +4,18 @@ import android.util.SparseArray
 import android.view.View
 import android.view.autofill.AutofillValue
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -22,6 +28,8 @@ class CardAutofillTest {
     private var allowed by mutableStateOf(true)
     private var challenge by mutableStateOf(false)
     private var error by mutableStateOf(false)
+    private var verificationRequired by mutableStateOf(false)
+    private var originals=0
     private fun setup(focusCard: Boolean = false) {
         compose.activity.setContent { BoleteraTheme { Surface {
             host=LocalView.current
@@ -30,7 +38,7 @@ class CardAutofillTest {
                 assertEquals("12/39",expiry)
                 assertEquals("123",cvv)
                 submits++
-            },{},focusCard=focusCard)
+            },{originals++},focusCard=focusCard,verificationRequired=verificationRequired)
         } } }
         compose.waitForIdle()
     }
@@ -67,6 +75,50 @@ class CardAutofillTest {
         assertEquals(0,submits)
         compose.onNodeWithText("Continuar").performClick()
         assertEquals(1,submits)
+    }
+    @Test fun completeAutofillWaitsForVisibleVerificationAndAnExplicitContinue() {
+        verificationRequired=true;allowed=false;setup(focusCard=true)
+        fill("Número de tarjeta" to "4111111111111111","Vencimiento" to "12/39","CVV" to "123")
+        compose.onNodeWithTag("cardAutofillPrompt").assertTextContains("verificación",substring=true)
+        compose.onNodeWithTag("cardNumber").assertIsNotFocused()
+        compose.onNodeWithText("Continuar").assertIsNotEnabled()
+        compose.runOnIdle { allowed=true }
+        assertEquals(0,submits)
+        compose.onNodeWithText("CVV").performImeAction()
+        assertEquals(0,submits)
+        compose.onNodeWithText("Continuar").performClick()
+        assertEquals(1,submits)
+    }
+    @Test fun verificationAfterAutofillRemainsReachableOnSmallScreenWithLargeText() {
+        compose.activity.setContent { BoleteraTheme("dark") { Surface {
+            host=LocalView.current
+            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+                AppTopBar(title="Pago con Prex",onBack={})
+                NativeCardForm(false,true,false,false,{_,_,_->submits++},{},focusCard=true,verificationRequired=true) {
+                    Box(Modifier.fillMaxWidth().height(90.dp).testTag("fixtureVerification")) {
+                        Text("Verificación del proveedor · prueba visual")
+                    }
+                }
+            }
+        } } }
+        compose.waitForIdle()
+        fill("Número de tarjeta" to "4111111111111111","Vencimiento" to "12/39","CVV" to "123")
+        compose.onNodeWithTag("cardNumber").assertIsNotFocused()
+        compose.waitUntil(5000) { runCatching {compose.onNodeWithTag("fixtureVerification").assertIsDisplayed();true}.getOrDefault(false) }
+        compose.onNodeWithTag("fixtureVerification").assertIsDisplayed()
+        compose.onNodeWithText("Continuar").assertIsDisplayed()
+        assertEquals(0,submits)
+        // Let Android's empty-autofill-provider toast leave the capture; this emulator has no saved cards.
+        android.os.SystemClock.sleep(3500)
+        val screenshot=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        val file=java.io.File(compose.activity.getExternalFilesDir(null),"express-verification-0.2.35.png")
+        file.outputStream().use { screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) };screenshot.recycle()
+    }
+    @Test fun providerErrorOffersReviewEvenWhenContinueIsUnavailable() {
+        error=true;allowed=false;setup()
+        compose.onNodeWithText("Revisar respuesta").performClick()
+        assertEquals(1,originals)
+        assertEquals(0,submits)
     }
     @Test fun providerGateAndBackgroundDoNotReplayAutofill() {
         allowed=false;setup()

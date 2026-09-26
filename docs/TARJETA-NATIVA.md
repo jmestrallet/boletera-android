@@ -1,5 +1,7 @@
 # Formulario nativo de tarjeta — revisión 0.2.22
 
+**Actualización 0.2.35 Beta 1:** el autocompletado completo puede continuar automáticamente desde 0.2.32. Si hay un componente de verificación visible, espera la intervención humana, oculta el teclado y desplaza la verificación a la vista. Después de un error, el botón principal abre la respuesta original. Ver [mejoras actuales](MEJORAS-EXPRESS-2026-09.md); el resto de este documento describe la base histórica.
+
 Implementado por pedido del dueño, priorizando seguridad y practicidad. El paso normal muestra número, vencimiento y CVV en Compose, dentro de Boletera. Los datos se transfieren al formulario ya abierto de Sistarbanc únicamente después de un toque explícito en Continuar. No se utiliza una API de pagos propia ni un SDK bancario.
 
 ## Procesamiento y compatibilidad

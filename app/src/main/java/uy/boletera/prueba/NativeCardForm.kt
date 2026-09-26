@@ -53,7 +53,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun NativeCardForm(busy: Boolean, canContinue: Boolean, providerError: Boolean,
     expandedChallenge: Boolean, onSubmit: (String,String,String)->Unit, onOriginal: ()->Unit,
-    focusCard: Boolean = false,
+    focusCard: Boolean = false, verificationRequired: Boolean = false,
     verification: @Composable ()->Unit = {}) {
     var pan by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
@@ -73,6 +73,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     val numberView=remember { BringIntoViewRequester() }
     val expiryView=remember { BringIntoViewRequester() }
     val codeView=remember { BringIntoViewRequester() }
+    val verificationView=remember { BringIntoViewRequester() }
     val scope=rememberCoroutineScope()
     fun submit() {
         if(busy || !canContinue || providerError || expandedChallenge)return
@@ -92,12 +93,16 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
         filledFields=filledFields or field
         return true
     }
-    LaunchedEffect(filledFields,pan,expiry,cvv,busy,canContinue,providerError,expandedChallenge) {
+    fun showVerification() {
+        focus.clearFocus();keyboard?.hide()
+        scope.launch { delay(200);verificationView.bringIntoView() }
+    }
+    LaunchedEffect(filledFields,pan,expiry,cvv,busy,canContinue,providerError,expandedChallenge,verificationRequired) {
         if(providerError)filledFields=0
-        if(filledFields==7 && !autoConsumed && !busy && canContinue && !providerError && !expandedChallenge &&
+        if(filledFields==7 && !autoConsumed && !busy && !providerError && !expandedChallenge &&
             CardInput.panValid(pan) && CardInput.expiryValid(expiry) && CardInput.cvvValid(cvv)) {
             // Autofill delivers separate fields; wait for the complete batch, never infer it from typing.
-            submit()
+            if(verificationRequired)showVerification() else if(canContinue)submit()
         }
     }
     fun focusMissing(): Boolean {
@@ -146,7 +151,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
             ProgressSteps(2,listOf("Recarga","Titular","Tarjeta"))
             Text("Tu tarjeta",style=MaterialTheme.typography.headlineMedium,color=Ink)
             if(!expandedChallenge) {
-                Text(if(focusCard)"Elegí tu tarjeta guardada. Si falta el CVV, completalo y tocá Listo en el teclado." else "Si Android completa todos los datos, avanzás automáticamente. También podés ingresarlos a mano.",color=Muted,
+                Text(if(verificationRequired)"Completá los datos de tu tarjeta y la verificación para continuar." else if(focusCard)"Elegí tu tarjeta guardada. Si falta el CVV, completalo y tocá Listo en el teclado." else "Si Android completa todos los datos, avanzás automáticamente. También podés ingresarlos a mano.",color=Muted,
                     modifier=Modifier.testTag("cardAutofillPrompt"))
                 TextButton(enabled=!busy,onClick={
                     numberFocus.requestFocus()
@@ -174,19 +179,20 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                         modifier=Modifier.weight(1f).bringIntoViewRequester(codeView).focusRequester(codeFocus).semantics { contentType=ContentType.CreditCardSecurityCode;onAutofillText { fill(4,it.text) } },
                         visualTransformation=PasswordVisualTransformation(),
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword,imeAction=ImeAction.Done),
-                        keyboardActions=KeyboardActions(onDone={if(!focusMissing())submit()}),
+                        keyboardActions=KeyboardActions(onDone={if(!focusMissing()) {if(verificationRequired)showVerification() else submit()}}),
                         isError=attempted&&!CardInput.cvvValid(cvv),
                         supportingText=if(attempted&&!CardInput.cvvValid(cvv)) {{Text(if(cvv.isBlank())"Falta el código de seguridad de tu tarjeta." else "Ingresá 3 o 4 dígitos.")}} else null)
                 }
                 Text("Boletera no guarda estos datos. El CVV se borra del formulario al continuar.",style=MaterialTheme.typography.bodySmall,color=Muted)
             }
             if(providerError) Notice("No se pudo avanzar. Revisá la página original para ver la respuesta de Sistarbanc antes de intentar de nuevo.")
-            verification()
+            Box(Modifier.fillMaxWidth().bringIntoViewRequester(verificationView)) { verification() }
         }
         Surface(color=Paper,shadowElevation=6.dp) {
             Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=12.dp)) {
-                Primary(if(busy)"Procesando…" else "Continuar",canContinue&&!busy&&!expandedChallenge) {
-                    if(!focusMissing()) {
+                Primary(if(providerError)"Revisar respuesta" else if(busy)"Procesando…" else "Continuar",(providerError||canContinue)&&!busy&&!expandedChallenge) {
+                    if(providerError) {autofill?.cancel();onOriginal()}
+                    else if(!focusMissing()) {
                         submit()
                     }
                 }

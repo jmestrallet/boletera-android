@@ -41,6 +41,7 @@
     const measurable = r && r.width > 0 && r.height > 0;
     return {stage, rows, values, submitted: sentStep === stage, canContinue: card ? cardState.canContinue : ready(button(root)) && sentStep !== stage,
       cardBusy:!!card && cardState.busy, cardError:!!card && cardState.error,
+      verificationRequired:!!(client||card) && (frames.length>0 || [...root.querySelectorAll('angular-recaptcha,re-captcha')].some(visible)),
       challenge: measurable ? {x:r.x,y:r.y,width:r.width,height:r.height} : null, viewportWidth:innerWidth, expanded:!!measurable && expanded};
   }
   window.BoleteraNative = {

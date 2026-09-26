@@ -1,4 +1,20 @@
-# Validación 0.2.34 Beta 1 — Express y autocompletado
+# Validación 0.2.35 Beta 1 — Preparación y verificación
+
+Fecha: 26/9/2026. Código 53.
+
+- 66 pruebas JavaScript, 10 JVM y lint aprobados.
+- 22 casos Android dirigidos aprobados: preparación demorada Express/común, sesión válida y vencida, regreso a la boletera, recorrido completo ficticio, disponibilidad de Express, autocompletado y suspensión. Tras ajustar el foco de verificación incluso con Continuar deshabilitado, se repitieron los siete casos de autocompletado y lint: aprobados.
+- Los dos casos nuevos de preparación fallaban con el código previo: releer el importe quitaba el estado ocupado. Ambos pasan con el cambio y comprueban un solo envío y conservación del importe original.
+- La verificación se detecta aun antes de cargar su iframe; no se lee su respuesta. Autocompletado completo espera el Continuar explícito cuando hay verificación. El error del proveedor ofrece revisar su respuesta aunque Continuar esté deshabilitado.
+- Prueba visual adicional en emulador a 360 × 640 dp y escala de fuente 1,3, con autocompletado ficticio: teclado cerrado, área de verificación y Continuar accesibles. Captura local: `outputs/express-verification-0.2.35.png`. El área del CAPTCHA en esta prueba es una caja ficticia de 90 dp; no prueba un desafío real de Google.
+
+La auditoría del JavaScript público de Sistarbanc confirmó que, después de Google, existe una validación adicional del proveedor. No se incorporó un solucionador ni se presenta el cierre del desafío como éxito. Fuentes y detalle: [mejora integral de Express](MEJORAS-EXPRESS-2026-09.md).
+
+Quedan pendientes la medición del tiempo total por etapa y la validación con el autocompletado y CAPTCHA reales del teléfono del dueño. Estos resultados no acreditan un pago real.
+
+---
+
+## Versión anterior: 0.2.34 Beta 1 — Express y autocompletado
 
 Fecha: 26/9/2026. Código 52. Primera entrega de la [mejora integral de Express](MEJORAS-EXPRESS-2026-09.md), que detalla evidencia, fuentes y trabajo pendiente.
 

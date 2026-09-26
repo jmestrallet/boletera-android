@@ -240,7 +240,7 @@ class CardFlowRegressionTest {
             compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" && engine.prexPayment.expressPhase=="done" }
             compose.onNodeWithText("Número de tarjeta").assertExists()
             compose.onNodeWithTag("cardNumber").assertIsFocused()
-            compose.onNodeWithTag("cardAutofillPrompt").assertTextContains("huella",substring=true)
+            compose.onNodeWithTag("cardAutofillPrompt").assertTextContains("CVV",substring=true)
             assertEquals("1",paymentJs("window.summaryClicks"));assertEquals("1",paymentJs("window.payerClicks"))
             assertEquals("0",paymentJs("window.cardClicks"));assertEquals("true",paymentJs("window.chosenPayer"))
             compose.runOnIdle {

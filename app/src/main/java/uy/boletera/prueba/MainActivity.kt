@@ -407,7 +407,7 @@ class MainActivity : FragmentActivity() {
                             PaymentBrowserView(payment,true,null,browserWidth,browserHeight,Modifier.size(1.dp))
                         }
                     }
-                    if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{if(payment.prepareOriginalReview())showOriginal=true},focusCard=payment.expressPhase=="done") {
+                    if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{if(payment.prepareOriginalReview())showOriginal=true},focusCard=payment.expressPhase=="done",verificationRequired=payment.verificationRequired) {
                         if(payment.expandedChallenge) ExpandedPaymentChallenge(payment,browserWidth,browserHeight,Modifier.fillMaxSize())
                         else BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
                             val cap=payment.challenge

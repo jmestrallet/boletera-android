@@ -40,3 +40,15 @@ Fuentes consultadas el 26/9/2026:
 4. Revisar con capturas los estados de espera, errores, reanudación y el formulario de tarjeta en pantalla chica, teclado abierto y letra grande.
 5. Validar el autocompletado y el recorrido real en el teléfono del dueño. Las pruebas de laboratorio no sustituyen esa comprobación.
 6. Publicar cada entrega Beta con rama, tag, APK y hash remoto verificados. Mantener explícito qué está probado y qué queda pendiente.
+
+## Segunda entrega: 0.2.35 Beta 1
+
+- Se reprodujo en WebView una preparación de recarga pendiente: tres lecturas de la pantalla anterior bastaban para perder `busy`. Se conserva ahora hasta la respuesta o el error. Se cubren Express y recarga común; un intento de preparar otro importe mientras espera tampoco borra la selección Express.
+- Un CAPTCHA visible o un componente de verificación todavía cargando impide el envío automático de la tarjeta. El autocompletado completo oculta el teclado y desplaza la verificación a la vista. El botón Continuar queda disponible para después de la intervención humana.
+- El error de tarjeta ofrece «Revisar respuesta», incluso cuando el proveedor no habilita Continuar. Antes podía mostrar un botón sin efecto.
+
+### Evidencia nueva sobre CAPTCHA (26/9/2026)
+
+Se leyó el [JavaScript público actual de Sistarbanc](https://pasarelaspe.sistarbanc.com.uy/v2/main-es2015.c4dd4374250f3678bcc8.js), sin abrir una solicitud de pago. SHA-256 de la copia local: `bbc0e8291f932f91f1f3dbbea3bdb7adae4332b6af990027823089b0ca3f497a`.
+
+El componente `angular-recaptcha` recibe el resultado de Google y realiza después `autenticationService.login("recaptcha", respuesta)`. Solo tras esa respuesta establece la autenticación y emite éxito. En `alta-cliente` el método `resolvedCaptcha` está vacío; el botón usa `disableButton`, sin exponer allí un resultado verificable de CAPTCHA. Esto refuerza que leer una respuesta de Google o ver el botón habilitado no bastaría para continuar con confianza. No se incorporaron lecturas de tokens ni sustituciones de callbacks. La continuación automática después de resolverlo sigue pendiente de una señal fiable del proveedor.

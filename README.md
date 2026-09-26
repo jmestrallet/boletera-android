@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32"><strong>Descargar Boletera</strong></a>
   ·
-  <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.34-beta.1">Probar Boletera Beta</a>
+  <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.35-beta.1">Probar Boletera Beta</a>
   ·
   <a href="CHANGELOG.md">Ver cambios</a>
 </p>
@@ -59,7 +59,7 @@ La app reconoce las pantallas conocidas y automatiza acciones mecánicas, como n
 |---|---|---|
 | Para quién | Uso habitual | Pruebas y novedades anticipadas |
 | Actualizaciones | Sólo versiones estables | Sólo versiones Beta |
-| Descarga | [`boletera-0.2.32.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32) | [`boletera-beta-0.2.34-beta.1.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.34-beta.1) |
+| Descarga | [`boletera-0.2.32.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32) | [`boletera-beta-0.2.35-beta.1.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.35-beta.1) |
 
 Podés cambiar entre **Estable** y **Beta** desde Configuración. Ambas usan la misma firma y conservan los datos de Boletera al instalar una encima de la otra.
 

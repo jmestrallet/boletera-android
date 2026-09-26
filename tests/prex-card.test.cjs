@@ -10,6 +10,20 @@ function setup(url='https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago') {
  dom.window.eval(script);dom.window.eval(native);return dom;
 }
 const settle=()=>new Promise(r=>setTimeout(r,15));
+test('visible verification is required before its iframe loads and never reads responses',()=>{
+ const dom=setup();try {
+  const d=dom.window.document,api=dom.window.BoleteraNative;
+  assert.equal(api.snapshot().verificationRequired,false);
+  const widget=d.createElement('angular-recaptcha');
+  const response=d.createElement('textarea');response.name='g-recaptcha-response';response.style.display='none';
+  Object.defineProperty(response,'value',{get(){throw Error('Must not inspect verification responses');}});
+  widget.append(response);d.querySelector('alta-tarjeta').append(widget);
+  assert.equal(api.snapshot().verificationRequired,true);
+  assert.equal(api.snapshot().challenge,null);
+  widget.style.display='none';assert.equal(api.snapshot().verificationRequired,false);
+  widget.style.display='block';assert.equal(api.snapshot().verificationRequired,true);
+ }finally{dom.window.close();}
+});
 test('only explicit valid submit fills existing inputs and clicks once; snapshots never contain card data',async()=>{
  const dom=setup();try {
  const w=dom.window,d=w.document,api=w.BoleteraCard;let clicks=0,events=0;

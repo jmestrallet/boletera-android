@@ -447,10 +447,10 @@ class StmEngine(private val context: Context) {
     }
 
     fun prepare(amount: Long) {
-        expressRequest = null
-        expressPayment = false
         if (state.busy || pageStage != "amount") return
         if (!Amounts.valid(amount, state.minimum)) { notice("El monto debe alcanzar el mínimo informado por STM."); return }
+        expressRequest = null
+        expressPayment = false
         state = state.copy(amount = amount)
         // JS re-reads the minimum immediately before submission. Never selects/submits a payment provider.
         act("amount", amount.toString())
@@ -785,11 +785,13 @@ class StmEngine(private val context: Context) {
                 }
                 state = state.copy(
                     stage = "balance",
-                    busy = false,
+                    // The old form can remain visible during an asynchronous submission.
+                    // Reading its amounts again does not acknowledge or cancel that request.
+                    busy = lastAction == "amount" && state.busy,
                     balance = resolvedBalance,
                     minimum = minimum,
                     consultedAt = System.currentTimeMillis(),
-                    message = ""
+                    message = if (lastAction == "amount") state.message else ""
                 )
                 run {
                     val record=paymentRecord

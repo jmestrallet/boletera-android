@@ -1,6 +1,6 @@
 # Carga Express — atajo puntual
 
-**Mejoras desde 0.2.34 Beta 1:** solicitud de tarjetas guardadas al campo correcto, reacción inmediata al formulario y espera de validación asíncrona. Ver [evidencia y trabajo pendiente](MEJORAS-EXPRESS-2026-09.md).
+**Mejoras de 0.2.35 Beta 1:** conserva la preparación mientras STM responde y lleva a la verificación antes de enviar una tarjeta autocompletada. Incluye las mejoras de 0.2.34: solicitud de tarjetas guardadas al campo correcto, reacción al formulario y espera de validación asíncrona. Ver [evidencia y trabajo pendiente](MEJORAS-EXPRESS-2026-09.md).
 
 **Base del recorrido desde 0.2.32:** el alcance y la validación están en [EXPRESS-0.2.32.md](EXPRESS-0.2.32.md). El recorrido anterior de 0.2.30 se conserva como [evidencia histórica](EXPRESS-0.2.30.md).
 
