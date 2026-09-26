@@ -217,7 +217,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         channel=value
         preferences.edit().putString("channel",value.key).remove("last_attempt.${value.key}").apply()
         installRequested=false;awaitingInstallPermission=false;reviewRequested=false;ready=false;release=null;automaticNotice=false
-        message=if(value==UpdateChannel.STABLE)"Buscando la versión estable…" else "Buscando Boletera Beta…"
+        message=if(value==UpdateChannel.STABLE)"Buscando la versión estable…" else "Buscando Boletera ${value.label}…"
         checkRelease(false)
     }
     internal fun automaticCheckDue(now: Long = System.currentTimeMillis()): Boolean {
@@ -246,9 +246,9 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                 release = found
                 automaticNotice = automatic && found!=null
                 message = if (found == null && channel==installedChannel && channel==UpdateChannel.STABLE) "Tenés la última versión estable."
-                    else if(found == null && channel==installedChannel) "Tenés la última versión Beta."
+                    else if(found == null && channel==installedChannel) "Tenés la última versión ${channel.label}."
                     else if(found==null && channel==UpdateChannel.STABLE)"Todavía no hay una versión estable compatible."
-                    else if(found==null)"Todavía no hay una versión Beta compatible."
+                    else if(found==null)"Todavía no hay una versión ${channel.label} compatible."
                     else if(channel!=installedChannel && channel==UpdateChannel.STABLE)"La versión estable ${found.version} está lista para instalar."
                     else if(channel!=installedChannel)"Boletera ${UpdatePolicy.display(found.version)} está lista para instalar."
                     else if(channel==UpdateChannel.STABLE)"Hay una nueva versión estable: ${found.version}."

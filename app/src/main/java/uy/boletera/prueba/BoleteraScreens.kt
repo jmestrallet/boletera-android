@@ -224,9 +224,10 @@ import java.util.Locale
                         }
                     }
                 }
+                if(updates.channel==UpdateChannel.ALPHA)Text("Alpha incluye funciones en construcción que pueden estar incompletas.",style=MaterialTheme.typography.bodySmall,color=Muted)
                 Text("Versión instalada: ${updates.installedChannel.label}.",style=MaterialTheme.typography.bodySmall,color=Muted)
                 Text(if(updates.channel==updates.installedChannel && updates.channel==UpdateChannel.STABLE)"Recibirás actualizaciones estables."
-                    else if(updates.channel==updates.installedChannel)"Recibirás actualizaciones Beta."
+                    else if(updates.channel==updates.installedChannel)"Recibirás actualizaciones ${updates.channel.label}."
                     else "Elegiste ${updates.channel.label}. Instalá la versión encontrada para completar el cambio.",style=MaterialTheme.typography.bodySmall,color=Muted)
             }
             WhiteCard {
