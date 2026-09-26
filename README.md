@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32"><strong>Descargar Boletera</strong></a>
   ·
-  <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.39-beta.1">Probar Boletera Beta</a>
+  <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.40-beta.1">Probar Boletera Beta</a>
   ·
   <a href="CHANGELOG.md">Ver cambios</a>
 </p>
@@ -63,9 +63,9 @@ El trabajo en construcción vive en la rama `desarrollo`. La rama `beta` recibe 
 |---|---|---|
 | Para quién | Uso habitual | Pruebas y novedades anticipadas |
 | Actualizaciones | Sólo versiones estables | Sólo versiones Beta |
-| Descarga | [`boletera-0.2.32.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32) | [`boletera-beta-0.2.39-beta.1.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.39-beta.1) |
+| Descarga | [`boletera-0.2.32.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32) | [`boletera-beta-0.2.40-beta.1.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.40-beta.1) |
 
-Podés cambiar entre **Estable** y **Beta** desde Configuración. Ambas usan la misma firma y conservan los datos de Boletera al instalar una encima de la otra.
+Podés elegir **Estable**, **Beta** o **Alpha** desde Configuración. Alpha contiene funciones en construcción; Beta contiene funciones completas en prueba. Para probar Alpha, primero instalá Beta 0.2.40 y elegí Alpha. Ambas usan la misma firma y conservan los datos de Boletera al instalar una encima de la otra.
 
 ## Instalar
 
