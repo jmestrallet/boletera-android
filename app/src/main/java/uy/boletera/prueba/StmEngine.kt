@@ -61,6 +61,7 @@ class StmEngine(private val context: Context) {
         private set
     private var payerStoreAvailable = true
     private var choosingCard = false
+    private var activityOpened = false
     private var awaitingNavigation = false
     private val paymentBrowser = PaymentBrowser(context)
     val prexPayment = EmbeddedPrexPayment(context)
@@ -289,7 +290,8 @@ class StmEngine(private val context: Context) {
         if (state.busy || state.cards.none { it.id == id && it.active }) return
         choices.card = id
         choosingCard = false
-        state = state.copy(selectedCard = id, minimum = null, balance = null, amount = null)
+        activityOpened=false
+        state = state.copy(selectedCard = id, minimum = null, balance = null, amount = null,activity=ActivityState())
         act("card", id)
     }
 
@@ -439,8 +441,26 @@ class StmEngine(private val context: Context) {
         }
     }
 
+    fun openActivity() {
+        val card=state.selectedCard ?: return
+        if(!accountVerified || state.busy || paymentInFlight || state.amount!=null || state.stage !in listOf("balance","activity"))return
+        balanceRefreshTask?.let(handler::removeCallbacks);balanceRefreshTask=null
+        activityOpened=true;active=true;lastAction="";pageStage=""
+        state=state.copy(stage="activity",busy=true,message="",activity=ActivityState(card=card))
+        actionStarted=System.currentTimeMillis();awaitingNavigation=true;navigationGeneration++;polling=false
+        web.loadUrl("https://stm.gub.uy/app/mistm/cuenta/pages/principal.xhtml")
+        handler.removeCallbacks(poll);handler.post(poll)
+    }
+
+    fun closeActivity() {
+        if(!activityOpened)return
+        activityOpened=false;state=state.copy(busy=false)
+        refresh()
+    }
+
     fun refresh() {
         if (state.busy) return
+        activityOpened=false
         expressTiming.move(ExpressTiming.Phase.RETURN)
         balanceRefreshTask?.let(handler::removeCallbacks);balanceRefreshTask=null
         clearPaymentSession()
@@ -505,6 +525,7 @@ class StmEngine(private val context: Context) {
     }
 
     fun cancel() {
+        activityOpened=false
         expressTiming.finish(ExpressTiming.End.CANCELLED)
         sessionRequest++
         passwordStepSeen = false
@@ -557,6 +578,11 @@ class StmEngine(private val context: Context) {
 
     private fun clearSecrets() { document = null; password = null; secretsExpireAt = 0L }
     private fun fail(message: String) {
+        if(activityOpened) {
+            active=false;handler.removeCallbacks(poll)
+            state=state.copy(stage="activity",busy=false,message="",activity=ActivityState(card=state.selectedCard.orEmpty(),access=ActivityAccess.UNAVAILABLE))
+            return
+        }
         expressTiming.finish(ExpressTiming.End.ERROR)
         expressRequest = null
         if (BuildConfig.DEBUG) captureDebugShape()
@@ -678,6 +704,28 @@ class StmEngine(private val context: Context) {
             return
         }
         val changed = stage != pageStage
+        if(activityOpened && stage !in setOf("start","identity","document","password","signedOut","sessionExpired")) {
+            if(changed) {lastAction="";actionStarted=System.currentTimeMillis()}
+            pageStage=stage
+            when(stage) {
+                "loading","handoff" -> state=state.copy(stage="activity",busy=true)
+                "balance" -> {
+                    if(data.optString("cardId")!=state.selectedCard) {fail("Boletera distinta");return}
+                    if(lastAction!="movements")act("movements",state.selectedCard.orEmpty())
+                    else if(System.currentTimeMillis()-actionStarted>20000)fail("Movimientos sin respuesta")
+                }
+                "activityIdentityRequired" -> {
+                    active=false;handler.removeCallbacks(poll)
+                    state=state.copy(stage="activity",busy=false,message="",activity=ActivityState(card=state.selectedCard.orEmpty(),access=ActivityAccess.IDENTITY_REQUIRED))
+                }
+                else -> {
+                    // The authorized table has not been inspected yet. Never turn an unknown
+                    // document into an empty history or derive a frequent-user count from it.
+                    if(System.currentTimeMillis()-actionStarted>8000)fail("Actividad no reconocida")
+                }
+            }
+            return
+        }
         val knownStages = setOf("loading", "handoff", "start", "identity", "document", "password", "cards", "cardsLoading", "balance", "amount", "paymentBoundary", "signedOut", "sessionExpired", "unknown", "verification", "blocked")
         if (changed) {
             if (stageTrail.size >= 6) stageTrail.removeFirst()
@@ -880,6 +928,7 @@ class StmEngine(private val context: Context) {
     }
     /** Retry only navigation to the account. Amounts, providers and financial confirmations are discarded. */
     private fun recoverSession() {
+        activityOpened=false
         expressTiming.move(ExpressTiming.Phase.RECOVERY)
         if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
         paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
@@ -899,6 +948,7 @@ class StmEngine(private val context: Context) {
     }
 
     private fun expired() {
+        activityOpened=false
         expressTiming.finish(ExpressTiming.End.CANCELLED)
         if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
         paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")

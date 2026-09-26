@@ -3,6 +3,21 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { JSDOM } = require('jsdom');
 const source = fs.readFileSync('app/src/main/assets/stm-adapter.js', 'utf8');
+test('Movimientos opens only the selected card and never the recharge action',()=>{
+  const {dom,adapter}=page('principal.xhtml','<p>ABCD1234 Operativa</p><p>Saldo disponible: $730</p><button id="charge">Recargar</button><button id="activity">Movimientos</button>');
+  let charges=0,activity=0;dom.window.document.getElementById('charge').onclick=()=>charges++;dom.window.document.getElementById('activity').onclick=()=>activity++;
+  assert.equal(adapter.command('movements','BBBB1234'),false);
+  assert.equal(adapter.command('movements','ABCD1234'),true);
+  assert.equal(activity,1);assert.equal(charges,0);
+  dom.window.document.body.insertAdjacentHTML('beforeend','<p>BBBB1234</p>');
+  assert.equal(adapter.command('movements','ABCD1234'),false);
+  dom.window.close();
+});
+test('the observed identity requirement is distinct from empty or unknown movements',()=>{
+  assert.equal(page('usuarioNoValidado.xhtml','<h2>Tu usuario no tiene garantía de identidad nivel 2 o superior.</h2>').adapter.snapshot().stage,'activityIdentityRequired');
+  assert.equal(page('usuarioNoValidado.xhtml','<h2>Cargando</h2>').adapter.snapshot().stage,'unknown');
+  assert.equal(page('other.xhtml','<h2>Tu usuario no tiene garantía de identidad nivel 2 o superior.</h2>').adapter.snapshot().stage,'unknown');
+});
 test('login identifies explicit rejected credentials without returning provider text or entered values', () => {
   for(const message of ['Documento o contraseña incorrectos','El documento y la contraseña ingresados no son correctos','Usuario inválido','Invalid username or password','Los datos ingresados no son correctos']) {
     const {adapter}=page('login',`<input type="password" value="synthetic-secret"><p class="error-message">${message}</p>`,'mi.iduruguay.gub.uy');

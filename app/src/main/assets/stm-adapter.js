@@ -135,8 +135,13 @@
     if (path.endsWith('principal.xhtml')) {
       const s = text(document.body);
       const match = s.match(/Saldo\s+(?:disponible|actual)\*?\s*:?\s*(-?\s*\$?\s*-?\s*\d[\d.,]*)/i);
-      return { ...base, stage: 'balance', balance: match ? money(match[1]) : null };
+      const ids=[...new Set(rowText(document.body).match(/\b[A-F0-9]{8}\b/gi)||[])];
+      return { ...base, stage: 'balance', balance: match ? money(match[1]) : null, cardId:ids.length===1?ids[0]:null };
     }
+    // Observed in the official read-only Movimientos journey. This is an identity
+    // requirement, not an empty history and not a failed recharge.
+    if(path.endsWith('usuarioNoValidado.xhtml') && /no tiene garant[ií]a de identidad nivel 2 o superior/i.test(text(document.body)))
+      return {...base,stage:'activityIdentityRequired'};
     if (path.endsWith('recarga1.xhtml')) {
       const minimum = nearbyCurrency(/recarga\s+m[ií]nima|m[ií]nimo\s+de\s+recarga/i, /Saldo\s+actual/i);
       // Only a specifically named or labelled read-only balance field is read. Never inspect the amount entry.
@@ -203,6 +208,8 @@
     }
     if (action === 'minimum' && state.stage === 'balance') return click(button(/^Recargar$/i) ||
       [...document.querySelectorAll('button')].find(el => el.id.endsWith(':btnRecargar') && visible(el)));
+    if(action==='movements' && state.stage==='balance' && state.cardId===value && /^[A-F0-9]{8}$/i.test(value))
+      return click(button(/^Movimientos$/i));
     if (action === 'amount' && state.stage === 'amount') {
       const cents = Number(value);
       if (!Number.isSafeInteger(cents) || state.minimum === null || cents < state.minimum || cents <= 0) return false;

@@ -15,6 +15,7 @@ data class UiState(
     val cards: List<CardInfo> = emptyList(), val selectedCard: String? = null,
     val balance: Long? = null, val minimum: Long? = null, val amount: Long? = null,
     val consultedAt: Long? = null, val captcha: CaptchaRect? = null,
+    val activity: ActivityState = ActivityState(),
     val hasSavedAccess: Boolean = false,
     val accessRequestId: Int = 0,
     val sessionExpired: Boolean = false,

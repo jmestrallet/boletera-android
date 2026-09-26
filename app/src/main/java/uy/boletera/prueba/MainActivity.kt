@@ -130,6 +130,11 @@ class MainActivity : FragmentActivity() {
             EmbeddedPrexScreen(engine.prexPayment, state.activePayment, engine::leavePrexPayment)
             return
         }
+        if(state.stage=="activity") {
+            BackHandler {engine.closeActivity()}
+            ActivityScreen(state.activity,engine::closeActivity,engine::openActivity)
+            return
+        }
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(updates.automaticNotice) {
             if(updates.automaticNotice) {
@@ -225,7 +230,7 @@ class MainActivity : FragmentActivity() {
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
                                 onExpressCharge=if(updates.installedChannel==UpdateChannel.BETA && engine.expressAvailable)::requestExpress else null,
                                 onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel,
-                                onPaymentReviewed={showPaymentReview=true})
+                                onPaymentReviewed={showPaymentReview=true},onActivity=if(BuildConfig.DEBUG)engine::openActivity else null)
                             "connecting" -> {
                                 LoadingState(if(state.recoveringSession)"Volviendo a entrar" else if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(state.recoveringSession)"Tu sesión de STM venció. Estamos renovándola sin pedirte los datos otra vez." else if(engine.expressPreparing)"Estamos abriendo Prex y completando los datos conocidos." else "Estamos consultando STM. Tu información va a aparecer acá.",express=engine.expressPreparing)
                                 TextButton(onClick=::back) { Text("Cancelar") }

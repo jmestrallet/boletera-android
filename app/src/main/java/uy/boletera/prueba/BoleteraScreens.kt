@@ -57,7 +57,7 @@ import java.util.Locale
 
 @Composable internal fun WalletHome(state: UiState, onChangeCard: () -> Unit, onCharge: () -> Unit, onRefresh: () -> Unit,
     onExpressCharge: (() -> Unit)? = null, onTicketGuide: (() -> Unit)? = null, expressPreparing: Boolean = false, expressProvider: String = "Prex",
-    onPaymentReviewed: (() -> Unit)? = null) {
+    onPaymentReviewed: (() -> Unit)? = null, onActivity: (() -> Unit)? = null) {
     val colors=MaterialTheme.colorScheme
     val haptic=LocalHapticFeedback.current
     fun chooseCard() { haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onChangeCard() }
@@ -90,6 +90,15 @@ import java.util.Locale
             }
             Primary("Recargar boletera",enabled=!state.busy && !state.paymentNeedsReview && state.minimum!=null,action=onCharge)
             if(onExpressCharge!=null) ExpressShortcut(state.minimum,enabled=!state.busy,preparing=expressPreparing,providerName=expressProvider,onStart=onExpressCharge)
+        if(onActivity!=null) Surface(color=Panel,shape=RoundedCornerShape(24.dp)) {
+            Row(Modifier.fillMaxWidth().clickable(enabled=!state.busy,onClick=onActivity).padding(20.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("Actividad",style=MaterialTheme.typography.titleMedium,color=Ink)
+                    Text("Movimientos y Usuario frecuente",style=MaterialTheme.typography.bodySmall,color=Muted)
+                }
+                AppGlyph(Glyph.Chevron,label="Ver actividad")
+            }
+        }
         Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Surface(color=Panel,shape=RoundedCornerShape(24.dp)) {
                 Row(Modifier.fillMaxWidth().padding(20.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)) {
