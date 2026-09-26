@@ -22,6 +22,8 @@ class ActivityScreenTest {
     }
     private fun capture(name:String) {
         compose.waitForIdle()
+        // Let the emulator compositor finish presenting sheets and filter transitions.
+        android.os.SystemClock.sleep(600)
         val bitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         java.io.File(compose.activity.getExternalFilesDir(null),name).outputStream().use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
         bitmap.recycle()
@@ -49,14 +51,33 @@ class ActivityScreenTest {
         compose.onNodeWithText("Viajes",useUnmergedTree=true).performScrollTo().performClick()
         compose.onNodeWithText("Viaje de 1 hora").performScrollTo().performClick()
         compose.onNodeWithText("Línea: 181 · ejemplo").assertIsDisplayed()
+        capture("activity-detail-preview.png")
         compose.onNodeWithText("Cerrar detalle").performClick()
         compose.onNodeWithText("Recarga Prex").assertDoesNotExist()
         capture("activity-trips-preview.png")
+        compose.onNode(hasText("Recargas") and hasClickAction()).performScrollTo().performClick()
+        compose.onNodeWithText("Recarga Prex").performScrollTo()
+        capture("activity-recharges-preview.png")
+        compose.onNode(hasText("Devoluciones") and hasClickAction()).performScrollTo().performClick()
+        compose.onNodeWithText("Domingo 20").assertDoesNotExist()
+        capture("activity-refunds-preview.png")
     }
     @Test fun incompleteMonthAndUnknownEligibilityRemainExplicit() {
         show(ready().copy(completeMonths=emptySet(),frequent=emptyList()))
         compose.onNodeWithTag("frequentProgress").assertDoesNotExist()
         compose.onNodeWithText("El mes todavía no está completo.",substring=true).performScrollTo().assertIsDisplayed()
         compose.onAllNodesWithText("—").assertCountEquals(3)
+        capture("activity-incomplete-preview.png")
+    }
+    @Test fun captureRemainingPreviewStates() {
+        show(ActivityState(card="DEMO0001",access=ActivityAccess.LOADING))
+        capture("activity-loading-preview.png")
+        show(ActivityState(card="DEMO0001",access=ActivityAccess.UNAVAILABLE))
+        capture("activity-unavailable-preview.png")
+        show(ready().copy(frequent=listOf(FrequentProgress("DEMO0001",month,42,true,System.currentTimeMillis()))))
+        capture("activity-benefit-preview.png")
+        show(ready().copy(entries=emptyList(),frequent=emptyList()))
+        compose.onNodeWithText("No hay movimientos de este tipo en el mes consultado.").performScrollTo()
+        capture("activity-empty-preview.png")
     }
 }
