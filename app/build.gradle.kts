@@ -10,13 +10,14 @@ val localSigning = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val distributionChannel = providers.gradleProperty("boleteraChannel").orElse("public").get().also {
-    require(it in setOf("public", "beta")) { "boleteraChannel must be public or beta" }
+    require(it in setOf("public", "beta", "alpha")) { "boleteraChannel must be public, beta or alpha" }
 }
+val isAlpha = distributionChannel == "alpha"
 val isBeta = distributionChannel == "beta"
 val legacyUpdateBridge = providers.gradleProperty("boleteraLegacyUpdateBridge").orElse("false").get().let {
     it.toBooleanStrictOrNull() ?: error("boleteraLegacyUpdateBridge must be true or false")
 }.also { enabled ->
-    require(!enabled || !isBeta) { "The legacy update bridge must use the public channel" }
+    require(!enabled || (!isBeta && !isAlpha)) { "The legacy update bridge must use the public channel" }
 }
 android {
     namespace = "uy.boletera.prueba"
@@ -25,19 +26,21 @@ android {
         applicationId = "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = if (legacyUpdateBridge) 49 else 57
+        versionCode = if (legacyUpdateBridge) 49 else 58
         versionName = when {
             legacyUpdateBridge -> "0.2.31-prueba"
-            isBeta -> "0.2.39-beta.1"
-            else -> "0.2.39"
+            isAlpha -> "0.2.40-alpha.1"
+            isBeta -> "0.2.40-beta.1"
+            else -> "0.2.40"
         }
         buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"$distributionChannel\"")
         buildConfigField("String", "DISPLAY_VERSION", when {
             legacyUpdateBridge -> "\"0.2.31\""
-            isBeta -> "\"0.2.39 Beta 1\""
-            else -> "\"0.2.39\""
+            isAlpha -> "\"0.2.40 Alpha 1\""
+            isBeta -> "\"0.2.40 Beta 1\""
+            else -> "\"0.2.40\""
         })
-        resValue("string", "app_name", if (isBeta) "Boletera Beta" else "Boletera")
+        resValue("string", "app_name", if (isAlpha) "Boletera Alpha" else if (isBeta) "Boletera Beta" else "Boletera")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }

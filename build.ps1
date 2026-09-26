@@ -1,7 +1,7 @@
 param(
     [switch]$SkipChecks,
     [switch]$LegacyUpdateBridge,
-    [ValidateSet('public','beta')][string]$Channel = 'public'
+    [ValidateSet('public','beta','alpha')][string]$Channel = 'public'
 )
 $ErrorActionPreference = 'Stop'
 $taskRoot = $PSScriptRoot
@@ -26,8 +26,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Falló la compilación o sus comprobaciones.' }
     New-Item -ItemType Directory -Force outputs | Out-Null
     $output = if ($LegacyUpdateBridge) { 'outputs/boletera-prueba-0.2.31.apk' }
-        elseif ($Channel -eq 'beta') { 'outputs/boletera-beta-0.2.39-beta.1.apk' }
-        else { 'outputs/boletera-0.2.39.apk' }
+        elseif ($Channel -eq 'alpha') { 'outputs/boletera-alpha-0.2.40-alpha.1.apk' }
+        elseif ($Channel -eq 'beta') { 'outputs/boletera-beta-0.2.40-beta.1.apk' }
+        else { 'outputs/boletera-0.2.40.apk' }
     Copy-Item app/build/outputs/apk/release/app-release.apk $output -Force
     Get-FileHash $output -Algorithm SHA256
 } finally { Pop-Location }

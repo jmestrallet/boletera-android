@@ -14,6 +14,18 @@ import java.net.URL
 
 @RunWith(AndroidJUnit4::class)
 class AppUpdatesTest {
+    @Test fun alphaIsOptInAndSwitchesBothWays() {
+        fun alpha(v:String)=betaFixture(v).replace("boletera-beta-","boletera-alpha-")
+        val json="[${fixture("0.2.40")},${betaFixture("0.2.40-beta.1")},${alpha("0.2.40-alpha.1")},${alpha("0.2.40-alpha.2")}]"
+        assertEquals(UpdateChannel.ALPHA,UpdatePolicy.channel("v0.2.40-alpha.1"))
+        assertEquals("0.2.40 Alpha 1",UpdatePolicy.display("0.2.40-alpha.1"))
+        assertNull(UpdatePolicy.select(json,"0.2.40-beta.1",UpdateChannel.BETA))
+        assertNull(UpdatePolicy.select(json,"0.2.40",UpdateChannel.STABLE))
+        assertEquals("0.2.40-alpha.2",UpdatePolicy.select(json,"0.2.40-beta.1",UpdateChannel.ALPHA)?.version)
+        assertEquals("0.2.40-beta.1",UpdatePolicy.select(json,"0.2.40-alpha.2",UpdateChannel.BETA)?.version)
+        assertEquals("0.2.40-alpha.2",UpdatePolicy.select(json,"0.2.40-alpha.1",UpdateChannel.ALPHA)?.version)
+        assertNull(UpdatePolicy.select("[${betaFixture("0.2.40-alpha.1")}]","0.2.39-beta.1",UpdateChannel.ALPHA))
+    }
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     @Test fun popupUsesOnlyShortAuthoredNotesForSelectedVersion() {
         val body = "Intro técnica\n## Novedades en la app\n- **Mejora** del CAPTCHA.\n- Leé [las novedades](https://example.com).\n- " + "x".repeat(250) + "\n- Cuarto punto\n## Verificación\n- SHA-256: secreto"
