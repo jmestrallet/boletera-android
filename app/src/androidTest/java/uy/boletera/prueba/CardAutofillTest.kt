@@ -25,6 +25,7 @@ class CardAutofillTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     private lateinit var host: View
     private var submits=0
+    private var manualAdvances=0
     private var allowed by mutableStateOf(true)
     private var challenge by mutableStateOf(false)
     private var error by mutableStateOf(false)
@@ -38,7 +39,7 @@ class CardAutofillTest {
                 assertEquals("12/39",expiry)
                 assertEquals("123",cvv)
                 submits++
-            },{originals++},focusCard=focusCard,verificationRequired=verificationRequired)
+            },{originals++},focusCard=focusCard,verificationRequired=verificationRequired,onManualContinue={manualAdvances++})
         } } }
         compose.waitForIdle()
     }
@@ -60,6 +61,7 @@ class CardAutofillTest {
         setup()
         fill("Número de tarjeta" to "4111 1111 1111 1111","Vencimiento" to "12/2039","CVV" to "123")
         compose.waitUntil(5000) { submits==1 }
+        assertEquals(0,manualAdvances)
         compose.onNodeWithText("CVV").assertTextEquals("CVV","")
         fill("CVV" to "123","Vencimiento" to "12/39","Número de tarjeta" to "4111111111111111")
         assertEquals(1,submits)
@@ -75,6 +77,7 @@ class CardAutofillTest {
         assertEquals(0,submits)
         compose.onNodeWithText("Continuar").performClick()
         assertEquals(1,submits)
+        assertEquals(1,manualAdvances)
     }
     @Test fun completeAutofillWaitsForVisibleVerificationAndAnExplicitContinue() {
         verificationRequired=true;allowed=false;setup(focusCard=true)

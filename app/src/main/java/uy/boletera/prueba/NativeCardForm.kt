@@ -53,7 +53,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun NativeCardForm(busy: Boolean, canContinue: Boolean, providerError: Boolean,
     expandedChallenge: Boolean, onSubmit: (String,String,String)->Unit, onOriginal: ()->Unit,
-    focusCard: Boolean = false, verificationRequired: Boolean = false,
+    focusCard: Boolean = false, verificationRequired: Boolean = false, onManualContinue: () -> Unit = {},
     verification: @Composable ()->Unit = {}) {
     var pan by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
@@ -75,8 +75,9 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     val codeView=remember { BringIntoViewRequester() }
     val verificationView=remember { BringIntoViewRequester() }
     val scope=rememberCoroutineScope()
-    fun submit() {
+    fun submit(manual: Boolean = false) {
         if(busy || !canContinue || providerError || expandedChallenge)return
+        if(manual)onManualContinue()
         autoConsumed=true;filledFields=0
         autofill?.cancel();keyboard?.hide();focus.clearFocus()
         onSubmit(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
@@ -179,7 +180,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                         modifier=Modifier.weight(1f).bringIntoViewRequester(codeView).focusRequester(codeFocus).semantics { contentType=ContentType.CreditCardSecurityCode;onAutofillText { fill(4,it.text) } },
                         visualTransformation=PasswordVisualTransformation(),
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword,imeAction=ImeAction.Done),
-                        keyboardActions=KeyboardActions(onDone={if(!focusMissing()) {if(verificationRequired)showVerification() else submit()}}),
+                        keyboardActions=KeyboardActions(onDone={if(!focusMissing()) {if(verificationRequired)showVerification() else submit(manual=true)}}),
                         isError=attempted&&!CardInput.cvvValid(cvv),
                         supportingText=if(attempted&&!CardInput.cvvValid(cvv)) {{Text(if(cvv.isBlank())"Falta el código de seguridad de tu tarjeta." else "Ingresá 3 o 4 dígitos.")}} else null)
                 }
@@ -193,7 +194,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                 Primary(if(providerError)"Revisar respuesta" else if(busy)"Procesando…" else "Continuar",(providerError||canContinue)&&!busy&&!expandedChallenge) {
                     if(providerError) {autofill?.cancel();onOriginal()}
                     else if(!focusMissing()) {
-                        submit()
+                        submit(manual=true)
                     }
                 }
                 TextButton(onClick={autofill?.cancel();onOriginal()},modifier=Modifier.fillMaxWidth()) { Text("Ver página original") }

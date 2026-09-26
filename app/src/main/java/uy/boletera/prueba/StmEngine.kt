@@ -69,6 +69,8 @@ class StmEngine(private val context: Context) {
     private var handoffSent = false
     private var expressRequest: ExpressChoice? = null
     private var expressPayment = false
+    private val expressTiming = ExpressTiming(android.os.SystemClock::elapsedRealtime)
+    internal val helpDiagnostic: String get() = listOf(state.diagnostic,expressTiming.report()).filter {it.isNotBlank()}.joinToString("\n\n")
     val expressPreparing: Boolean get() = expressPayment && state.busy
     val web = WebView(context)
     val host = CaptchaHost(context, web)
@@ -90,6 +92,8 @@ class StmEngine(private val context: Context) {
             }
         }
         prexPayment.outcomeListener=::observePaymentOutcome
+        prexPayment.timingObserver=expressTiming::move
+        prexPayment.manualContinueObserver=expressTiming::interaction
         // Standard Android WebView inspector is available only in developer builds.
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         web.settings.apply {
@@ -249,6 +253,7 @@ class StmEngine(private val context: Context) {
     fun connect(doc: String, pass: String, rememberForSession: Boolean = false) {
         if (state.busy) return
         if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
+        expressTiming.clear()
         clearSecrets()
         sessionAccess.clear()
         if (rememberForSession) try { sessionAccess.remember(doc, pass) } catch (_: Exception) { sessionAccess.clear() }
@@ -436,6 +441,7 @@ class StmEngine(private val context: Context) {
 
     fun refresh() {
         if (state.busy) return
+        expressTiming.move(ExpressTiming.Phase.RETURN)
         balanceRefreshTask?.let(handler::removeCallbacks);balanceRefreshTask=null
         clearPaymentSession()
         clearSecrets(); lastAction = ""; pageStage = ""; active = true; paymentInFlight = false; handoffSent = false
@@ -482,6 +488,7 @@ class StmEngine(private val context: Context) {
         if(!Amounts.valid(amount,state.minimum))return
         expressRequest=ExpressChoice(card,provider,payer?.id)
         expressPayment=true
+        expressTiming.start()
         state=state.copy(amount=amount)
         // The existing adapter checks the live minimum before submitting; authorization stays with the provider.
         act("amount",amount.toString())
@@ -498,6 +505,7 @@ class StmEngine(private val context: Context) {
     }
 
     fun cancel() {
+        expressTiming.finish(ExpressTiming.End.CANCELLED)
         sessionRequest++
         passwordStepSeen = false
         recoveringSession = false; recoverySteps.clear(); paymentNeedsReview = false; pendingHttpError = null
@@ -510,6 +518,7 @@ class StmEngine(private val context: Context) {
 
     fun logout() {
         cancel()
+        expressTiming.clear()
         choices.clearSessionAccount()
         state = state.copy(busy = true)
         // Remove this app's local session, not sessions in another browser or device.
@@ -525,6 +534,7 @@ class StmEngine(private val context: Context) {
 
     fun pause() {
         foreground=false
+        expressTiming.pause(true)
         // Suspend only: the existing authorization remains bound to this one in-memory journey.
         prexPayment.pause()
         handler.removeCallbacks(poll)
@@ -533,6 +543,7 @@ class StmEngine(private val context: Context) {
     }
     fun resume() {
         foreground=true
+        expressTiming.pause(false)
         prexPayment.resume()
         if (state.stage == "externalPayment") { refresh(); return }
         if (active) { handler.removeCallbacks(poll); handler.post(poll) }
@@ -546,6 +557,7 @@ class StmEngine(private val context: Context) {
 
     private fun clearSecrets() { document = null; password = null; secretsExpireAt = 0L }
     private fun fail(message: String) {
+        expressTiming.finish(ExpressTiming.End.ERROR)
         expressRequest = null
         if (BuildConfig.DEBUG) captureDebugShape()
         active = false; paymentInFlight = false; handler.removeCallbacks(poll); clearSecrets(); host.crop = null; web.stopLoading()
@@ -593,6 +605,7 @@ class StmEngine(private val context: Context) {
                     else if (paymentInFlight) fail("El proveedor no aceptó el siguiente paso. Revisá el estado del pago antes de repetirlo.")
                     else {
                         clearSecrets(); expressRequest = null; expressPayment=false
+                        expressTiming.move(ExpressTiming.Phase.REVIEW)
                         state = state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
                     }
                 }
@@ -697,6 +710,7 @@ class StmEngine(private val context: Context) {
         host.crop = rect
         state = state.copy(captcha = rect)
         if (data.optBoolean("error")) {
+            expressTiming.finish(ExpressTiming.End.ERROR)
             expressRequest = null
             clearSecrets(); active = false
             state = state.copy(stage = "blocked", busy = false, message = "El sitio no aceptó los datos o la verificación. Podés ingresar otra vez manualmente.")
@@ -790,9 +804,10 @@ class StmEngine(private val context: Context) {
                     busy = lastAction == "amount" && state.busy,
                     balance = resolvedBalance,
                     minimum = minimum,
-                    consultedAt = System.currentTimeMillis(),
+                    consultedAt = if(changed || state.minimum!=minimum || state.balance!=resolvedBalance || state.consultedAt==null) System.currentTimeMillis() else state.consultedAt,
                     message = if (lastAction == "amount") state.message else ""
                 )
+                if(expressTiming.phase in setOf(ExpressTiming.Phase.RETURN,ExpressTiming.Phase.RECOVERY))expressTiming.finish(ExpressTiming.End.BALANCE)
                 run {
                     val record=paymentRecord
                     if(record?.phase in setOf("credited","rejected") && record?.card==state.selectedCard) {
@@ -846,6 +861,7 @@ class StmEngine(private val context: Context) {
                         beginPayment()
                     } else {
                         expressPayment=false
+                        expressTiming.move(ExpressTiming.Phase.REVIEW)
                         notice("STM cambió las opciones disponibles. Revisá esta recarga para continuar.")
                     }
                 }
@@ -864,6 +880,7 @@ class StmEngine(private val context: Context) {
     }
     /** Retry only navigation to the account. Amounts, providers and financial confirmations are discarded. */
     private fun recoverSession() {
+        expressTiming.move(ExpressTiming.Phase.RECOVERY)
         if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
         paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
         sessionRequest++
@@ -882,6 +899,7 @@ class StmEngine(private val context: Context) {
     }
 
     private fun expired() {
+        expressTiming.finish(ExpressTiming.End.CANCELLED)
         if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
         paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
         sessionRequest++; accessRequestId++

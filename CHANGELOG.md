@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.36 Beta 1 - Medición de Express y hora de consulta
+
+- Mide el tiempo de la última Carga Express por etapas, separa el segundo plano y cuenta el inicio y las continuaciones manuales desde la app.
+- Configuración permite copiar ese informe junto con la versión para investigar demoras. Solo vive en memoria y no contiene datos de cuenta, tarjeta ni pago; no se envía automáticamente.
+- La hora de «Actualizado» ya no cambia por releer una pantalla de recarga con los mismos datos. Cambia cuando se consulta de nuevo o STM muestra datos distintos.
+- La medición no equipara volver al saldo con haber pagado y no interpreta los avances automáticos como toques humanos.
+
 ## 0.2.35 Beta 1 - Esperas y verificación sin intentos prematuros
 
 - Mantiene «preparando» mientras STM responde, aunque siga mostrando la pantalla anterior. Los toques repetidos no reemplazan ni cancelan la recarga en curso.

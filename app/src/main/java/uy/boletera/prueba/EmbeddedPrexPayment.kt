@@ -86,6 +86,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     var beforeOriginalReview: () -> Boolean = { true }
     var authorizationNotSent: () -> Unit = {}
     var outcomeListener: (String, List<Pair<String,String>>) -> Unit = { _, _ -> }
+    internal var timingObserver: (ExpressTiming.Phase) -> Unit = {}
+    internal var manualContinueObserver: () -> Unit = {}
     private var observedOutcome = ""
     private var suspended = false
     private var suspendedAt = 0L
@@ -101,7 +103,10 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     if (decoded != null) {
                         val state = org.json.JSONObject(decoded)
                         nativeStage = state.optString("stage", "loading")
-                        if(nativeStage=="original" && !prepareOriginalReview())return@evaluateJavascript
+                        if(nativeStage=="original") {
+                            timingObserver(ExpressTiming.Phase.REVIEW)
+                            if(!prepareOriginalReview())return@evaluateJavascript
+                        }
                         completionNotice = state.optString("completionNotice")
                         completionSubmitted = state.optBoolean("submitted")
                         val rows = state.optJSONArray("rows")
@@ -117,6 +122,19 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
                         verificationRequired = state.optBoolean("verificationRequired") || challenge != null
+                        timingObserver(when {
+                            cardError || slowStep || message.isNotBlank() || expressPhase=="manual" -> ExpressTiming.Phase.REVIEW
+                            completionSubmitted && !returningToWallet -> ExpressTiming.Phase.PREX
+                            nativeStage=="card" && cardBusy -> ExpressTiming.Phase.PREX
+                            nativeStage=="card" && verificationRequired -> ExpressTiming.Phase.CARD_VERIFICATION
+                            nativeStage=="card" -> ExpressTiming.Phase.CARD
+                            nativeStage=="payer" && expressPhase=="verification" -> ExpressTiming.Phase.VERIFICATION
+                            nativeStage=="finalConfirmation" -> ExpressTiming.Phase.CONFIRMATION
+                            nativeStage in setOf("receipt","stmSuccess","returnBalance") || returningToWallet -> ExpressTiming.Phase.RETURN
+                            nativeStage=="sessionExpired" -> ExpressTiming.Phase.RECOVERY
+                            nativeStage in setOf("original","paymentPending","paymentRejected") -> ExpressTiming.Phase.REVIEW
+                            else -> ExpressTiming.Phase.PREX
+                        })
                         cssViewportWidth = state.optDouble("viewportWidth", 0.0).toFloat()
                         if(nativeStage=="finalConfirmation")verifiedCardSuffix=summaryRows.firstOrNull {
                             it.first.trim().trimEnd(':').equals("Medio de pago",true)
@@ -129,9 +147,9 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                             expectedCardIdentity!=null && enteredCardIdentity==expectedCardIdentity &&
                             expectedCardSuffix==enteredCardSuffix && summaryRows.any {
                                 it.first.trim().trimEnd(':').equals("Medio de pago",true) && it.second.takeLast(4)==expectedCardSuffix
-                            }) advance()
-                        if(expressJourney && nativeStage=="receipt" && canContinue) advance()
-                        if(nativeStage=="stmSuccess" && canContinue) advance()
+                            }) advance(nativeStage,automatic=true)
+                        if(expressJourney && nativeStage=="receipt" && canContinue) advance(nativeStage,automatic=true)
+                        if(nativeStage=="stmSuccess" && canContinue) advance(nativeStage,automatic=true)
                         if(nativeStage!=progressStage) {
                             progressStage=nativeStage;progressSince=clock();slowStep=false
                             if(nativeStage!=failureStage && nativeStage in listOf("summary","payer","card","finalConfirmation","receipt","paymentRejected","paymentPending","stmSuccess","returnBalance","sessionExpired")) {
@@ -278,6 +296,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         message = ""
         progressStage="loading";progressSince=clock();slowStep=false;pendingFailure=null;transientFailureShown=false
         visible = true
+        timingObserver(ExpressTiming.Phase.PREX)
         web.loadUrl(url)
         handler.post(profileStatus)
         return true
@@ -289,7 +308,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     }
 
     fun advance() = advance(nativeStage)
-    fun advance(expectedStage: String) {
+    fun advance(expectedStage: String) = advance(expectedStage,automatic=false)
+    private fun advance(expectedStage: String, automatic: Boolean) {
         if (destroyed || !visible || suspended || !canContinue || nativeStage!=expectedStage || nativeStage !in listOf("summary", "payer", "finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess")) return
         val expected = nativeStage
         if(expected in listOf("receipt","paymentRejected","paymentPending","stmSuccess"))returningToWallet=true
@@ -298,8 +318,10 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
             if(!beforeAuthorize()) {stopExpress();fail("No pudimos guardar el seguimiento de esta recarga. El pago no fue enviado.");return}
             finalSubmitted = true // Conservative lock survives navigation and reopening this journey.
         }
+        if(!automatic)manualContinueObserver()
         canContinue = false
         completionSubmitted = true
+        timingObserver(if(returningToWallet)ExpressTiming.Phase.RETURN else ExpressTiming.Phase.PREX)
         progressSince=clock();slowStep=false
         val version=navigationVersion
         web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.advance(${org.json.JSONObject.quote(expected)})") { raw ->
@@ -322,6 +344,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         enteredCardIdentity=identifyCard(pan)
         enteredCardSuffix=pan.takeLast(4)
         cardBusy=true;cardError=false;canContinue=false
+        timingObserver(ExpressTiming.Phase.PREX)
         progressSince=clock();slowStep=false
         val version=navigationVersion
         // Literal escaping only; never log this command or retain its arguments in engine state.
@@ -335,6 +358,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     }
 
     fun stopExpress() {
+        timingObserver(ExpressTiming.Phase.REVIEW)
         expressAmount=null
         expressJourney=false
         if(destroyed)return
@@ -370,7 +394,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         if(visible && originalLink!=null) {handler.removeCallbacks(profileStatus);handler.post(profileStatus)}
     }
 
-    private fun fail(text: String) { busy = false; message = text }
+    private fun fail(text: String) { timingObserver(ExpressTiming.Phase.REVIEW);busy = false; message = text }
     private fun deferFailure(text: String) {
         if(pendingFailure==null) {failureSince=clock();failureStage=nativeStage}
         pendingFailure=text

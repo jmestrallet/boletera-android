@@ -250,6 +250,33 @@ class CardFlowRegressionTest {
             }
             compose.onNodeWithContentDescription("Volver").performClick()
             compose.waitUntil(15000) { engine.state.stage=="balance" && !engine.state.busy }
+            compose.runOnIdle {
+                val timing=StmEngine::class.java.getDeclaredField("expressTiming").apply {isAccessible=true}.get(engine) as ExpressTiming
+                val result=timing.snapshot()!!
+                assertEquals(ExpressTiming.End.BALANCE,result.end)
+                assertEquals(1,result.nativeActions)
+                assertEquals(result.elapsedMs,result.durations.values.sum())
+                assertTrue(result.durations.containsKey(ExpressTiming.Phase.STM))
+                assertTrue(result.durations.containsKey(ExpressTiming.Phase.PREX))
+                assertTrue(result.durations.containsKey(ExpressTiming.Phase.CARD))
+                assertTrue(result.durations.containsKey(ExpressTiming.Phase.RETURN))
+                val report=engine.helpDiagnostic
+                assertFalse(report.contains(firstPayer.document))
+                assertFalse(report.contains(newLink))
+                java.io.File(compose.activity.getExternalFilesDir(null),"express-timing-example.txt").writeText(report)
+            }
+            compose.onNodeWithContentDescription("Configuración").performClick()
+            compose.onNodeWithText("Información de ayuda").performScrollTo().performClick()
+            compose.onNodeWithText("Copiar información").performScrollTo().performClick()
+            compose.runOnIdle {
+                val clip=compose.activity.getSystemService(android.content.ClipboardManager::class.java).primaryClip!!
+                assertTrue(clip.getItemAt(0).text.toString().startsWith("Boletera ${BuildConfig.DISPLAY_VERSION}\n"))
+                assertTrue(clip.getItemAt(0).text.toString().contains("Última Carga Express"))
+            }
+            // Back must target the sheet's dialog window, not the activity beneath it.
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            compose.waitForIdle()
+            compose.onNodeWithText("Información de ayuda").assertDoesNotExist()
             compose.onNodeWithText("Carga Express").performScrollTo().performClick()
             compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" && engine.prexPayment.expressPhase=="done" }
             assertEquals(4,paymentLoads[newLink]?.get())

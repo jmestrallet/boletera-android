@@ -146,10 +146,14 @@ class SessionRecoveryTest {
         setup(rememberForSession=true);ssoAlive=false
         val before=hits["/login"]?.get()?:0
         expireMarkup(login)
-        compose.waitUntil(20000){engine.state.recoveringSession}
-        compose.runOnIdle {assertEquals(82400L,engine.state.balance);assertEquals("ABCD1234",engine.state.selectedCard)}
+        var recovering:UiState?=null
+        // Assert the same immutable snapshot that met the condition. A later idle callback
+        // may already be selecting the card for the fresh consultation.
+        compose.waitUntil(20000){recovering=engine.state.takeIf {it.recoveringSession};recovering!=null}
+        assertEquals(82400L,recovering!!.balance);assertEquals("ABCD1234",recovering!!.selectedCard)
         home()
         compose.runOnIdle {
+            assertEquals(82400L,engine.state.balance)
             assertTrue((hits["/login"]?.get()?:0)>before)
             assertEquals(0,engine.state.accessRequestId);assertFalse(engine.state.sessionExpired)
             assertNull(StmEngine::class.java.getDeclaredField("document").apply{isAccessible=true}.get(engine))

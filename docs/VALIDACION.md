@@ -1,4 +1,19 @@
-# Validación 0.2.35 Beta 1 — Preparación y verificación
+# Validación 0.2.36 Beta 1 — Medición local de Express
+
+Fecha: 26/9/2026. Código 54.
+
+- 12 pruebas JVM y lint aprobados (0 errores). El reloj conserva el total al cambiar de etapa, pasar al segundo plano, finalizar y empezar otro recorrido.
+- Los 14 casos Android dirigidos de preparación, recorrido, finalización y recuperación de sesión quedaron aprobados. En el último lote aprobaron 13; el restante aprobó por instrumentación directa después de corregir el gesto Atrás del test para enviarlo a la ventana del panel de Configuración. La aserción de recuperación también se estabilizó capturando el estado intermedio en el mismo instante que lo detecta la espera. No se modificó la recuperación de producción para acomodar la prueba.
+- El lote anterior cubrió además el autocompletado, incluido el recuento de cero avances humanos por autocompletado y uno por Continuar explícito. La confirmación automática de una tarjeta conocida conserva un único envío.
+- Se comprobó el botón Copiar información mediante el portapapeles de Android y un recorrido posterior. El informe no contiene el documento ficticio ni la URL de pago de la prueba.
+- Se capturó `outputs/express-timing-example-0.2.36.txt` desde el emulador. Es un recorrido interceptado, sin red ni pago real: sus 3,9 segundos no son una medición de velocidad de STM/Prex.
+- Las lecturas repetidas de idéntico saldo/mínimo conservan la hora original de consulta. Los casos de preparación comprueban que un pedido pendiente mantiene el bloqueo contra duplicados.
+
+El CAPTCHA automático sigue en investigación: [alternativas, fuentes y experimento](CAPTCHA-ALTERNATIVAS.md). No se incorporó un solucionador ni el clic automático a este APK. Quedan pendientes un recorrido real del dueño, su medición y el comportamiento del autocompletado y CAPTCHA reales.
+
+---
+
+## Versión anterior: 0.2.35 Beta 1 — Preparación y verificación
 
 Fecha: 26/9/2026. Código 53.
 

@@ -306,7 +306,7 @@ class MainActivity : FragmentActivity() {
             text={Text("Incluye funciones experimentales, como Carga Express, antes de llegar a la versión estable. Podés probarla desde Configuración y volver a la versión estable cuando quieras.")},
             confirmButton={TextButton(onClick={closeBetaIntro();updates.selectChannel(UpdateChannel.BETA);showSettings=true}){Text("Ver Boletera Beta")}},
             dismissButton={TextButton(onClick=::closeBetaIntro){Text("Ahora no")}})
-        if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",state.diagnostic,
+        if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",engine.helpDiagnostic,
             onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall=updates::requestReview,onClose={showSettings=false},
             onTicketGuide={showSettings=false;showTicketGuide=true})
 
@@ -407,7 +407,7 @@ class MainActivity : FragmentActivity() {
                             PaymentBrowserView(payment,true,null,browserWidth,browserHeight,Modifier.size(1.dp))
                         }
                     }
-                    if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{if(payment.prepareOriginalReview())showOriginal=true},focusCard=payment.expressPhase=="done",verificationRequired=payment.verificationRequired) {
+                    if (native && payment.nativeStage=="card") NativeCardForm(payment.cardBusy,payment.canContinue,payment.cardError,payment.expandedChallenge,payment::submitCard,{if(payment.prepareOriginalReview())showOriginal=true},focusCard=payment.expressPhase=="done",verificationRequired=payment.verificationRequired,onManualContinue=payment.manualContinueObserver) {
                         if(payment.expandedChallenge) ExpandedPaymentChallenge(payment,browserWidth,browserHeight,Modifier.fillMaxSize())
                         else BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
                             val cap=payment.challenge

@@ -51,6 +51,7 @@ class ExpressPreparationTest {
         }
         try {
             compose.waitUntil(20000) { engine.state.stage=="balance" && engine.state.minimum==26000L && !engine.state.busy }
+            val consultedAt=engine.state.consultedAt
             js("window.snapshotCount=0;const originalAdapter=window.BoleteraAdapter;window.BoleteraAdapter={...originalAdapter,snapshot:()=>{window.snapshotCount++;return originalAdapter.snapshot()}}")
             compose.runOnIdle {
                 assertTrue(engine.savePayer(PayerProfile("pending","Prueba","Persona","Ficticia","00000000","persona@example.invalid","099123456")))
@@ -61,6 +62,7 @@ class ExpressPreparationTest {
             compose.runOnIdle {
                 assertTrue("Polling the old amount page must keep the pending request busy",engine.state.busy)
                 assertEquals(express,engine.expressPreparing)
+                assertEquals("Polling an unchanged page is not a fresh STM consultation",consultedAt,engine.state.consultedAt)
                 // Stale gestures cannot replace or cancel the request that already started.
                 engine.prepare(52000); engine.startExpress(); engine.refresh(); engine.changeCard()
                 assertEquals(26000L,engine.state.amount)
@@ -72,6 +74,13 @@ class ExpressPreparationTest {
             compose.waitUntil(10000) { engine.state.stage=="paymentBoundary" && !engine.state.busy }
             assertEquals(1,providerVisits.get())
             compose.runOnIdle { assertNull(engine.state.activePayment) }
+            if(express) {
+                compose.runOnIdle {
+                    assertTrue(engine.helpDiagnostic.contains("Última Carga Express"))
+                    assertFalse(engine.helpDiagnostic.contains("00000000"))
+                    assertFalse(engine.helpDiagnostic.contains("persona@example.invalid"))
+                }
+            }
         } finally { compose.runOnIdle { engine.cancel();engine.forgetChoices() } }
     }
     @Test fun expressWaitsForItsOriginalRequestDespiteRepeatedSnapshots() = pendingPreparation(true)

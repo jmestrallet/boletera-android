@@ -3,7 +3,7 @@
 ## 1. Elegí una versión
 
 - **Estable:** `boletera-0.2.32.apk`. Es la recomendada y no incluye Carga Express.
-- **Beta:** `boletera-beta-0.2.35-beta.1.apk`. Incluye Carga Express y mejoras de espera y verificación.
+- **Beta:** `boletera-beta-0.2.36-beta.1.apk`. Incluye Carga Express y medición local de sus etapas.
 
 Ambas requieren Android 8 o posterior. Instalá el APK encima de una versión anterior para conservar los datos guardados.
 
@@ -33,6 +33,8 @@ En la Beta, **Carga Express** empieza con un toque, usa el mínimo vigente, la b
 Después del pago, volvé a tu boletera y consultá el saldo. Si el resultado queda pendiente o incierto, revisalo en Prex o en tu banco antes de iniciar otra recarga. Boletera conserva ese aviso y no repite automáticamente la operación.
 
 ## Reportar un problema
+
+Después de usar Express, abrí **Configuración → Información de ayuda → Copiar información**. Incluye la versión, los tiempos de cada etapa y el número de inicios/avances manuales desde Boletera. No guarda ni copia identidad, saldo, importe, tarjeta, CVV o enlaces de pago. Se conserva únicamente la última medición en memoria; otra carga Express, un ingreso explícito con credenciales o cerrar el proceso la reemplazan o borran. No se envía automáticamente.
 
 Las capturas están habilitadas. Compartí la versión, el paso, el mensaje visible y el modelo de teléfono. Ocultá contraseñas, números de tarjeta, CVV y enlaces de pago.
 

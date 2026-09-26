@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class PaymentCompletionTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     private lateinit var engine:StmEngine
+    private lateinit var timing:ExpressTiming
     private val hits=ConcurrentHashMap<String,AtomicInteger>()
     private val stm="https://stm.gub.uy/app/mistm/cuenta/pages/"
     private var startAtCard=false
@@ -64,6 +65,8 @@ class PaymentCompletionTest {
             @Suppress("UNCHECKED_CAST") val backing=StmEngine::class.java.getDeclaredField("state\$delegate").apply{isAccessible=true}.get(engine) as MutableState<UiState>
             backing.value=UiState(stage="embeddedPrex",selectedCard="ABCD1234",cards=listOf(CardInfo("ABCD1234",true,"Operativa")),balance=26000,minimum=26000,
                 activePayment=ActivePayment("ABCD1234","1033",56400,System.currentTimeMillis(),testPayer.id))
+            timing=StmEngine::class.java.getDeclaredField("expressTiming").apply{isAccessible=true}.get(engine) as ExpressTiming
+            timing.start()
             assertTrue(engine.prexPayment.open("https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago?id=SYNTHETIC-EXPRESS",
                 testPayer,expressAmount=56400,expectedAmount=56400,expectedCardIdentity=choices.successfulCardIdentity,expectedCardSuffix="1111"))
         }
@@ -88,6 +91,8 @@ class PaymentCompletionTest {
             assertEquals("1111",choices.successfulCardSuffix)
             assertEquals(choices.cardIdentity("4111111111111111"),choices.successfulCardIdentity)
             assertNull(PaymentJournal(compose.activity).read(choices.accountKey!!))
+            assertEquals(ExpressTiming.End.BALANCE,timing.snapshot()!!.end)
+            assertEquals("Only the initial action and manual card submission count; automatic confirmations do not",2,timing.snapshot()!!.nativeActions)
         }
         shot("express30-return-home.png")
         compose.runOnIdle {engine.forgetChoices()}

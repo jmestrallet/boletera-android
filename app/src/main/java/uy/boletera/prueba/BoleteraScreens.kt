@@ -181,6 +181,7 @@ import java.util.Locale
     canLogout: Boolean, diagnostic: String, onForget: () -> Unit, onLogout: () -> Unit, onInstall: () -> Unit, onClose: () -> Unit,
     onTicketGuide: (() -> Unit)? = null) {
     var details by remember { mutableStateOf(false) }
+    var copied by remember(diagnostic) { mutableStateOf(false) }
     val haptic=LocalHapticFeedback.current
     val view=LocalView.current
     val vibration=remember(view.context) {AppHaptics(view.context)}
@@ -263,7 +264,17 @@ import java.util.Locale
                 Text("Proyecto independiente y no oficial de STM.",style=MaterialTheme.typography.bodySmall,color=Muted)
                 if(diagnostic.isNotBlank()) {
                     TextButton(onClick={details=!details}) { Text("Información de ayuda") }
-                    AnimatedVisibility(details) { Text(diagnostic,style=MaterialTheme.typography.bodySmall,color=Muted) }
+                    AnimatedVisibility(details) {
+                        Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                            Text(diagnostic,style=MaterialTheme.typography.bodySmall,color=Muted)
+                            TextButton(onClick={
+                                view.context.getSystemService(android.content.ClipboardManager::class.java)?.let { clipboard ->
+                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Boletera · ayuda","Boletera ${BuildConfig.DISPLAY_VERSION}\n$diagnostic"))
+                                    copied=true
+                                }
+                            }) { Text(if(copied)"Información copiada" else "Copiar información") }
+                        }
+                    }
                 }
             }
         }
