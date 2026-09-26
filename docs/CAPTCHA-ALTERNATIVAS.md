@@ -29,7 +29,15 @@ Se consultó también un hilo de r/firefox sobre dificultades de accesibilidad. 
 4. Medir con uso normal cuántos intentos pasan sin fotos, cuántos necesitan intervención y cuánto tiempo se ahorra. El objetivo de 3 de 5 es un criterio deseado del dueño, no un resultado demostrado. Un lote de cinco tampoco establece por sí solo una tasa estable.
 5. Evaluar audio o modelo local si la casilla automática ahorra poco. No se contrató un servicio de resolución ni se transfirieron sesiones, capturas de pago o credenciales a un tercero.
 
-Estado: investigación y propuesta técnica. No se incorporó todavía el clic automático ni un solucionador a la versión 0.2.36.
+## Prueba e implementación de 0.2.37
+
+Se probó un toque nativo dentro del WebView Android configurado con la identidad de Boletera y cookies de terceros bloqueadas. En la demo pública de Google el toque activó la casilla y abrió un desafío de imágenes. El intento no lo aprobó automáticamente: resultado observado `challenge`. Captura e informe locales: `outputs/captcha-checkbox-live.png` y `outputs/captcha-checkbox-live.txt`. No se tocó ninguna imagen ni se envió el formulario de la demo. Este único caso no estima una tasa de éxito para STM/Prex.
+
+La prueba local de un iframe de otro dominio diferencia `.click()` en su contenedor (sin efecto dentro) del evento táctil Android (llega al control interior). La implementación Beta usa ese mecanismo, limitado a Carga Express y a las etapas titular/tarjeta. En tarjeta espera hasta que el formulario muestre la verificación. No intenta tocar frames de geometría desconocida, widgets compactos, desafíos abiertos, elementos tapados, respuestas ya presentes ni páginas fuera del origen esperado. La existencia de respuesta se reduce localmente a un booleano; no sale del script, no se conserva y nunca se usa como autorización de Sistarbanc.
+
+Un toque manual en el WebView cancela la asistencia durante ese recorrido. Pausa, navegación y salida invalidan los callbacks pendientes. No se repite un intento por etapa al reanudar. El control humano de Continuar sigue disponible: un intento de casilla y una autorización del proveedor son hechos distintos.
+
+Pendientes: comprobar el intento en el teléfono del dueño, medir aprobaciones sin imágenes y obtener una señal fiable de aceptación de Sistarbanc para avanzar automáticamente. Audio/modelos siguen como alternativas investigadas, sin integración en el APK.
 
 ## Fuentes consultadas
 

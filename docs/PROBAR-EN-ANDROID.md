@@ -3,7 +3,7 @@
 ## 1. Elegí una versión
 
 - **Estable:** `boletera-0.2.32.apk`. Es la recomendada y no incluye Carga Express.
-- **Beta:** `boletera-beta-0.2.36-beta.1.apk`. Incluye Carga Express y medición local de sus etapas.
+- **Beta:** `boletera-beta-0.2.37-beta.1.apk`. Incluye Carga Express, medición local de sus etapas y un intento automático de la casilla de Google.
 
 Ambas requieren Android 8 o posterior. Instalá el APK encima de una versión anterior para conservar los datos guardados.
 
@@ -39,3 +39,6 @@ Después de usar Express, abrí **Configuración → Información de ayuda → C
 Las capturas están habilitadas. Compartí la versión, el paso, el mensaje visible y el modelo de teléfono. Ocultá contraseñas, números de tarjeta, CVV y enlaces de pago.
 
 Las pruebas automatizadas usan datos ficticios y no acreditan una recarga real. Ver [validación](VALIDACION.md) y [compatibilidad de pagos](COMPATIBILIDAD-PAGO.md).
+## Prueba del intento de CAPTCHA en 0.2.37 Beta 1
+
+En Carga Express, observá si la casilla normal se activa sola. Si Google pide imágenes, completalas como antes y tocá Continuar. Anotá por separado «casilla activada», «pasó sin fotos» y «llegó a tarjeta»: no son el mismo resultado. Si no se activa, podés tocarla normalmente. No repitas recargas para medirlo; alcanza con registrar el uso normal.

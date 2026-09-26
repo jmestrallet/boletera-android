@@ -62,3 +62,9 @@ El informe de Configuración usa el reloj monotónico del dispositivo. Agrupa pr
 El recuento suma el inicio de Express y los avances manuales aceptados desde los controles nativos. Excluye la elección de tarjeta o biometría de Android/Google, escritura, gestos del CAPTCHA y controles de la página original: no es un contador universal de toques. La suma de los tiempos conserva el total. Los datos viven en memoria y se copian únicamente si la persona toca Copiar información.
 
 También se corrige la hora de consulta: una lectura repetida de la misma página con idéntico saldo/mínimo no mueve la hora de «Actualizado».
+
+## Cuarta entrega: 0.2.37 Beta 1
+
+Primer intento de la casilla de Google desde Android, una vez por etapa de Express. Las imágenes/audio y la continuación posterior siguen manuales. El prototipo activó la demo pública real y Google pidió imágenes; no se obtuvo aprobación sin intervención en ese caso. Se conservan configuración de cookies e identidad de navegador. Ver [alcance, evidencia y pendientes](CAPTCHA-ALTERNATIVAS.md).
+
+Esto avanza el punto 3, pero no lo cierra: falta una señal fiable de aceptación del proveedor para continuar automáticamente y medir el comportamiento en el teléfono del dueño. No se reemplaza ese requisito por el éxito de un clic sintético.

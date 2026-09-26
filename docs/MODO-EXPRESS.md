@@ -1,5 +1,7 @@
 # Carga Express — atajo puntual
 
+**0.2.37 Beta 1:** intenta activar una vez la casilla normal de Google en Express. Si aparecen imágenes, completalas a mano; después tocá Continuar. El intento se omite si ya tocaste la página o la verificación no coincide con el formato reconocido. No hay una tasa medida de aprobación sin fotos en STM/Prex.
+
 **0.2.36 Beta 1:** Configuración → Información de ayuda permite copiar una medición local del último recorrido, con tiempos por etapa y avances manuales desde la app. No mide los toques dentro de Google ni separa la espera del sitio de la espera de la persona. [Alternativas de automatización del CAPTCHA investigadas](CAPTCHA-ALTERNATIVAS.md).
 
 **Mejoras de 0.2.35 Beta 1:** conserva la preparación mientras STM responde y lleva a la verificación antes de enviar una tarjeta autocompletada. Incluye las mejoras de 0.2.34: solicitud de tarjetas guardadas al campo correcto, reacción al formulario y espera de validación asíncrona. Ver [evidencia y trabajo pendiente](MEJORAS-EXPRESS-2026-09.md).
@@ -22,7 +24,7 @@ eBROU permanece en la recarga común porque su autorización se abre fuera de Bo
 1. Un toque inicia una sola solicitud con el mínimo vigente. El botón queda ocupado para bloquear duplicados.
 2. Boletera vuelve a comprobar boletera, importe y opciones que devuelve STM.
 3. Dentro de Prex, avanza por el resumen y el titular sólo si coinciden con la solicitud y el perfil conocido. Una diferencia, un consentimiento o una pantalla desconocida detiene el avance.
-4. Un CAPTCHA visible queda a cargo de la persona. Boletera no lo lee ni lo resuelve.
+4. Boletera Beta puede activar una vez la casilla normal. La persona resuelve las imágenes/audio que aparezcan y conserva el avance explícito posterior. La respuesta no se exporta ni se trata como autorización de Sistarbanc.
 5. Al llegar a la tarjeta, enfoca el número y solicita inmediatamente el servicio de autocompletado de Android. Android o Google presenta la tarjeta y controla su autenticación.
 6. Si el servicio entrega número, vencimiento y CVV válidos, Boletera continúa una vez. Si falta un dato, enfoca únicamente lo que falta.
 7. La confirmación final se automatiza sólo si la tarjeta coincide con una identidad ya verificada en una recarga exitosa. Una tarjeta distinta pide confirmación.

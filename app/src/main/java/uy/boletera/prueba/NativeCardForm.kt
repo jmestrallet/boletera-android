@@ -53,7 +53,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun NativeCardForm(busy: Boolean, canContinue: Boolean, providerError: Boolean,
     expandedChallenge: Boolean, onSubmit: (String,String,String)->Unit, onOriginal: ()->Unit,
-    focusCard: Boolean = false, verificationRequired: Boolean = false, onManualContinue: () -> Unit = {},
+    focusCard: Boolean = false, verificationRequired: Boolean = false, onManualContinue: () -> Unit = {}, onVerificationShown: () -> Unit = {},
     verification: @Composable ()->Unit = {}) {
     var pan by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
@@ -96,7 +96,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     }
     fun showVerification() {
         focus.clearFocus();keyboard?.hide()
-        scope.launch { delay(200);verificationView.bringIntoView() }
+        scope.launch { delay(200);verificationView.bringIntoView();onVerificationShown() }
     }
     LaunchedEffect(filledFields,pan,expiry,cvv,busy,canContinue,providerError,expandedChallenge,verificationRequired) {
         if(providerError)filledFields=0

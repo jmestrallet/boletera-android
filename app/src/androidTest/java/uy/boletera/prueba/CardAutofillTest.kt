@@ -26,6 +26,7 @@ class CardAutofillTest {
     private lateinit var host: View
     private var submits=0
     private var manualAdvances=0
+    private var verificationShown=0
     private var allowed by mutableStateOf(true)
     private var challenge by mutableStateOf(false)
     private var error by mutableStateOf(false)
@@ -39,7 +40,7 @@ class CardAutofillTest {
                 assertEquals("12/39",expiry)
                 assertEquals("123",cvv)
                 submits++
-            },{originals++},focusCard=focusCard,verificationRequired=verificationRequired,onManualContinue={manualAdvances++})
+            },{originals++},focusCard=focusCard,verificationRequired=verificationRequired,onManualContinue={manualAdvances++},onVerificationShown={verificationShown++})
         } } }
         compose.waitForIdle()
     }
@@ -81,7 +82,9 @@ class CardAutofillTest {
     }
     @Test fun completeAutofillWaitsForVisibleVerificationAndAnExplicitContinue() {
         verificationRequired=true;allowed=false;setup(focusCard=true)
+        assertEquals(0,verificationShown)
         fill("Número de tarjeta" to "4111111111111111","Vencimiento" to "12/39","CVV" to "123")
+        compose.waitUntil(5000) {verificationShown>0}
         compose.onNodeWithTag("cardAutofillPrompt").assertTextContains("verificación",substring=true)
         compose.onNodeWithTag("cardNumber").assertIsNotFocused()
         compose.onNodeWithText("Continuar").assertIsNotEnabled()

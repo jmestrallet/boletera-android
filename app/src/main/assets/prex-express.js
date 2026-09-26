@@ -86,7 +86,8 @@
           const allowed=plan.payer.documentType==='PAS'?['pas','pasaporte']:['ci','cedula de identidad','cedula uruguaya'];
           if(!allowed.includes(selected))return stop();
         }
-        // The user solves the original CAPTCHA. No token, iframe content or response is read.
+        // Android may attempt the ordinary checkbox once. Image/audio challenges remain manual.
+        // This controller never interprets a Google response as the provider's authorization.
         // The provider's Continue can be enabled BEFORE CAPTCHA validation. An enabled button or
         // ng-valid form is not a success signal; preserve the human continuation for a visible widget.
         if(state.challenge||[...root.querySelectorAll('angular-recaptcha')].some(visible))return phase='verification';

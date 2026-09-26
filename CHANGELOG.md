@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.37 Beta 1 - Primer intento automático de la casilla
+
+- Carga Express intenta tocar una sola vez la casilla normal de reCAPTCHA cuando reconoce su origen, tamaño y posición visible. Las imágenes y el audio permanecen disponibles para resolver a mano.
+- Cede el control si la persona toca la página, se suspende al salir y no repite el intento al volver. La recarga común mantiene su comportamiento manual.
+- En la tarjeta espera a que el formulario muestre la verificación después de completar los datos, para no interrumpir su ingreso.
+- Este intento no prueba que el CAPTCHA haya sido aprobado y no dispara Continuar por sí solo. La aceptación posterior de Sistarbanc todavía requiere una señal verificable para automatizar ese avance.
+
+
 ## 0.2.36 Beta 1 - Medición de Express y hora de consulta
 
 - Mide el tiempo de la última Carga Express por etapas, separa el segundo plano y cuenta el inicio y las continuaciones manuales desde la app.

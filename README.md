@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32"><strong>Descargar Boletera</strong></a>
   ·
-  <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.36-beta.1">Probar Boletera Beta</a>
+  <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.37-beta.1">Probar Boletera Beta</a>
   ·
   <a href="CHANGELOG.md">Ver cambios</a>
 </p>
@@ -45,6 +45,8 @@ Boletera usa como base el mismo sitio oficial de STM y presenta sus pasos conoci
 
 La app reconoce las pantallas conocidas y automatiza acciones mecánicas, como navegar entre pasos, elegir la boletera y completar campos que ya autorizaste. El ingreso de Usuario gub.uy, los CAPTCHA y la confirmación final del pago siguen bajo tu control. Si STM o un proveedor muestra una pantalla que Boletera no reconoce, el recorrido se detiene.
 
+En **Carga Express de la Beta**, Boletera intenta activar una vez la casilla normal de Google. Si aparecen imágenes, las resolvés a mano y tocás Continuar. Todavía no hay una tasa medida de aprobación automática en STM/Prex; [alcance y pruebas](docs/CAPTCHA-ALTERNATIVAS.md).
+
 ## Todo lo importante, en un solo lugar
 
 - Saldo disponible y mínimo de recarga informado por STM.
@@ -59,7 +61,7 @@ La app reconoce las pantallas conocidas y automatiza acciones mecánicas, como n
 |---|---|---|
 | Para quién | Uso habitual | Pruebas y novedades anticipadas |
 | Actualizaciones | Sólo versiones estables | Sólo versiones Beta |
-| Descarga | [`boletera-0.2.32.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32) | [`boletera-beta-0.2.36-beta.1.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.36-beta.1) |
+| Descarga | [`boletera-0.2.32.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32) | [`boletera-beta-0.2.37-beta.1.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.37-beta.1) |
 
 Podés cambiar entre **Estable** y **Beta** desde Configuración. Ambas usan la misma firma y conservan los datos de Boletera al instalar una encima de la otra.
 

@@ -92,6 +92,13 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     private var suspended = false
     private var suspendedAt = 0L
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var cardCheckboxReady=false
+    private val checkboxTap by lazy {CheckboxTapper(web) {stage ->
+        BuildConfig.DISTRIBUTION_CHANNEL=="beta" && !destroyed && visible && !suspended && expressJourney &&
+            nativeMask && nativeStage==stage && expressPhase in setOf("verification","done") && !busy && !cardBusy && !expandedChallenge &&
+            !cardError && !payerConflict && (stage!="card" || cardCheckboxReady) && message.isBlank() && PaymentPolicy.gateway(web.url.orEmpty())
+    }}
+    fun cardVerificationShown() {if(nativeStage=="card")cardCheckboxReady=true}
     private val profileStatus: Runnable = object : Runnable {
         override fun run() {
             if (destroyed || !visible || suspended || originalLink == null) return
@@ -103,6 +110,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     if (decoded != null) {
                         val state = org.json.JSONObject(decoded)
                         nativeStage = state.optString("stage", "loading")
+                        if(nativeStage!="card")cardCheckboxReady=false
                         if(nativeStage=="original") {
                             timingObserver(ExpressTiming.Phase.REVIEW)
                             if(!prepareOriginalReview())return@evaluateJavascript
@@ -136,6 +144,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                             else -> ExpressTiming.Phase.PREX
                         })
                         cssViewportWidth = state.optDouble("viewportWidth", 0.0).toFloat()
+                        if(verificationRequired)checkboxTap.request(nativeStage)
                         if(nativeStage=="finalConfirmation")verifiedCardSuffix=summaryRows.firstOrNull {
                             it.first.trim().trimEnd(':').equals("Medio de pago",true)
                         }?.second?.takeLast(4)?.takeIf {it.matches(Regex("[0-9]{4}"))}
@@ -180,8 +189,13 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     private val cardScript = context.assets.open("prex-card.js").bufferedReader().use { it.readText() }
     private val expressScript = context.assets.open("prex-express.js").bufferedReader().use { it.readText() }
     private val verificationScript = context.assets.open("prex-verification.js").bufferedReader().use { it.readText() }
+    private val checkboxScript = context.assets.open("prex-checkbox.js").bufferedReader().use { it.readText() }
     private val payerScript = context.assets.open("prex-payer.js").bufferedReader().use { it.readText() }
     val web: WebView = WebView(context).apply {
+        setOnTouchListener {_,event ->
+            if(event.actionMasked==android.view.MotionEvent.ACTION_DOWN)checkboxTap.userTouched()
+            false
+        }
         alpha = 0f
         setBackgroundColor(android.graphics.Color.TRANSPARENT)
         settings.javaScriptEnabled = true
@@ -215,6 +229,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                 return true
             }
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                checkboxTap.cancel()
                 navigationVersion++
                 progressStage="loading";progressSince=clock();slowStep=false;pendingFailure=null;transientFailureShown=false
                 view.alpha = 0f
@@ -235,7 +250,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                 if (url == null || url != view.url || !allowedDestination(url)) return
                 busy = false
                 if (PaymentPolicy.gateway(url)) {
-                    view.evaluateJavascript(verificationScript + "\n" + cardScript + "\n" + nativeScript + "\n" + completionScript + "\n" + payerScript + "\n" + expressScript, null)
+                    view.evaluateJavascript(verificationScript + "\n" + checkboxScript + "\n" + cardScript + "\n" + nativeScript + "\n" + completionScript + "\n" + payerScript + "\n" + expressScript, null)
                     view.evaluateJavascript("window.BoleteraVerification?.nativeMask($nativeMask)",null)
                     view.evaluateJavascript("window.BoleteraCompletion?.configure(${expectedAmount ?: "null"},$finalSubmitted)",null)
                     payer?.let { profile ->
@@ -283,6 +298,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         }
         if (originalLink != null) return false // Caller must explicitly finish/reset the previous journey.
         originalLink = url
+        cardCheckboxReady=false
+        checkboxTap.reset()
         this.expectedAmount = expectedAmount ?: expressAmount
         this.expressAmount = expressAmount
         this.expressJourney = expressAmount!=null
@@ -358,6 +375,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     }
 
     fun stopExpress() {
+        checkboxTap.cancel()
         timingObserver(ExpressTiming.Phase.REVIEW)
         expressAmount=null
         expressJourney=false
@@ -375,10 +393,12 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     }
 
     fun hide() {
+        checkboxTap.cancel()
         visible = false; handler.removeCallbacks(profileStatus)
         if(!destroyed)web.evaluateJavascript("window.BoleteraExpress?.suspend(true)",null)
     }
     fun pause() {
+        checkboxTap.cancel()
         if(!suspended)suspendedAt=clock()
         suspended=true;handler.removeCallbacks(profileStatus)
         if(!destroyed)web.evaluateJavascript("window.BoleteraExpress?.suspend(true)",null)
@@ -417,6 +437,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
 
     fun reset() {
         if (destroyed) return
+        checkboxTap.reset()
+        cardCheckboxReady=false
         navigationVersion++
         hide()
         web.stopLoading()

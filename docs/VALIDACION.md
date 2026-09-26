@@ -1,4 +1,18 @@
-# Validación 0.2.36 Beta 1 — Medición local de Express
+# Validación 0.2.37 Beta 1 — Intento de casilla en Express
+
+Fecha: 26/9/2026. Código 55.
+
+- 69 pruebas JavaScript, 12 JVM y lint sin errores aprobados.
+- Primer lote Android: 15 casos aprobados y la prueba pública de Google omitida deliberadamente (requiere activación explícita). Cubrió el toque dentro de un iframe de otro dominio, recorte del widget, cancelación por gesto humano, Express/titular, recarga común, autocompletado, cambio de tamaño, recorrido y finalización.
+- Segundo lote: cuatro casos aprobados, incluyendo el nuevo recorrido de tarjeta con verificación. La casilla permanece sin tocar durante el ingreso; se intenta después del autocompletado completo y de mostrar la verificación. La presencia de una respuesta ficticia no pulsa Continuar.
+- Prueba pública separada: un intento nativo activó la casilla de la demo real de Google y abrió un desafío de imágenes. No hubo aprobación sin imágenes ni envío del formulario. Captura local: `outputs/captcha-checkbox-live.png`; informe: `outputs/captcha-checkbox-live.txt`. El prototipo usó la identidad de navegador y política de cookies de Boletera, pero no una cuenta STM/Prex.
+- Las coordenadas se limitan al widget normal reconocido y a la porción visible del WebView. No se inspecciona el documento interior del iframe. Una respuesta existente se comprueba solo como presencia/ausencia en la página principal y no se exporta, registra ni usa para autorizar un avance.
+
+Falta validar en el teléfono del dueño, medir la proporción de aprobaciones sin fotos y obtener una señal fiable de aceptación de Sistarbanc para continuar automáticamente. Esta entrega automatiza el intento de casilla, no la resolución de imágenes/audio ni la continuación posterior al CAPTCHA. [Detalle](CAPTCHA-ALTERNATIVAS.md).
+
+---
+
+## Versión anterior: 0.2.36 Beta 1 — Medición local de Express
 
 Fecha: 26/9/2026. Código 54.
 
