@@ -14,6 +14,24 @@ import java.net.URL
 
 @RunWith(AndroidJUnit4::class)
 class AppUpdatesTest {
+    @Test fun alphaAndBetaArchivesCanReplaceEachOtherAtSameCode() {
+        val pm=compose.activity.packageManager
+        val source=compose.activity.applicationInfo.sourceDir
+        for((from,to) in listOf("beta" to "alpha","alpha" to "beta")) {
+            val installed=pm.getPackageArchiveInfo(source,PackageManager.GET_SIGNING_CERTIFICATES)!!
+            val candidate=pm.getPackageArchiveInfo(source,PackageManager.GET_SIGNING_CERTIFICATES)!!
+            installed.versionName="0.2.40-$from.1";candidate.versionName="0.2.40-$to.1"
+            UpdateFiles.verifyArchive(candidate,installed,compose.activity.packageName,
+                UpdateRelease(candidate.versionName!!,"",1,"",channel=UpdateChannel.from(to)))
+        }
+    }
+    @Test fun settingsShowThreeClearlyNamedChannels() {
+        compose.onNodeWithContentDescription("Configuración").performClick()
+        compose.onNodeWithText("Alpha").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Beta").assertIsDisplayed()
+        compose.onNodeWithText("Estable").assertIsDisplayed()
+        compose.onNodeWithText("Desarrollo").assertIsDisplayed()
+    }
     @Test fun alphaIsOptInAndSwitchesBothWays() {
         fun alpha(v:String)=betaFixture(v).replace("boletera-beta-","boletera-alpha-")
         val json="[${fixture("0.2.40")},${betaFixture("0.2.40-beta.1")},${alpha("0.2.40-alpha.1")},${alpha("0.2.40-alpha.2")}]"
