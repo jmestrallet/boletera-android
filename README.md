@@ -57,6 +57,8 @@ En **Carga Express de la Beta**, Boletera intenta activar una vez la casilla nor
 
 ## Elegí la versión que querés usar
 
+El trabajo en construcción vive en la rama `desarrollo`. La rama `beta` recibe funciones completas para probar y detectar errores; `main` corresponde a la versión estable. Los avances parciales se agrupan antes de publicar una nueva Beta. Actividad y Usuario frecuente están en desarrollo y todavía no forman parte de la Beta publicada.
+
 | | **Estable** | **Beta** |
 |---|---|---|
 | Para quién | Uso habitual | Pruebas y novedades anticipadas |

@@ -1,6 +1,8 @@
 # Actividad y Usuario frecuente — desarrollo en curso
 
-26/9/2026. Rama `codex/actividad-usuario-frecuente`, desde Beta 0.2.39.
+26/9/2026. Rama `desarrollo`, desde `codex/actividad-usuario-frecuente` y Beta 0.2.39.
+
+El dueño estableció que Beta debe recibir funciones terminadas para buscar errores, no avances parciales. Se canceló la preparación de Beta 0.2.40 antes de subir cambios o publicar la versión. Actividad permanece en desarrollo, con su entrada visible en compilaciones de desarrollo. La Beta publicada continúa en 0.2.39.
 
 ## Pedido y nombres
 
