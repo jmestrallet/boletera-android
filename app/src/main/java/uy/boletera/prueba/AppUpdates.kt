@@ -22,7 +22,7 @@ import java.security.MessageDigest
 import java.util.concurrent.Executors
 
 enum class UpdateChannel(val key: String, val label: String) {
-    STABLE("public", "Estable"), BETA("beta", "Beta");
+    STABLE("public", "Estable"), BETA("beta", "Beta"), ALPHA("alpha", "Alpha");
     companion object { fun from(value: String?) = entries.firstOrNull { it.key == value } ?: STABLE }
 }
 internal data class UpdateNews(val version: String, val notes: List<String>)
@@ -43,17 +43,17 @@ internal object UpdatePolicy {
         return items.map { it.removePrefix("- ").replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1")
                 .replace(Regex("[*`_]"), "").replace(Regex("\\s+"), " ").trim() }.filter(String::isNotBlank)
     }
-    private data class ParsedVersion(val core: List<Int>, val beta: Int?)
+    private data class ParsedVersion(val core: List<Int>, val beta: Int?, val alpha: Boolean)
     private fun parsed(value: String): ParsedVersion? {
-        val match=Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-(?:prueba|publica)|-beta\\.(\\d+))?$").matchEntire(value) ?: return null
+        val match=Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-(?:prueba|publica)|-(beta|alpha)\\.(\\d+))?$").matchEntire(value) ?: return null
         val core=match.groupValues.slice(1..3).map {it.toIntOrNull() ?: return null}
-        return ParsedVersion(core,match.groupValues[4].takeIf(String::isNotBlank)?.toIntOrNull())
+        return ParsedVersion(core,match.groupValues[5].takeIf(String::isNotBlank)?.toIntOrNull(),match.groupValues[4]=="alpha")
     }
     fun version(value: String): List<Int>? = parsed(value)?.core
-    fun channel(value: String): UpdateChannel = if(parsed(value)?.beta!=null)UpdateChannel.BETA else UpdateChannel.STABLE
+    fun channel(value: String): UpdateChannel = if(parsed(value)?.alpha==true)UpdateChannel.ALPHA else if(parsed(value)?.beta!=null)UpdateChannel.BETA else UpdateChannel.STABLE
     fun display(value: String): String {
-        val parsed=Regex("^(\\d+\\.\\d+\\.\\d+)-beta\\.(\\d+)$").matchEntire(value)
-        return parsed?.let { "${it.groupValues[1]} Beta ${it.groupValues[2]}" } ?: value.removeSuffix("-prueba").removeSuffix("-publica")
+        val parsed=Regex("^(\\d+\\.\\d+\\.\\d+)-(beta|alpha)\\.(\\d+)$").matchEntire(value)
+        return parsed?.let { "${it.groupValues[1]} ${it.groupValues[2].replaceFirstChar { c -> c.uppercase() }} ${it.groupValues[3]}" } ?: value.removeSuffix("-prueba").removeSuffix("-publica")
     }
     fun newer(candidate: String, installed: String): Boolean {
         val a = parsed(candidate) ?: return false
@@ -72,7 +72,7 @@ internal object UpdatePolicy {
             val v = tag.removePrefix("v")
             if (version(v) == null || v.endsWith("-prueba") || v.endsWith("-publica")) return@mapNotNull null
             val assets = release.optJSONArray("assets") ?: return@mapNotNull null
-            val acceptedNames=if(wanted==UpdateChannel.BETA)setOf("boletera-beta-$v.apk")
+            val acceptedNames=if(wanted!=UpdateChannel.STABLE)setOf("boletera-${wanted.key}-$v.apk")
                 else setOf("boletera-$v.apk","boletera-publica-$v.apk","boletera-prueba-$v.apk")
             val matching = (0 until assets.length()).map { assets.getJSONObject(it) }.filter {it.optString("name") in acceptedNames}
             if (matching.size != 1) return@mapNotNull null

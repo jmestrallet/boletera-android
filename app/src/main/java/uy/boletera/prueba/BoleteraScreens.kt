@@ -218,7 +218,7 @@ import java.util.Locale
                             Column(Modifier.padding(vertical=14.dp,horizontal=8.dp),horizontalAlignment=Alignment.CenterHorizontally) {
                                 Text(option.label,style=MaterialTheme.typography.titleSmall,
                                     color=if(updates.channel==option)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
-                                Text(if(option==UpdateChannel.STABLE)"Recomendada" else "Experimental",style=MaterialTheme.typography.bodySmall,
+                                Text(when(option){UpdateChannel.STABLE->"Uso diario";UpdateChannel.BETA->"En pruebas";UpdateChannel.ALPHA->"Desarrollo"},style=MaterialTheme.typography.bodySmall,
                                     color=if(updates.channel==option)MaterialTheme.colorScheme.onPrimaryContainer else Muted)
                             }
                         }
