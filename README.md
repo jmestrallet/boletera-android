@@ -1,8 +1,12 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/boletera-hero-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/media/boletera-hero-light.svg">
-  <img src="docs/media/boletera-hero-light.svg" alt="Boletera · Tu STM, más simple. Consultá tu saldo y recargá tu tarjeta desde una app Android clara y nativa." width="100%">
+  <img src="docs/media/boletera-hero-light.svg" alt="Boletera · Tu STM, más simple" width="100%">
 </picture>
+
+<p align="center">
+  <strong>Consultá tu saldo y recargá tu tarjeta STM desde una app Android clara y nativa.</strong>
+</p>
 
 <p align="center">
   <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32"><strong>Descargar Boletera</strong></a>
@@ -12,22 +16,10 @@
   <a href="CHANGELOG.md">Ver cambios</a>
 </p>
 
-<p align="center">
-  <img src="docs/media/boletera-home.png" alt="Pantalla principal de Boletera" width="300">
-</p>
-
 > [!NOTE]
 > Boletera es un proyecto independiente y de código abierto. No es una aplicación oficial de STM, la Intendencia de Montevideo ni gub.uy.
 
-## Qué hace
-
-- Muestra el saldo disponible y el mínimo de recarga informado por STM.
-- Permite elegir boletera, importe y medio de pago para recargar.
-- Ofrece una interfaz nativa para el acceso, la recarga y Prex.
-- Tiene tema claro, oscuro o automático.
-- Se actualiza desde la propia app, con versiones firmadas.
-
-## Un proyecto personal
+## Un proyecto personal para hacer la STM más simple
 
 La idea nació para resolver algo que hago seguido: consultar el saldo y cargar la STM. La web oficial cumple su función, pero para el uso diario quería un camino más directo y cómodo desde el celular.
 
@@ -35,30 +27,15 @@ Como yo ingreso con **Usuario gub.uy** y recargo con **Prex**, empecé por esa c
 
 ## Qué funciona hoy
 
+> [!TIP]
+> Por ahora, Boletera funciona mejor con **Usuario gub.uy + Prex**, porque es la combinación que uso habitualmente y pude probar de punta a punta.
+
 - **Ingreso:** por ahora funciona con Usuario gub.uy.
 - **Prex:** es la opción que mejor probé y ya la usé para completar recargas reales.
-- **eBROU:** hay una primera integración, todavía experimental y pendiente de más pruebas de principio a fin.
+- **eBROU:** hay una primera integración disponible, todavía experimental y pendiente de más pruebas de principio a fin.
 - **Otras opciones:** todavía no están incorporadas.
 
-La combinación recomendada es **Usuario gub.uy + Prex**, porque es la que uso habitualmente y pude probar de punta a punta. La idea es sumar otras formas de ingreso y pago a medida que haya interés, feedback y oportunidades de probarlas bien.
-
-## Descargar e instalar
-
-| | **Estable** | **Beta** |
-|---|---|---|
-| Para quién | Uso habitual | Pruebas y novedades anticipadas |
-| Actualizaciones | Sólo versiones estables | Sólo versiones Beta |
-| Descarga | [`boletera-0.2.32.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32) | [`boletera-beta-0.2.32-beta.1.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32-beta.1) |
-
-1. Descargá el `.apk` de la versión que prefieras.
-2. Abrilo en un teléfono con Android 8 o posterior.
-3. Si Android lo solicita, permití la instalación desde la app con la que lo descargaste.
-4. Para actualizar, instalá la nueva versión encima de la anterior y conservás tus datos.
-
-Podés cambiar entre **Estable** y **Beta** desde Configuración. Ambas usan la misma firma y conservan los datos de Boletera al instalar una encima de la otra.
-
-> [!IMPORTANT]
-> La app puede preparar una recarga real. Revisá siempre el importe y la tarjeta antes de confirmar un pago.
+El proyecto recién empieza. La idea es sumar otras formas de ingreso y pago a medida que haya interés, feedback y oportunidades de probarlas bien.
 
 ## Cómo funciona
 
@@ -66,26 +43,57 @@ Boletera usa como base el mismo sitio oficial de STM y presenta sus pasos conoci
 
 La app reconoce las pantallas conocidas y automatiza acciones mecánicas, como navegar entre pasos, elegir la boletera y completar campos que ya autorizaste. El ingreso de Usuario gub.uy, los CAPTCHA y la confirmación final del pago siguen bajo tu control. Si STM o un proveedor muestra una pantalla que Boletera no reconoce, el recorrido se detiene.
 
+## Todo lo importante, en un solo lugar
+
+- Saldo disponible y mínimo de recarga informado por STM.
+- Selección de boletera, importe y medio de pago.
+- Interfaz nativa para el acceso, la recarga y Prex.
+- Tema claro, oscuro o automático.
+- Actualizaciones firmadas desde la propia app.
+
+## Elegí la versión que querés usar
+
+| | **Estable** | **Beta** |
+|---|---|---|
+| Para quién | Uso habitual | Pruebas y novedades anticipadas |
+| Actualizaciones | Sólo versiones estables | Sólo versiones Beta |
+| Descarga | [`boletera-0.2.32.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32) | [`boletera-beta-0.2.32-beta.1.apk`](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32-beta.1) |
+
+Podés cambiar entre **Estable** y **Beta** desde Configuración. Ambas usan la misma firma y conservan los datos de Boletera al instalar una encima de la otra.
+
+## Instalar
+
+1. Descargá la [última versión estable](https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32).
+2. Abrí el archivo `.apk` en un teléfono con Android 8 o posterior.
+3. Si Android lo solicita, permití la instalación desde la app con la que descargaste el archivo.
+4. Instalá la actualización encima de la versión anterior para conservar tus datos.
+
+La app puede preparar una recarga real. Revisá siempre el importe y la tarjeta antes de confirmar un pago. Los CAPTCHA y las autorizaciones finales quedan bajo tu control.
+
 ## Privacidad y seguridad
 
 La idea es que tus datos se queden con vos. Boletera no tiene cuentas propias, servidor ni analítica, y la información no me llega a mí: la conexión ocurre entre tu teléfono y los servicios oficiales que intervienen en el recorrido.
 
-- **Acceso:** el documento y la contraseña de gub.uy se guardan sólo si elegís **Guardar acceso con huella**. Quedan cifrados con una clave de Android Keystore y requieren la biometría fuerte del dispositivo para desbloquearse.
-- **Perfiles de Prex:** los perfiles opcionales de titular también se cifran en el teléfono.
-- **Tarjeta:** el número, el vencimiento y el CVV se usan de forma temporal para completar el formulario original. Boletera no los guarda y los limpia al salir del formulario.
-- **Recargas pendientes:** se conserva un registro cifrado del importe y su estado para evitar que repitas una recarga por error. No contiene datos de la tarjeta.
-- **Navegación:** se limita a los sitios verificados de STM, gub.uy y los proveedores de pago. Una conexión insegura, una pantalla desconocida o un importe ilegible detienen el recorrido.
-- **Sin seguimiento:** no hay anuncios, analítica ni seguimiento remoto.
+- El documento y la contraseña de gub.uy se guardan únicamente si elegís **Guardar acceso con huella**. Quedan cifrados en el teléfono con una clave de Android Keystore y requieren la biometría fuerte del dispositivo para desbloquearse.
+- Los perfiles opcionales de titular para Prex también se cifran localmente.
+- El número de tarjeta, el vencimiento y el CVV se usan de forma temporal para completar el formulario original. Boletera no los guarda en su almacenamiento y los limpia al salir del formulario.
+- Si una recarga queda pendiente, se conserva localmente un registro cifrado del importe y su estado para evitar que la repitas por error. Ese registro no contiene los datos de la tarjeta.
+- No hay anuncios, analítica ni seguimiento remoto.
+- La navegación se limita a los sitios verificados de STM, gub.uy y los proveedores de pago.
+- Una conexión insegura, una pantalla desconocida o un importe ilegible detienen el recorrido.
 
-Todo el código es público, así que podés revisar qué se guarda, cómo se cifra y a qué sitios se conecta. Los detalles están en [Arquitectura](docs/ARQUITECTURA.md), [sesión y versiones](docs/CANALES-Y-SESION-0.2.31.md) e [integración de pagos](docs/INTEGRACION-NATIVA-PAGO.md).
+Todo el código es público. Si te interesa, podés revisar qué se guarda, cómo se cifra y a qué sitios se conecta. La implementación y sus límites están explicados en [Arquitectura](docs/ARQUITECTURA.md), [sesión y versiones](docs/CANALES-Y-SESION-0.2.31.md) e [integración de pagos](docs/INTEGRACION-NATIVA-PAGO.md).
 
-## Feedback
+## Feedback y próximos pasos
 
 Me encantaría saber cómo te funciona. Si encontrás un problema, tenés una idea o querés que sume otro método, podés [abrir un issue](https://github.com/jmestrallet/boletera-android/issues).
 
 Cada cambio en los sitios oficiales puede exigir una actualización. La versión Beta conserva funciones experimentales que todavía no recomiendo para el uso habitual.
 
-Más información: [validación y evidencia](docs/VALIDACION.md) · [compatibilidad de pagos](docs/COMPATIBILIDAD-PAGO.md) · [historial de cambios](CHANGELOG.md) · [cómo probarla en Android](docs/PROBAR-EN-ANDROID.md)
+- [Validación y evidencia](docs/VALIDACION.md)
+- [Compatibilidad de pagos](docs/COMPATIBILIDAD-PAGO.md)
+- [Historial de cambios](CHANGELOG.md)
+- [Cómo probarla en Android](docs/PROBAR-EN-ANDROID.md)
 
 ## Compilar
 
