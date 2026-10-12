@@ -150,9 +150,8 @@ def build(name):
     x0 = 96
     # signage strip, like a stop sign header; doubles as the independence notice
     a(f'<rect width="{W}" height="52" fill="{c["strip"]}"/>')
-    # underline split in the three line colours, so it reads as a route map rather than a single brand colour
-    for i, col in enumerate(c["lines"]):
-        a(f'<rect x="{i * W / 3:.1f}" y="52" width="{W / 3:.1f}" height="4" fill="{col}"/>')
+    # a thin line in the main route colour keeps the strip within the blue family
+    a(f'<rect y="52" width="{W}" height="3" fill="{c["lines"][0]}"/>')
     a(T("APP ANDROID PARA TU TARJETA STM", MED, 15, x0, 32, c["stripInk"], tracking=140)[0])
     a(T("Proyecto independiente · No es una app oficial de STM", TXT, 14, W - x0, 31.5, c["stripMuted"], anchor="end")[0])
 
