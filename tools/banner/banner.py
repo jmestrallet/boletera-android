@@ -30,7 +30,7 @@ THEMES = {
         chipStroke="#0B2A4F", chipStrokeA=0.12, chipInk="#1A2E48", rim="#0B2A4F", rimA=0.10,
         tile0="#1A73D9", tile1="#0B3D7A", tileInk="#FFFFFF",
         strip="#0B3D7A", stripInk="#FFFFFF", stripMuted="#A9C6EA",
-        lines=["#1A73D9", "#F2A900", "#14A3B8"], stop="#FFFFFF", stopRing="#0B2342",
+        lines=["#1A73D9", "#2FA35A", "#14A3B8"], stop="#FFFFFF", stopRing="#0B2342",
         sBg="#F4F7FB", sSurface="#FFFFFF", sCont="#DCEBFF", sOnCont="#0B2E5C", sLabel="#1658A8",
         sPrimary="#0E5BB5", sOnPrimary="#FFFFFF", sVar="#E4ECF5", sOnVar="#4E5D6E",
         sOutline="#C9D6E5", sOn="#13233A", frame="#0E1A2A", frameEdge="#4A5A70",
@@ -45,7 +45,7 @@ THEMES = {
         chipStroke="#FFFFFF", chipStrokeA=0.11, chipInk="#DCE7F3", rim="#FFFFFF", rimA=0.07,
         tile0="#2B86F0", tile1="#0B3D7A", tileInk="#FFFFFF",
         strip="#0D3F7C", stripInk="#FFFFFF", stripMuted="#9DBDE6",
-        lines=["#3D8EF0", "#F2B400", "#1FB8CC"], stop="#0B1A2E", stopRing="#EEF4FB",
+        lines=["#3D8EF0", "#45C26F", "#1FB8CC"], stop="#0B1A2E", stopRing="#EEF4FB",
         sBg="#0A131F", sSurface="#131F2E", sCont="#16365F", sOnCont="#DCEBFF", sLabel="#8CC2FF",
         sPrimary="#6CB0FF", sOnPrimary="#06213F", sVar="#1E2B3B", sOnVar="#A9B9CC",
         sOutline="#2C3B4E", sOn="#E6EEF7", frame="#03070C", frameEdge="#3A4A60",
@@ -150,7 +150,9 @@ def build(name):
     x0 = 96
     # signage strip, like a stop sign header; doubles as the independence notice
     a(f'<rect width="{W}" height="52" fill="{c["strip"]}"/>')
-    a(f'<rect y="52" width="{W}" height="4" fill="{c["lines"][1]}"/>')
+    # underline split in the three line colours, so it reads as a route map rather than a single brand colour
+    for i, col in enumerate(c["lines"]):
+        a(f'<rect x="{i * W / 3:.1f}" y="52" width="{W / 3:.1f}" height="4" fill="{col}"/>')
     a(T("APP ANDROID PARA TU TARJETA STM", MED, 15, x0, 32, c["stripInk"], tracking=140)[0])
     a(T("Proyecto independiente · No es una app oficial de STM", TXT, 14, W - x0, 31.5, c["stripMuted"], anchor="end")[0])
 
