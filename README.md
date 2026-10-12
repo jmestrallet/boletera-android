@@ -1,7 +1,7 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/media/boletera-hero-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="docs/media/boletera-hero-light.svg">
-  <img src="docs/media/boletera-hero-light.svg" alt="Boletera · Tu STM, más simple" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/boletera-banner-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/media/boletera-banner-light.svg">
+  <img src="docs/media/boletera-banner-light.svg" alt="Boletera · Tu STM, más simple" width="100%">
 </picture>
 
 <p align="center">
