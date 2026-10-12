@@ -1,4 +1,4 @@
-"""Generates docs/media/boletera-hero-{dark,light}.svg.
+"""Generates docs/media/boletera-banner-{dark,light}.svg.
 
 Every string is converted to outlines with the app's own Google Sans files, so
 the banner renders identically on GitHub, in any browser and without fonts.
@@ -274,5 +274,5 @@ def build(name):
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else str(Path(__file__).resolve().parents[2] / "docs/media")
     for name in THEMES:
-        with open(f"{out}/boletera-hero-{name}.svg", "w", encoding="utf-8") as f:
+        with open(f"{out}/boletera-banner-{name}.svg", "w", encoding="utf-8") as f:
             f.write(build(name))
