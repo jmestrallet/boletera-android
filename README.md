@@ -1,6 +1,8 @@
-<p align="center">
-  <img src="docs/media/boletera-hero.svg" alt="Boletera · Tu STM, más simple" width="100%">
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/boletera-hero-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/media/boletera-hero-light.svg">
+  <img src="docs/media/boletera-hero-light.svg" alt="Boletera · Tu STM, más simple" width="100%">
+</picture>
 
 <p align="center">
   <strong>Consultá tu saldo y recargá tu tarjeta STM desde una app Android clara y nativa.</strong>
@@ -12,10 +14,6 @@
   <a href="https://github.com/jmestrallet/boletera-android/releases/tag/v0.2.32-beta.1">Probar Boletera Beta</a>
   ·
   <a href="CHANGELOG.md">Ver cambios</a>
-</p>
-
-<p align="center">
-  <img src="docs/media/boletera-home.png" alt="Pantalla principal de Boletera" width="330">
 </p>
 
 > [!NOTE]

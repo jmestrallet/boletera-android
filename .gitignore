@@ -13,3 +13,4 @@ outputs/
 .env
 .env.*
 *.log
+__pycache__/
