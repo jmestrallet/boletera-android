@@ -22,44 +22,14 @@ INFO = "M440,680L520,680L520,440L440,440L440,680ZM480,360Q497,360 508.5,348.5Q52
 BOLD, MED, REG, TXT = "google_sans_bold.ttf", "google_sans_medium.ttf", "google_sans_regular.ttf", "google_sans_text.ttf"
 
 THEMES = {
-    "dark": dict(
-        bg0="#0B110B", bg1="#13201A", glow="#B9E991", glowA=0.22, glow2="#4E8F5A", glow2A=0.18,
-        grid="#FFFFFF", gridA=0.07, ink="#F1F5EE", muted="#B9C5B5", faint="#8C9A86",
-        accent="#B9E991", eyebrow="#B9E991", chipFill="#FFFFFF", chipFillA=0.045,
-        chipStroke="#FFFFFF", chipStrokeA=0.10, chipInk="#DCE5D7", rim="#FFFFFF", rimA=0.07,
-        tile0="#D6F7AE", tile1="#9ED36F", tileInk="#1D3516",
-        route="#B9E991", routeA=0.34,
-        # phone screen (app dark theme)
-        sBg="#101610", sSurface="#1A221A", sCont="#2D4B2B", sOnCont="#D6F7AE", sLabel="#B9E991",
-        sPrimary="#B9E991", sOnPrimary="#193616", sVar="#2A342A", sOnVar="#B9C5B5",
-        sOutline="#3F4A3C", sOn="#E3E9DF", frame="#050805", frameEdge="#3A4638",
-        card0="#D6F7AE", card1="#8FCB64", cardInk="#1D3516", cardInkA=0.75,
-        toast="#1C261C", toastA=0.92, toastStroke="#FFFFFF", toastStrokeA=0.10, toastInk="#EEF3EA",
-        toastMuted="#9FB09A", shadow="#000000", shadowA=0.55,
-    ),
+    # Public-transport signage: institutional blue, a stop-sign strip and a line map.
     "light": dict(
-        bg0="#FBFCF8", bg1="#E4EDD9", glow="#A6DD78", glowA=0.42, glow2="#D6F7AE", glow2A=0.55,
-        grid="#19231A", gridA=0.07, ink="#16201A", muted="#4A5844", faint="#6B7864",
-        accent="#285B35", eyebrow="#285B35", chipFill="#FFFFFF", chipFillA=0.75,
-        chipStroke="#19231A", chipStrokeA=0.10, chipInk="#2B3828", rim="#19231A", rimA=0.08,
-        tile0="#2F6B3D", tile1="#1D3516", tileInk="#D6F7AE",
-        route="#285B35", routeA=0.30,
-        sBg="#F5F7F1", sSurface="#FFFFFF", sCont="#D6F7AE", sOnCont="#1D3516", sLabel="#285B35",
-        sPrimary="#285B35", sOnPrimary="#FFFFFF", sVar="#E8EDE2", sOnVar="#56634F",
-        sOutline="#C9D3BF", sOn="#19231A", frame="#18201A", frameEdge="#4A5648",
-        card0="#2F6B3D", card1="#16301B", cardInk="#D6F7AE", cardInkA=0.85,
-        toast="#FFFFFF", toastA=0.96, toastStroke="#19231A", toastStrokeA=0.08, toastInk="#16201A",
-        toastMuted="#5E6B58", shadow="#1D3516", shadowA=0.22,
-    ),
-    # Transit-signage direction: institutional blue, white, and a line map.
-    "transit": dict(
-        transit=True,
         bg0="#FFFFFF", bg1="#E7EFF8", glow="#5AA2F0", glowA=0.20, glow2="#D5E8FF", glow2A=0.70,
         grid="#0B2A4F", gridA=0.06, ink="#0B2342", muted="#44566C", faint="#66788E",
-        accent="#0E5BB5", eyebrow="#FFFFFF", chipFill="#FFFFFF", chipFillA=0.9,
+        accent="#0E5BB5", chipFill="#FFFFFF", chipFillA=0.9,
         chipStroke="#0B2A4F", chipStrokeA=0.12, chipInk="#1A2E48", rim="#0B2A4F", rimA=0.10,
         tile0="#1A73D9", tile1="#0B3D7A", tileInk="#FFFFFF",
-        route="#0E5BB5", routeA=0.30, strip="#0B3D7A", stripInk="#FFFFFF", stripMuted="#A9C6EA",
+        strip="#0B3D7A", stripInk="#FFFFFF", stripMuted="#A9C6EA",
         lines=["#1A73D9", "#F2A900", "#14A3B8"], stop="#FFFFFF", stopRing="#0B2342",
         sBg="#F4F7FB", sSurface="#FFFFFF", sCont="#DCEBFF", sOnCont="#0B2E5C", sLabel="#1658A8",
         sPrimary="#0E5BB5", sOnPrimary="#FFFFFF", sVar="#E4ECF5", sOnVar="#4E5D6E",
@@ -68,14 +38,13 @@ THEMES = {
         toast="#FFFFFF", toastA=0.97, toastStroke="#0B2A4F", toastStrokeA=0.10, toastInk="#0B2342",
         toastMuted="#55667B", shadow="#0B2A4F", shadowA=0.22,
     ),
-    "transit-dark": dict(
-        transit=True,
+    "dark": dict(
         bg0="#06101D", bg1="#0B1C32", glow="#2F7BE0", glowA=0.30, glow2="#14396A", glow2A=0.55,
         grid="#FFFFFF", gridA=0.06, ink="#EEF4FB", muted="#A9B9CC", faint="#7F93AA",
-        accent="#6CB0FF", eyebrow="#FFFFFF", chipFill="#FFFFFF", chipFillA=0.05,
+        accent="#6CB0FF", chipFill="#FFFFFF", chipFillA=0.05,
         chipStroke="#FFFFFF", chipStrokeA=0.11, chipInk="#DCE7F3", rim="#FFFFFF", rimA=0.07,
         tile0="#2B86F0", tile1="#0B3D7A", tileInk="#FFFFFF",
-        route="#6CB0FF", routeA=0.30, strip="#0D3F7C", stripInk="#FFFFFF", stripMuted="#9DBDE6",
+        strip="#0D3F7C", stripInk="#FFFFFF", stripMuted="#9DBDE6",
         lines=["#3D8EF0", "#F2B400", "#1FB8CC"], stop="#0B1A2E", stopRing="#EEF4FB",
         sBg="#0A131F", sSurface="#131F2E", sCont="#16365F", sOnCont="#DCEBFF", sLabel="#8CC2FF",
         sPrimary="#6CB0FF", sOnPrimary="#06213F", sVar="#1E2B3B", sOnVar="#A9B9CC",
@@ -136,22 +105,14 @@ def build(name):
       f'<stop offset=".5" stop-color="{c["frameEdge"]}" stop-opacity=".35"/><stop offset="1" stop-color="{c["frameEdge"]}" stop-opacity=".1"/></linearGradient>')
     a(f'<linearGradient id="screenFade" x1="0" y1="0" x2="0" y2="1"><stop offset=".72" stop-color="{c["bg1"]}" stop-opacity="0"/>'
       f'<stop offset="1" stop-color="{c["bg1"]}"/></linearGradient>')
-    a(f'<linearGradient id="routeFade" x1="560" y1="0" x2="{W}" y2="0" gradientUnits="userSpaceOnUse">'
-      f'<stop stop-color="{c["route"]}" stop-opacity="0"/><stop offset=".25" stop-color="{c["route"]}" stop-opacity="{c["routeA"]}"/>'
-      f'<stop offset="1" stop-color="{c["route"]}" stop-opacity="{c["routeA"]}"/></linearGradient>')
     a(f'<filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">'
       f'<feDropShadow dx="0" dy="28" stdDeviation="30" flood-color="{c["shadow"]}" flood-opacity="{c["shadowA"]}"/></filter>')
     a(f'<filter id="soft" x="-40%" y="-60%" width="180%" height="220%">'
       f'<feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="{c["shadow"]}" flood-opacity="{c["shadowA"]*0.8:.2f}"/></filter>')
-    a(f'<radialGradient id="busGlow"><stop stop-color="{c["accent"]}" stop-opacity=".55"/><stop offset="1" stop-color="{c["accent"]}" stop-opacity="0"/></radialGradient>')
     a('</defs>')
 
     # Motion is decorative and switched off for people who ask for less of it.
-    transit = c.get("transit", False)
-    if transit:
-        route_d = "M700 700 L700 640 L780 560 L1160 560 L1260 460 L1260 -40"
-    else:
-        route_d = "M560 700 C 640 560, 720 520, 790 470 S 980 300, 1090 230 S 1230 150, 1320 70"
+    route_d = "M700 700 L700 640 L780 560 L1160 560 L1260 460 L1260 -40"
     a('<style>'
       '.float{animation:float 7s ease-in-out infinite}'
       '.float2{animation:float 9s ease-in-out -3s infinite}'
@@ -169,41 +130,29 @@ def build(name):
     a(f'<rect width="{W}" height="{H}" fill="url(#dots)" mask="url(#dotsMask)"/>')
     a(f'<g class="breathe"><rect width="{W}" height="{H}" fill="url(#glow)"/></g>')
 
-    # ---------- route (behind everything on the right) ----------
-    if transit:
-        l1, l2, l3 = c["lines"]
-        others = [
-            (l3, "M1320 250 L1210 250 L1150 190 L1150 -40"),
-            (l2, "M720 -40 L720 100 L800 180 L1320 180"),
-        ]
-        for col, d in others + [(l1, route_d)]:
-            a(f'<path d="{d}" stroke="{col}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" stroke-opacity=".9"/>')
-        for (sx, sy) in [(740, 600), (1260, 410), (1150, 120), (1260, 180), (761, 141)]:
-            a(f'<circle cx="{sx}" cy="{sy}" r="8" fill="{c["stop"]}" stroke="{c["stopRing"]}" stroke-width="3.5"/>')
-        # interchange where two lines cross
-        a(f'<rect x="1138" y="168" width="24" height="24" rx="12" fill="{c["stop"]}" stroke="{c["stopRing"]}" stroke-width="3.5"/>')
-        a(f'<g class="bus"><circle r="18" fill="{c["bg0"]}" fill-opacity=".9" stroke="{l1}" stroke-width="3"/>'
-          f'<path d="M-7 -6 h14 a3 3 0 0 1 3 3 v9 h-20 v-9 a3 3 0 0 1 3 -3z M-10 1 h20 M-6 8 v1 M6 8 v1" '
-          f'stroke="{c["stopRing"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g>')
-    else:
-        a(f'<path d="{route_d}" stroke="url(#routeFade)" stroke-width="2" stroke-dasharray="2 10" stroke-linecap="round"/>')
-        for (sx, sy) in [(1176, 165)]:
-            a(f'<circle cx="{sx}" cy="{sy}" r="7" fill="{c["bg1"]}" stroke="{c["route"]}" stroke-opacity="{c["routeA"]*1.8:.2f}" stroke-width="2"/>')
-        a(f'<g class="bus"><circle r="18" fill="url(#busGlow)"/><circle r="5" fill="{c["accent"]}"/></g>')
+    # ---------- line map (behind everything on the right) ----------
+    l1, l2, l3 = c["lines"]
+    others = [
+        (l3, "M1320 250 L1210 250 L1150 190 L1150 -40"),
+        (l2, "M720 -40 L720 100 L800 180 L1320 180"),
+    ]
+    for col, d in others + [(l1, route_d)]:
+        a(f'<path d="{d}" stroke="{col}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" stroke-opacity=".9"/>')
+    for (sx, sy) in [(740, 600), (1260, 410), (1150, 120), (1260, 180), (761, 141)]:
+        a(f'<circle cx="{sx}" cy="{sy}" r="8" fill="{c["stop"]}" stroke="{c["stopRing"]}" stroke-width="3.5"/>')
+    # interchange where two lines cross
+    a(f'<rect x="1138" y="168" width="24" height="24" rx="12" fill="{c["stop"]}" stroke="{c["stopRing"]}" stroke-width="3.5"/>')
+    a(f'<g class="bus"><circle r="18" fill="{c["bg0"]}" fill-opacity=".9" stroke="{l1}" stroke-width="3"/>'
+      f'<path d="M-7 -6 h14 a3 3 0 0 1 3 3 v9 h-20 v-9 a3 3 0 0 1 3 -3z M-10 1 h20 M-6 8 v1 M6 8 v1" '
+      f'stroke="{c["stopRing"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g>')
 
     # ---------- left column ----------
     x0 = 96
-    if transit:
-        # signage strip, like a stop sign header; doubles as the independence notice
-        a(f'<rect width="{W}" height="52" fill="{c["strip"]}"/>')
-        a(f'<rect y="52" width="{W}" height="4" fill="{c["lines"][1]}"/>')
-        a(T("APP ANDROID PARA TU TARJETA STM", MED, 15, x0, 32, c["stripInk"], tracking=140)[0])
-        a(T("Proyecto independiente · No es una app oficial de STM", TXT, 14, W - x0, 31.5, c["stripMuted"], anchor="end")[0])
-    # eyebrow
-    if not transit:
-      a(f'<circle cx="{x0 + 5}" cy="132" r="5" fill="{c["eyebrow"]}"/>')
-      a(f'<circle cx="{x0 + 5}" cy="132" r="10" fill="{c["eyebrow"]}" fill-opacity=".18"/>')
-      a(T("APP ANDROID PARA TU TARJETA STM", MED, 15, x0 + 24, 137.5, c["eyebrow"], tracking=140)[0])
+    # signage strip, like a stop sign header; doubles as the independence notice
+    a(f'<rect width="{W}" height="52" fill="{c["strip"]}"/>')
+    a(f'<rect y="52" width="{W}" height="4" fill="{c["lines"][1]}"/>')
+    a(T("APP ANDROID PARA TU TARJETA STM", MED, 15, x0, 32, c["stripInk"], tracking=140)[0])
+    a(T("Proyecto independiente · No es una app oficial de STM", TXT, 14, W - x0, 31.5, c["stripMuted"], anchor="end")[0])
 
     # tile + wordmark
     ty = 178
@@ -322,8 +271,6 @@ def build(name):
 
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else str(Path(__file__).resolve().parents[2] / "docs/media")
-    # The transit theme is an alternative under review; pass it explicitly: banner.py <dir> transit
-    names = sys.argv[2].split(",") if len(sys.argv) > 2 else ["dark", "light"]
-    for name in names:
+    for name in THEMES:
         with open(f"{out}/boletera-hero-{name}.svg", "w", encoding="utf-8") as f:
             f.write(build(name))
