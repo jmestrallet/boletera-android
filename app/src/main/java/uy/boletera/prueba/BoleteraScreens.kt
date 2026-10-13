@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -36,18 +37,24 @@ import java.util.Locale
 
 @Composable internal fun WelcomeHero() {
     Column(verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        Surface(color=Lime,shape=RoundedCornerShape(topStart=32.dp,topEnd=32.dp,bottomEnd=64.dp,bottomStart=32.dp)) {
+        Surface(color=Highlight,shape=RoundedCornerShape(topStart=32.dp,topEnd=32.dp,bottomEnd=64.dp,bottomStart=32.dp)) {
             Box(Modifier.fillMaxWidth().height(144.dp).padding(24.dp)) {
-                val routeColor=MaterialTheme.colorScheme.onPrimaryContainer
+                val (main,green,teal)=TransitLines
+                val stopFill=Highlight
+                val stopRing=MaterialTheme.colorScheme.onPrimaryContainer
                 Canvas(Modifier.fillMaxSize()) {
-                    val p=Path().apply { moveTo(size.width*0.03f,size.height*0.8f);lineTo(size.width*0.25f,size.height*0.8f);cubicTo(size.width*0.48f,size.height*0.8f,size.width*0.42f,size.height*0.15f,size.width*0.64f,size.height*0.15f);lineTo(size.width*0.95f,size.height*0.15f) }
-                    drawPath(p,routeColor.copy(alpha=0.18f),style=Stroke(12.dp.toPx(),cap=StrokeCap.Round))
-                    drawCircle(routeColor,7.dp.toPx(),Offset(size.width*0.03f,size.height*0.8f))
-                    drawCircle(routeColor,7.dp.toPx(),Offset(size.width*0.95f,size.height*0.15f))
+                    val w=size.width; val h=size.height
+                    val line=Stroke(8.dp.toPx(),cap=StrokeCap.Round,join=StrokeJoin.Round)
+                    drawPath(Path().apply { moveTo(w*0.10f,-24.dp.toPx());lineTo(w*0.10f,h*0.12f);lineTo(w*0.22f,h*0.38f);lineTo(w+24.dp.toPx(),h*0.38f) },green.copy(alpha=0.9f),style=line)
+                    drawPath(Path().apply { moveTo(w+24.dp.toPx(),h*0.70f);lineTo(w*0.84f,h*0.70f);lineTo(w*0.76f,h*0.38f);lineTo(w*0.76f,-24.dp.toPx()) },teal.copy(alpha=0.9f),style=line)
+                    drawPath(Path().apply { moveTo(-24.dp.toPx(),h*0.86f);lineTo(w*0.30f,h*0.86f);lineTo(w*0.42f,h*1.0f+24.dp.toPx()) },main.copy(alpha=0.9f),style=line)
+                    listOf(Offset(w*0.10f,h*0.12f),Offset(w*0.92f,h*0.70f),Offset(w*0.18f,h*0.86f)).forEach {
+                        drawCircle(stopFill,6.dp.toPx(),it); drawCircle(stopRing,6.dp.toPx(),it,style=Stroke(3.dp.toPx()))
+                    }
+                    val interchange=Offset(w*0.76f,h*0.38f)
+                    drawCircle(stopFill,10.dp.toPx(),interchange); drawCircle(stopRing,10.dp.toPx(),interchange,style=Stroke(3.dp.toPx()))
                 }
-                Surface(color=Panel,shape=RoundedCornerShape(20.dp),modifier=Modifier.align(Alignment.Center).size(80.dp).graphicsLayer { rotationZ=-10f }) {
-                    Box(contentAlignment=Alignment.Center) { AppGlyph(Glyph.Ticket,Modifier.size(42.dp),tint=MaterialTheme.colorScheme.primary) }
-                }
+                BrandTile(Modifier.align(Alignment.Center).size(80.dp).graphicsLayer { rotationZ=-10f })
             }
         }
         Title("Tu próximo viaje\nempieza acá.")
@@ -63,22 +70,22 @@ import java.util.Locale
     fun chooseCard() { haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onChangeCard() }
     Column(verticalArrangement=Arrangement.spacedBy(24.dp)) {
         Text("STM · ${state.selectedCard?.takeLast(4).orEmpty()}",style=MaterialTheme.typography.bodyMedium,color=Muted)
-        Surface(color=Lime,shape=RoundedCornerShape(32.dp),modifier=Modifier.semantics {
+        Surface(color=Highlight,shape=RoundedCornerShape(32.dp),modifier=Modifier.semantics {
             customActions=listOf(CustomAccessibilityAction("Actualizar saldo") { if (!state.busy) { onRefresh(); true } else false })
         }) {
             Column(Modifier.fillMaxWidth().padding(28.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                    Text("Saldo disponible",style=MaterialTheme.typography.titleMedium,color=colors.onPrimaryContainer,modifier=Modifier.weight(1f))
-                    IconButton(onClick=::chooseCard,enabled=!state.busy) { AppGlyph(Glyph.Swap,label="Cambiar boletera",tint=colors.onPrimaryContainer) }
+                    Text("Saldo disponible",style=MaterialTheme.typography.titleMedium,color=colors.tertiary,modifier=Modifier.weight(1f))
+                    IconButton(onClick=::chooseCard,enabled=!state.busy) { AppGlyph(Glyph.Swap,label="Cambiar boletera",tint=colors.tertiary) }
                 }
                 Text(Amounts.format(state.balance),style=if(Amounts.format(state.balance).length>10)MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge,
                     color=colors.onPrimaryContainer,modifier=Modifier.fillMaxWidth())
-                Text(if((state.balance?:0)<0) "Saldo pendiente de cubrir" else "Informado por STM",style=MaterialTheme.typography.bodyMedium,color=colors.onPrimaryContainer)
-                HorizontalDivider(color=colors.onPrimaryContainer.copy(alpha=0.15f))
+                Text(if((state.balance?:0)<0) "Saldo pendiente de cubrir" else "Informado por STM",style=MaterialTheme.typography.bodyMedium,color=colors.tertiary)
+                HorizontalDivider(color=colors.tertiary.copy(alpha=0.28f))
                 Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    AppGlyph(Glyph.Refresh,Modifier.size(16.dp),tint=colors.onPrimaryContainer)
+                    AppGlyph(Glyph.Refresh,Modifier.size(16.dp),tint=colors.tertiary)
                     Text(if(state.busy) "Actualizando…" else state.consultedAt?.let { "Actualizado a las ${SimpleDateFormat("HH:mm",Locale.forLanguageTag("es-UY")).format(Date(it))}" } ?: "Deslizá hacia abajo para actualizar",
-                        style=MaterialTheme.typography.bodySmall,color=colors.onPrimaryContainer)
+                        style=MaterialTheme.typography.bodySmall,color=colors.tertiary)
                 }
             }
         }
@@ -134,7 +141,7 @@ import java.util.Locale
             Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 choices.forEachIndexed { i,value ->
                     val active=!custom&&selected==value
-                    val fill by animateColorAsState(if(active)Lime else Panel,spring(stiffness=650f),label="amount surface")
+                    val fill by animateColorAsState(if(active)Highlight else Panel,spring(stiffness=650f),label="amount surface")
                     val radius by animateDpAsState(if(active)32.dp else 12.dp,spring(dampingRatio=0.7f,stiffness=500f),label="amount shape")
                     val checkScale by animateFloatAsState(if(active)1f else 0f,spring(dampingRatio=0.6f,stiffness=500f),label="amount check")
                     Surface(color=fill,shape=RoundedCornerShape(radius),modifier=Modifier.fillMaxWidth().selectable(active,enabled=!state.busy,role=Role.RadioButton) {
@@ -161,7 +168,7 @@ import java.util.Locale
 
 @Composable internal fun LoadingState(title: String, description: String, express: Boolean = false) {
     Column(Modifier.fillMaxWidth().padding(vertical=32.dp),verticalArrangement=Arrangement.spacedBy(24.dp)) {
-        Surface(color=Lime,shape=RoundedCornerShape(28.dp),modifier=Modifier.size(88.dp)) {
+        Surface(color=Highlight,shape=RoundedCornerShape(28.dp),modifier=Modifier.size(88.dp)) {
             Box(contentAlignment=Alignment.Center) {
                 if(express)ExpressEnergy(1f,true,MaterialTheme.colorScheme.onPrimaryContainer,Modifier.size(80.dp))
                 else CircularProgressIndicator(Modifier.size(40.dp),strokeWidth=3.dp,color=MaterialTheme.colorScheme.onPrimaryContainer)
@@ -197,7 +204,7 @@ import java.util.Locale
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     listOf(Triple("system","Sistema",Glyph.Phone),Triple("light","Claro",Glyph.Sun),Triple("dark","Oscuro",Glyph.Moon)).forEach { (value,label,glyph) ->
                         val selectionRadius by animateDpAsState(if(appearance==value)28.dp else 20.dp,spring(dampingRatio=0.7f,stiffness=550f),label="appearance shape")
-                        Surface(color=if(appearance==value)Lime else Panel,shape=RoundedCornerShape(selectionRadius),modifier=Modifier.weight(1f).selectable(appearance==value,role=Role.RadioButton){if(appearance!=value){haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onAppearance(value)}}) {
+                        Surface(color=if(appearance==value)Highlight else Panel,shape=RoundedCornerShape(selectionRadius),modifier=Modifier.weight(1f).selectable(appearance==value,role=Role.RadioButton){if(appearance!=value){haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onAppearance(value)}}) {
                             Column(Modifier.padding(vertical=16.dp,horizontal=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)) {
                                 AppGlyph(glyph,tint=if(appearance==value)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
                                 Text(label,style=MaterialTheme.typography.bodyMedium,color=if(appearance==value)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
@@ -210,7 +217,7 @@ import java.util.Locale
                 Text("Versión",style=MaterialTheme.typography.titleMedium,color=Ink)
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     UpdateChannel.entries.forEach { option ->
-                        Surface(color=if(updates.channel==option)Lime else Panel,shape=RoundedCornerShape(22.dp),
+                        Surface(color=if(updates.channel==option)Highlight else Panel,shape=RoundedCornerShape(22.dp),
                             modifier=Modifier.weight(1f).selectable(updates.channel==option,enabled=!updates.busy,role=Role.RadioButton) {
                                 haptic.performHapticFeedback(HapticFeedbackType.ContextClick);updates.selectChannel(option)
                             }) {
