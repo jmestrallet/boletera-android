@@ -287,7 +287,7 @@ class MainActivity : FragmentActivity() {
                         if(cap!=null)Primary("Ya completé la verificación"){engine.continueCaptcha()}
                     }
                     SnackbarHost(hostState=snackbar,modifier=Modifier.align(Alignment.BottomCenter).padding(16.dp))
-                    if(stage=="balance")PullToRefreshDefaults.Indicator(state=pullState,isRefreshing=state.busy,modifier=Modifier.align(Alignment.TopCenter),containerColor=Lime,color=MaterialTheme.colorScheme.onPrimaryContainer)
+                    if(stage=="balance")PullToRefreshDefaults.Indicator(state=pullState,isRefreshing=state.busy,modifier=Modifier.align(Alignment.TopCenter),containerColor=Highlight,color=MaterialTheme.colorScheme.onPrimaryContainer)
                 }
                 if(stage=="paymentBoundary")Box(Modifier.widthIn(max=600.dp).fillMaxWidth()) {
                     PaymentSetupFooter(state,engine.payerProfiles,

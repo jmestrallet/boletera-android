@@ -29,14 +29,14 @@ android {
         versionCode = if (legacyUpdateBridge) 49 else 58
         versionName = when {
             legacyUpdateBridge -> "0.2.31-prueba"
-            isAlpha -> "0.2.40-alpha.1"
+            isAlpha -> "0.2.40-alpha.2"
             isBeta -> "0.2.40-beta.1"
             else -> "0.2.40"
         }
         buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"$distributionChannel\"")
         buildConfigField("String", "DISPLAY_VERSION", when {
             legacyUpdateBridge -> "\"0.2.31\""
-            isAlpha -> "\"0.2.40 Alpha 1\""
+            isAlpha -> "\"0.2.40 Alpha 2\""
             isBeta -> "\"0.2.40 Beta 1\""
             else -> "\"0.2.40\""
         })

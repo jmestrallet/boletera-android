@@ -17,12 +17,14 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -40,10 +42,14 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 
 internal val Ink: Color @Composable get() = MaterialTheme.colorScheme.onBackground
-internal val Lime: Color @Composable get() = MaterialTheme.colorScheme.primaryContainer
+internal val Highlight: Color @Composable get() = MaterialTheme.colorScheme.primaryContainer
 internal val Paper: Color @Composable get() = MaterialTheme.colorScheme.background
 internal val Muted: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
 internal val Panel: Color @Composable get() = MaterialTheme.colorScheme.surface
+/** Line-map colours from the README banner: main route, second and third lines. */
+internal val TransitLines: List<Color> @Composable get() =
+    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) listOf(Color(0xFF3D8EF0), Color(0xFF45C26F), Color(0xFF1FB8CC))
+    else listOf(Color(0xFF1A73D9), Color(0xFF2FA35A), Color(0xFF14A3B8))
 
 private val DisplayFamily = FontFamily(Font(R.font.google_sans_regular), Font(R.font.google_sans_medium, FontWeight.Medium), Font(R.font.google_sans_bold, FontWeight.Bold))
 private val BodyFamily = FontFamily(Font(R.font.google_sans_text), Font(R.font.google_sans_medium, FontWeight.Medium), Font(R.font.google_sans_bold, FontWeight.Bold))
@@ -63,17 +69,20 @@ private val AppTypography = Typography(
 
 @Composable internal fun BoleteraTheme(appearance: String = "system", content: @Composable () -> Unit) {
     val dark = when (appearance) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
+    // Public-transport blue, shared with the README banner (tools/banner/banner.py).
     val targetColors = if (dark) darkColorScheme(
-        primary = Color(0xFFB9E991), onPrimary = Color(0xFF193616), primaryContainer = Color(0xFF2D4B2B), onPrimaryContainer = Color(0xFFD6F7AE),
-        secondary = Color(0xFFB8CCAE), onSecondary = Color(0xFF243622), secondaryContainer = Color(0xFF334530), onSecondaryContainer = Color(0xFFD7E9CD),
-        background = Color(0xFF101610), onBackground = Color(0xFFE3E9DF), surface = Color(0xFF1A221A), onSurface = Color(0xFFE3E9DF),
-        surfaceVariant = Color(0xFF2A342A), onSurfaceVariant = Color(0xFFB9C5B5), outline = Color(0xFF85937F), outlineVariant = Color(0xFF3F4A3C),
+        primary = Color(0xFF6CB0FF), onPrimary = Color(0xFF06213F), primaryContainer = Color(0xFF16365F), onPrimaryContainer = Color(0xFFDCEBFF),
+        secondary = Color(0xFFA9C6EA), onSecondary = Color(0xFF10263F), secondaryContainer = Color(0xFF1D3350), onSecondaryContainer = Color(0xFFD6E5F7),
+        tertiary = Color(0xFF8CC2FF), onTertiary = Color(0xFF06213F),
+        background = Color(0xFF0A131F), onBackground = Color(0xFFE6EEF7), surface = Color(0xFF131F2E), onSurface = Color(0xFFE6EEF7),
+        surfaceVariant = Color(0xFF1E2B3B), onSurfaceVariant = Color(0xFFA9B9CC), outline = Color(0xFF8093A9), outlineVariant = Color(0xFF2C3B4E),
         error = Color(0xFFFFB4A6), onError = Color(0xFF5D160D), errorContainer = Color(0xFF48221D), onErrorContainer = Color(0xFFFFDAD2)
     ) else lightColorScheme(
-        primary = Color(0xFF285B35), onPrimary = Color.White, primaryContainer = Color(0xFFD6F7AE), onPrimaryContainer = Color(0xFF1D3516),
-        secondary = Color(0xFF4E6545), onSecondary = Color.White, secondaryContainer = Color(0xFFE3EDDA), onSecondaryContainer = Color(0xFF293B24),
-        background = Color(0xFFF5F7F1), onBackground = Color(0xFF19231A), surface = Color.White, onSurface = Color(0xFF19231A),
-        surfaceVariant = Color(0xFFE8EDE2), onSurfaceVariant = Color(0xFF56634F), outline = Color(0xFF73806B), outlineVariant = Color(0xFFD9E0D1),
+        primary = Color(0xFF0E5BB5), onPrimary = Color.White, primaryContainer = Color(0xFFDCEBFF), onPrimaryContainer = Color(0xFF0B2E5C),
+        secondary = Color(0xFF3F5F86), onSecondary = Color.White, secondaryContainer = Color(0xFFE2ECF8), onSecondaryContainer = Color(0xFF12304F),
+        tertiary = Color(0xFF1658A8), onTertiary = Color.White,
+        background = Color(0xFFF4F7FB), onBackground = Color(0xFF13233A), surface = Color.White, onSurface = Color(0xFF13233A),
+        surfaceVariant = Color(0xFFE4ECF5), onSurfaceVariant = Color(0xFF4E5D6E), outline = Color(0xFF6E7F93), outlineVariant = Color(0xFFC9D6E5),
         error = Color(0xFFAC3024), onError = Color.White, errorContainer = Color(0xFFFFE5DE), onErrorContainer = Color(0xFF722316)
     )
     val colors=targetColors.animatedThemeColors()
@@ -105,6 +114,7 @@ internal fun Modifier.pageEntrance(key: String, enabled: Boolean = true): Modifi
 @Composable private fun ColorScheme.animatedThemeColors():ColorScheme = copy(
     primary=themeColor(primary),onPrimary=themeColor(onPrimary),primaryContainer=themeColor(primaryContainer),onPrimaryContainer=themeColor(onPrimaryContainer),
     secondary=themeColor(secondary),onSecondary=themeColor(onSecondary),secondaryContainer=themeColor(secondaryContainer),onSecondaryContainer=themeColor(onSecondaryContainer),
+    tertiary=themeColor(tertiary),onTertiary=themeColor(onTertiary),
     background=themeColor(background),onBackground=themeColor(onBackground),surface=themeColor(surface),onSurface=themeColor(onSurface),
     surfaceVariant=themeColor(surfaceVariant),onSurfaceVariant=themeColor(onSurfaceVariant),outline=themeColor(outline),outlineVariant=themeColor(outlineVariant),
     error=themeColor(error),onError=themeColor(onError),errorContainer=themeColor(errorContainer),onErrorContainer=themeColor(onErrorContainer)
@@ -129,10 +139,17 @@ internal enum class Glyph { Ticket, Swap, Arrow, Back, Close, Settings, Check, L
 @Composable internal fun AppTopBar(onSettings: (() -> Unit)? = null, title: String? = null, onBack: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().heightIn(min=72.dp).padding(horizontal=16.dp), verticalAlignment=Alignment.CenterVertically) {
         if(onBack != null) IconButton(onClick=onBack) { AppGlyph(Glyph.Back,label="Volver") }
-        else Surface(color=Lime,shape=RoundedCornerShape(14.dp),modifier=Modifier.size(40.dp)) { Box(contentAlignment=Alignment.Center) { AppGlyph(Glyph.Ticket,tint=MaterialTheme.colorScheme.onPrimaryContainer) } }
+        else BrandTile(Modifier.size(40.dp))
         Text(title ?: "boletera",style=if(title==null)MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
             modifier=Modifier.weight(1f).padding(start=12.dp),color=Ink)
         if(onSettings!=null) FilledTonalIconButton(onClick=onSettings, colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)) { AppGlyph(Glyph.Settings,label="Configuración") }
+    }
+}
+
+/** Launcher-style tile: blue gradient with the white boletera symbol. */
+@Composable internal fun BrandTile(modifier: Modifier = Modifier) {
+    BoxWithConstraints(modifier.background(Brush.linearGradient(listOf(Color(0xFF1A73D9), Color(0xFF0B3D7A))), RoundedCornerShape(30)), contentAlignment=Alignment.Center) {
+        AppGlyph(Glyph.Ticket,Modifier.size(maxWidth*0.6f),tint=Color.White)
     }
 }
 

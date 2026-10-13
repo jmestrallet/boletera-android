@@ -107,3 +107,9 @@ Los dos textos del pie pasan de 12/18 sp a 11/14 sp. La guía ocupa 90 dp para d
 El dueño indicó que no sentía Probar vibración. La consulta de su teléfono mostró respuesta táctil activada e intensidad 2, sin eventos de Boletera en el registro consultado; eso no identifica por sí solo la causa exacta. Se sustituye la vía basada en la vista por Vibrator con efectos CLICK y DOUBLE_CLICK (prueba), clasificados como TOUCH. Android 8/9 usa pulsos cortos equivalentes; Android 10+ usa efectos predefinidos con compatibilidad del sistema. Se declara el permiso normal VIBRATE. No se cambia el ajuste del teléfono ni se saltea HAPTIC_FEEDBACK_ENABLED. [Referencia Android](https://developer.android.com/develop/ui/views/haptics/haptics-apis).
 
 La interfaz informa que se solicitaron los pulsos, sin afirmar que se sintieron. La percepción física queda pendiente en el teléfono del dueño. No se instaló ni ejecutó la versión corregida en ese teléfono durante esta comprobación.
+
+## Azul de transporte — 0.2.40 Alpha 2
+
+La app adopta la paleta del banner del README (`tools/banner/banner.py`): azul institucional de señalética de transporte en lugar del verde profundo y lima. Primario #0E5BB5 en claro y #6CB0FF en oscuro; el panel de saldo pasa a #DCEBFF / #16365F con el importe en #0B2E5C / #DCEBFF y los textos secundarios en el azul medio #1658A8 / #8CC2FF (color terciario del tema). Fondos #F4F7FB y #0A131F. Los pares de texto principales medidos superan 5,6:1 en claro y 6,5:1 en oscuro.
+
+El icono de inicio y el bloque del encabezado usan la tarjeta blanca sobre un degradado #1A73D9 → #0B3D7A, igual que el banner. La bienvenida reemplaza la ruta única por un mapa con las tres líneas del banner (azul, verde y turquesa), paradas y una combinación. La página de pago de Prex toma el mismo azul. No cambian distribución, tamaños, movimiento ni recorridos.
