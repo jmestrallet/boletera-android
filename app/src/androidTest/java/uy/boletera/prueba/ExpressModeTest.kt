@@ -17,7 +17,7 @@ class ExpressModeTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     private val person=PayerProfile("express-person","Mi Prex","Persona","Ficticia","00000000","persona@example.invalid","099123456")
 
-    @Test fun ordinaryChargeStaysPrimaryAndOneExpressTapStartsOnce() {
+    @Test fun ordinaryChargeStaysPrimaryAndOnlyFullHoldStartsOnce() {
         var starts=0;var common=0
         var available by mutableStateOf(false)
         var busy by mutableStateOf(false)
@@ -30,11 +30,13 @@ class ExpressModeTest {
         compose.onNodeWithText("Carga Express").assertDoesNotExist()
         compose.onNodeWithText("Recargar boletera").performScrollTo().performClick();assertEquals(1,common)
         compose.runOnIdle { available=true }
-        compose.onNodeWithText("Carga Express").performScrollTo().performClick();assertEquals(1,starts)
+        compose.onNodeWithText("Carga Express").performScrollTo().performClick();assertEquals(0,starts)
+        compose.onNodeWithText("Carga Express").performTouchInput { down(center);advanceEventTime(600);up() };assertEquals(0,starts)
+        compose.onNodeWithText("Carga Express").performTouchInput { longClick(durationMillis=1500) };assertEquals(1,starts)
         compose.onNodeWithText("Recargar boletera").assertExists()
         compose.onNodeWithText("Activar").assertDoesNotExist();compose.onNodeWithText("Ajustar").assertDoesNotExist()
         compose.runOnIdle {busy=true}
-        compose.onNodeWithText("Carga Express").performClick();assertEquals(1,starts)
+        compose.onNodeWithText("Carga Express").performTouchInput { longClick(durationMillis=1500) };assertEquals(1,starts)
     }
 
     @Test fun visibilityRequiresCompleteDefaultsAndBackgroundSuspendsWithoutDiscardingTheRequest() {
