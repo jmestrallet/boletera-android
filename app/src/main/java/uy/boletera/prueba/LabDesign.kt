@@ -46,8 +46,8 @@ internal object LabColors {
     val OnWarn = Color(0xFF3B2500)
     val GlassTint = Color.White.copy(alpha = 0.075f)
     val GlassLine = Color.White.copy(alpha = 0.09f)
-    /** What a glass panel looks like without blur: an opaque tinted surface. */
-    val Solid = Color(0xFF1B212C)
+    /** What a glass panel looks like without blur: a see-through tint, not an opaque surface. */
+    val FallbackTint = Color.White.copy(alpha = 0.10f)
 }
 
 /** One radius per angle: [lobes] bumps of relative [depth] (0 = circle). Shared shapes morph by animating [depth]. */
@@ -91,7 +91,8 @@ internal fun Modifier.labGlass(state: HazeState, shape: Shape, blur: Boolean): M
         tints = listOf(HazeTint(LabColors.GlassTint))
         blurRadius = 28.dp
         noiseFactor = 0f
-        fallbackTint = HazeTint(LabColors.Solid.copy(alpha = 0.94f))
+        // Without blur the panel stays see-through: over the smooth ambient light it reads almost like glass.
+        fallbackTint = HazeTint(LabColors.FallbackTint)
     }.border(1.dp, LabColors.GlassLine, shape)
 
 internal enum class EffectsMode(val key: String, val label: String) {

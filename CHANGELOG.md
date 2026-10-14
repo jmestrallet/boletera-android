@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.2.40 Lab 2 - Paneles translúcidos sin vidrio
+
+- Cuando el vidrio está apagado (Android 11 o anterior, o un celular modesto en Automático), el selector de tarjeta, Ajustes y la barra de Recargar dejan ver el fondo en lugar de un gris opaco.
+
 ## 0.2.40 Lab 1 - Inicio 2026
 
 - Primera Boletera Lab: se instala aparte, con ícono violeta, y no reemplaza a Boletera.
