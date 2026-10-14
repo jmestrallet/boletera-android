@@ -201,8 +201,11 @@ def build(name):
         cx += cw + 10
 
     # ---------- transit card, tilted behind the phone ----------
-    a(f'<g class="float2"><g transform="translate(636 296) rotate(-12)" filter="url(#soft)">')
+    # Keeps the brand's blue glass but borrows the STM card's layout: slanted parallel bars and a
+    # bottom band. No STM logo mark; the right side stays hidden behind the phone.
+    a(f'<g class="float2"><g transform="translate(616 298) rotate(-12)" filter="url(#soft)">')
     a('<rect width="250" height="158" rx="20" fill="url(#card)"/>')
+    a('<path d="M0 122 H250 V138 A20 20 0 0 1 230 158 H20 A20 20 0 0 1 0 138 Z" fill="#06224A" fill-opacity=".5"/>')
     a('<rect width="250" height="158" rx="20" fill="url(#cardSheen)"/>')
     a('<rect x=".5" y=".5" width="249" height="157" rx="19.5" stroke="#fff" stroke-opacity=".25"/>')
     a(T("STM", BOLD, 26, 22, 44, c["cardInk"], tracking=40)[0])
@@ -210,9 +213,9 @@ def build(name):
     for i, r in enumerate([7, 13, 19]):
         a(f'<path d="M{0} {-r * .8:.1f} A {r} {r} 0 0 1 {0} {r * .8:.1f}" transform="translate({86 + i * 3} 35)" '
           f'stroke="{c["cardInk"]}" stroke-opacity="{c["cardInkA"]}" stroke-width="2.6" stroke-linecap="round"/>')
-    a(f'<rect x="22" y="66" width="40" height="30" rx="7" fill="{c["cardInk"]}" fill-opacity=".2"/>')
-    a(f'<path d="M22 81 H62 M42 66 V96" stroke="{c["cardInk"]}" stroke-opacity=".18"/>')
-    a(T("•••• 1234", MED, 16, 22, 134, c["cardInk"], opacity=c["cardInkA"], tracking=50)[0])
+    bars = " ".join(f"M{62 + 19.3 * k:.2f} 106 L{78.5 + 19.3 * k:.2f} 80.6" for k in range(5))
+    a(f'<path d="{bars}" stroke="{c["cardInk"]}" stroke-opacity=".92" stroke-width="8.9" stroke-linecap="round"/>')
+    a(T("•••• 1234", MED, 13, 22, 145, c["cardInk"], opacity=c["cardInkA"], tracking=50)[0])
     a('</g></g>')
 
     # ---------- phone ----------
