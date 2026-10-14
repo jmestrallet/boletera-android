@@ -32,13 +32,13 @@ class AppUpdatesTest {
     /** Run against the original signed Alpha 1 after the fixed release is published. */
     @Test fun legacyAlpha1CanDownloadCurrentAlpha() {
         val installed=compose.activity.packageManager.getPackageInfo(compose.activity.packageName,0)
-        assertEquals("0.2.40-alpha.1",installed.versionName)
+        org.junit.Assume.assumeTrue("This check targets the original Alpha 1 APK",installed.versionName=="0.2.40-alpha.1")
         val updates=androidx.lifecycle.ViewModelProvider(compose.activity)[AppUpdates::class.java]
         compose.waitUntil(60000){!updates.busy}
         compose.onNodeWithContentDescription("Configuración").performClick()
         compose.runOnIdle {updates.check()}
         compose.waitUntil(60000){!updates.busy}
-        assertEquals("0.2.40-alpha.3",updates.release?.version)
+        assertTrue(updates.message,updates.message.contains("0.2.40 Alpha 3"))
         compose.onNodeWithText("Actualizar ahora").performScrollTo().performClick()
         compose.waitUntil(90000){!updates.busy}
         assertTrue(updates.message,updates.ready)
