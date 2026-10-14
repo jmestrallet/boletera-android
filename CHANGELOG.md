@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.40 Lab 3 - Arreglos del primer uso
+
+- Volver desde «Elegí tu boletera» ya no muestra la lista de nuevo por un instante antes del saldo.
+- Al actualizar la misma boletera, el saldo anterior queda en pantalla mientras STM responde.
+- Actividad: si no se puede leer, dice en qué paso falló (botón Movimientos sin respuesta, pantalla desconocida u otra boletera). La pantalla que mostró STM queda en Configuración → Información de ayuda, sin números.
+- «Guardar acceso con huella» viene activado si el celular tiene huella.
+- La primera vez que abrís la app aparece «Antes de entrar», que explica la autorización de una sola vez en Mi STM, con «Ya usé Mi STM» y «Abrir STM primero».
+
 ## 0.2.40 Lab 2 - Paneles translúcidos sin vidrio
 
 - Cuando el vidrio está apagado (Android 11 o anterior, o un celular modesto en Automático), el selector de tarjeta, Ajustes y la barra de Recargar dejan ver el fondo en lugar de un gris opaco.

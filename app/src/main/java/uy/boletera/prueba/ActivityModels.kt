@@ -32,7 +32,9 @@ data class ActivityState(
     val availableMonths: List<YearMonth> = emptyList(),
     val completeMonths: Set<YearMonth> = emptySet(),
     val frequent: List<FrequentProgress> = emptyList(),
-    val consultedAt: Long? = null
+    val consultedAt: Long? = null,
+    /** Plain-language reason for [ActivityAccess.UNAVAILABLE]: which step failed, never a guess about the history. */
+    val reason: String = ""
 ) {
     fun movements(month: YearMonth, filter: MovementKind = MovementKind.ALL) = entries
         .filter { it.card==card && YearMonth.from(it.date)==month && (filter==MovementKind.ALL || it.kind==filter) }

@@ -120,6 +120,13 @@ class MainActivity : FragmentActivity() {
         var showAccessGuide by rememberSaveable { mutableStateOf(false) }
         var showPaymentReview by remember {mutableStateOf(false)}
         val helpPreferences=remember { getSharedPreferences("feature_help",MODE_PRIVATE) }
+        // First launch explains STM's one-time authorization before the first login attempt, not after it fails.
+        var firstAccessIntro by remember { mutableStateOf(!helpPreferences.getBoolean("stm_first_access_v1",false)) }
+        fun closeFirstAccessIntro(openStm: Boolean) {
+            helpPreferences.edit().putBoolean("stm_first_access_v1",true).apply()
+            firstAccessIntro=false
+            if(openStm)openStmAccess()
+        }
         var showBetaIntro by rememberSaveable {
             mutableStateOf(!BuildConfig.DEBUG && updates.installedChannel==UpdateChannel.STABLE && !helpPreferences.getBoolean("beta_channel_intro_v1",false))
         }
@@ -157,7 +164,8 @@ class MainActivity : FragmentActivity() {
         var document by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
         var revealPassword by remember { mutableStateOf(false) }
-        var save by remember { mutableStateOf(false) }
+        // Saving access with the fingerprint is the practical default whenever the phone supports it.
+        var save by remember { mutableStateOf(vault.available) }
         var showForget by remember { mutableStateOf(false) }
         var showAmount by remember { mutableStateOf(false) }
         var showPayerPicker by remember { mutableStateOf(false) }
@@ -320,7 +328,12 @@ class MainActivity : FragmentActivity() {
         if(showAccessGuide)AlertDialog(onDismissRequest={showAccessGuide=false},title={Text("Primer ingreso a STM")},
             text={Column(Modifier.heightIn(max=350.dp).verticalScroll(rememberScrollState())) {StmAccessInstructions()}},
             confirmButton={TextButton(onClick=::openStmAccess){Text("Abrir STM")}},
-            dismissButton={TextButton(onClick={showAccessGuide=false}){Text("Volver")}})
+            dismissButton={TextButton(onClick={showAccessGuide=false}){Text("Cerrar")}})
+        if(firstAccessIntro && state.stage=="welcome" && !state.hasSavedAccess && !showBetaIntro)AlertDialog(onDismissRequest={},
+            title={Text("Antes de entrar")},
+            text={Text("Boletera entra a STM con tu Usuario gub.uy, igual que la web Mi STM.\n\nSi nunca usaste Mi STM, la primera vez STM te pide autorizar el acceso en su web. Se hace una sola vez: abrís STM, entrás con tu usuario, aceptás y volvés acá.")},
+            confirmButton={TextButton(onClick={closeFirstAccessIntro(false)}){Text("Ya usé Mi STM")}},
+            dismissButton={TextButton(onClick={closeFirstAccessIntro(true)}){Text("Abrir STM primero")}})
         if(showPaymentReview)AlertDialog(onDismissRequest={showPaymentReview=false},title={Text("¿Ya comprobaste el resultado?")},
             text={Text("Confirmá solo después de revisar el pago en Prex o en tu banco. Esto habilita otra recarga; no cancela ni devuelve el pago anterior.")},
             confirmButton={TextButton(onClick={if(engine.acknowledgePaymentReviewed())showPaymentReview=false}) {Text("Sí, ya lo revisé")}},

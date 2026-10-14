@@ -133,7 +133,7 @@ class LoginErrorTest {
         compose.onNodeWithText("¿Es tu primer ingreso a STM?").performScrollTo().performClick()
         compose.onNodeWithText("Primer ingreso a STM").assertIsDisplayed()
         compose.onNodeWithText("Abrir STM").assertIsDisplayed()
-        compose.onNodeWithText("Volver").performClick()
+        compose.onNodeWithText("Cerrar").performClick()
         compose.onNodeWithText("Primer ingreso a STM").assertDoesNotExist()
     }
 }

@@ -71,7 +71,22 @@ class StmEngine(private val context: Context) {
     private var expressRequest: ExpressChoice? = null
     private var expressPayment = false
     private val expressTiming = ExpressTiming(android.os.SystemClock::elapsedRealtime)
-    internal val helpDiagnostic: String get() = listOf(state.diagnostic,expressTiming.report()).filter {it.isNotBlank()}.joinToString("\n\n")
+    /** Shape of the last STM page the activity journey could not read: digits masked, no values. */
+    private var activityShape = ""
+    internal val helpDiagnostic: String get() = listOf(state.diagnostic,activityShape,expressTiming.report()).filter {it.isNotBlank()}.joinToString("\n\n")
+    private val activityShapeScript = """(()=>{const t=e=>(e.innerText||e.value||'').replace(/\s+/g,' ').trim().replace(/\d/g,'#').slice(0,60);
+const pick=(s,n)=>[...document.querySelectorAll(s)].map(t).filter(Boolean).slice(0,n);
+return JSON.stringify({ruta:location.pathname,titulo:document.title.replace(/\d/g,'#'),titulos:pick('h1,h2,h3,legend,.ui-panel-title',8),
+columnas:pick('th',12),botones:pick('button,a.ui-commandlink,input[type=submit]',12),filas:document.querySelectorAll('tbody tr').length,
+avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
+    /** Records what STM showed, then fails; the owner can share it from Configuración → Información de ayuda. */
+    private fun failActivityWithShape(message: String) {
+        active=false
+        web.evaluateJavascript(activityShapeScript) { raw ->
+            activityShape = "Actividad · $message\n" + (try { org.json.JSONTokener(raw).nextValue().toString() } catch (_: Exception) { "" }).take(1500)
+            fail(message)
+        }
+    }
     val expressPreparing: Boolean get() = expressPayment && state.busy
     val web = WebView(context)
     val host = CaptchaHost(context, web)
@@ -288,10 +303,12 @@ class StmEngine(private val context: Context) {
 
     fun chooseCard(id: String) {
         if (state.busy || state.cards.none { it.id == id && it.active }) return
+        // Re-reading the same card keeps its last balance on screen while STM answers; another card starts blank.
+        val same = id == state.selectedCard
         choices.card = id
         choosingCard = false
         activityOpened=false
-        state = state.copy(selectedCard = id, minimum = null, balance = null, amount = null,activity=ActivityState())
+        state = state.copy(selectedCard = id, minimum = null, balance = if (same) state.balance else null, amount = null,activity=ActivityState())
         act("card", id)
     }
 
@@ -580,7 +597,14 @@ class StmEngine(private val context: Context) {
     private fun fail(message: String) {
         if(activityOpened) {
             active=false;handler.removeCallbacks(poll)
-            state=state.copy(stage="activity",busy=false,message="",activity=ActivityState(card=state.selectedCard.orEmpty(),access=ActivityAccess.UNAVAILABLE))
+            // Say which step failed; an unread page is not an empty history.
+            val reason=when(message) {
+                "Boletera distinta" -> "STM mostró otra boletera en la página de saldo. No seguimos para no mezclar datos de tarjetas."
+                "Movimientos sin respuesta" -> "El botón Movimientos de STM no respondió. Puede ser una demora del sitio; probá de nuevo en un rato."
+                "Actividad no reconocida" -> "STM abrió una pantalla de movimientos que Boletera todavía no sabe leer. Si tu cuenta tiene nivel 2, puede ser tu historial real: copiá la información de ayuda en Configuración y mandala."
+                else -> "La consulta a STM se cortó: $message"
+            }
+            state=state.copy(stage="activity",busy=false,message="",activity=ActivityState(card=state.selectedCard.orEmpty(),access=ActivityAccess.UNAVAILABLE,reason=reason))
             return
         }
         expressTiming.finish(ExpressTiming.End.ERROR)
@@ -712,7 +736,7 @@ class StmEngine(private val context: Context) {
                 "balance" -> {
                     if(data.optString("cardId")!=state.selectedCard) {fail("Boletera distinta");return}
                     if(lastAction!="movements")act("movements",state.selectedCard.orEmpty())
-                    else if(System.currentTimeMillis()-actionStarted>20000)fail("Movimientos sin respuesta")
+                    else if(System.currentTimeMillis()-actionStarted>20000)failActivityWithShape("Movimientos sin respuesta")
                 }
                 "activityIdentityRequired" -> {
                     active=false;handler.removeCallbacks(poll)
@@ -721,7 +745,7 @@ class StmEngine(private val context: Context) {
                 else -> {
                     // The authorized table has not been inspected yet. Never turn an unknown
                     // document into an empty history or derive a frequent-user count from it.
-                    if(System.currentTimeMillis()-actionStarted>8000)fail("Actividad no reconocida")
+                    if(System.currentTimeMillis()-actionStarted>8000)failActivityWithShape("Actividad no reconocida")
                 }
             }
             return
@@ -797,10 +821,13 @@ class StmEngine(private val context: Context) {
                 choices.rememberVerifiedSession()
                 CookieManager.getInstance().flush()
                 recoveringSession = false; recoverySteps.clear()
-                state = state.copy(stage = "cards", recoveringSession = false, sessionExpired = false, cards = list, activePayment = null,
+                val preferred = choices.card
+                // Passing through STM's card list to reach the usual card is not something to show:
+                // publishing "cards" here made the picker flash after leaving it or refreshing.
+                val passThrough = !choosingCard && !state.busy && lastAction != "card" && list.any { it.id == preferred && it.active }
+                state = state.copy(stage = if (passThrough) "connecting" else "cards", recoveringSession = false, sessionExpired = false, cards = list, activePayment = null,
                     payerProfileId = choices.payerProfileId?.takeIf { id -> payerProfiles.any { it.id == id } } ?: payerProfiles.singleOrNull()?.id,
                     message = if (payerStoreAvailable) "" else "No pudimos recuperar los perfiles de Prex guardados. Conservamos sus archivos sin sobrescribirlos.")
-                val preferred = choices.card
                 if (!choosingCard && !state.busy && lastAction != "card" && preferred != null) {
                     if (list.any { it.id == preferred && it.active }) chooseCard(preferred)
                     else {

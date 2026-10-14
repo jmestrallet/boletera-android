@@ -58,6 +58,7 @@ private const val frequentHelp="https://montevideo.gub.uy/tipo/area-tematica/sis
                     ActivityAccess.UNAVAILABLE -> {
                         WhiteCard {
                             Text("No pudimos leer la actividad",style=MaterialTheme.typography.headlineSmall,color=Ink)
+                            if(state.reason.isNotBlank())Text(state.reason,color=Ink)
                             Text("Todavía no tenemos movimientos verificados de esta boletera. Esto no significa que no hayas viajado.",color=Muted)
                             Primary("Volver a consultar",action=onRefresh)
                         }
