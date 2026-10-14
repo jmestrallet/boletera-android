@@ -201,21 +201,24 @@ def build(name):
         cx += cw + 10
 
     # ---------- transit card, tilted behind the phone ----------
-    # Keeps the brand's blue glass but borrows the STM card's layout: slanted parallel bars and a
-    # bottom band. No STM logo mark; the right side stays hidden behind the phone.
-    a(f'<g class="float2"><g transform="translate(616 298) rotate(-12)" filter="url(#soft)">')
+    # Keeps the brand's blue glass but follows the STM card's layout: centred slanted bars, contactless
+    # waves to their right and a bottom band whose faint lines stand for the printed notice. No number
+    # and no STM or Intendencia logo marks.
+    a(f'<g class="float2"><g transform="translate(590 300) rotate(-12) scale(.9)" filter="url(#soft)">')
     a('<rect width="250" height="158" rx="20" fill="url(#card)"/>')
     a('<path d="M0 122 H250 V138 A20 20 0 0 1 230 158 H20 A20 20 0 0 1 0 138 Z" fill="#06224A" fill-opacity=".5"/>')
     a('<rect width="250" height="158" rx="20" fill="url(#cardSheen)"/>')
     a('<rect x=".5" y=".5" width="249" height="157" rx="19.5" stroke="#fff" stroke-opacity=".25"/>')
-    a(T("STM", BOLD, 26, 22, 44, c["cardInk"], tracking=40)[0])
-    # contactless arcs, next to the brand so they stay visible beside the phone
-    for i, r in enumerate([7, 13, 19]):
-        a(f'<path d="M{0} {-r * .8:.1f} A {r} {r} 0 0 1 {0} {r * .8:.1f}" transform="translate({86 + i * 3} 35)" '
-          f'stroke="{c["cardInk"]}" stroke-opacity="{c["cardInkA"]}" stroke-width="2.6" stroke-linecap="round"/>')
-    bars = " ".join(f"M{62 + 19.3 * k:.2f} 106 L{78.5 + 19.3 * k:.2f} 80.6" for k in range(5))
+    # the card's wordmark sets the M heavier than the S and T
+    st, stw = T("ST", MED, 26, 22, 44, c["cardInk"], tracking=40)
+    a(st)
+    a(T("M", BOLD, 26, 22 + stw + 26 * .04, 44, c["cardInk"])[0])
+    bars = " ".join(f"M{78.15 + 19.3 * k:.2f} 112.5 L{94.65 + 19.3 * k:.2f} 87.1" for k in range(5))
     a(f'<path d="{bars}" stroke="{c["cardInk"]}" stroke-opacity=".92" stroke-width="8.9" stroke-linecap="round"/>')
-    a(T("•••• 1234", MED, 13, 22, 145, c["cardInk"], opacity=c["cardInkA"], tracking=50)[0])
+    waves = " ".join(f"M{200 + .643 * r:.2f} {100 - .766 * r:.2f} A{r} {r} 0 0 1 {200 + .643 * r:.2f} {100 + .766 * r:.2f}"
+                     for r in (4.5, 9, 13.5, 18))
+    a(f'<path d="{waves}" stroke="{c["cardInk"]}" stroke-opacity=".92" stroke-width="3.2" stroke-linecap="round"/>')
+    a(f'<path d="M22 135 H150 M22 145 H138" stroke="{c["cardInk"]}" stroke-opacity=".3" stroke-width="3" stroke-linecap="round"/>')
     a('</g></g>')
 
     # ---------- phone ----------
