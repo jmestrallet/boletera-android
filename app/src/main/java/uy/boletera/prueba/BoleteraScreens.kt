@@ -203,6 +203,7 @@ import java.util.Locale
     val vibration=remember(view.context) {AppHaptics(view.context)}
     var pulseResult by remember { mutableStateOf<PulseResult?>(null) }
     var vibrationEnabled by remember {mutableStateOf(vibration.enabled)}
+    var labWarning by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest=onClose,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=Paper) {
         Column(Modifier.fillMaxWidth().widthIn(max=560.dp).align(Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(horizontal=24.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(24.dp)) {
             Text("Configuración",style=MaterialTheme.typography.headlineLarge,color=Ink)
@@ -225,27 +226,43 @@ import java.util.Locale
             }
             Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
                 Text("Versión",style=MaterialTheme.typography.titleMedium,color=Ink)
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    UpdateChannel.entries.forEach { option ->
-                        Surface(color=if(updates.channel==option)Highlight else Panel,shape=RoundedCornerShape(22.dp),
-                            modifier=Modifier.weight(1f).selectable(updates.channel==option,enabled=!updates.busy,role=Role.RadioButton) {
-                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick);updates.selectChannel(option)
-                            }) {
-                            Column(Modifier.padding(vertical=14.dp,horizontal=8.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-                                Text(option.label,style=MaterialTheme.typography.titleSmall,
-                                    color=if(updates.channel==option)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
-                                Text(when(option){UpdateChannel.STABLE->"Uso diario";UpdateChannel.BETA->"En pruebas";UpdateChannel.ALPHA->"Desarrollo"},style=MaterialTheme.typography.bodySmall,
-                                    color=if(updates.channel==option)MaterialTheme.colorScheme.onPrimaryContainer else Muted)
+                val separateLab=updates.installedChannel!=UpdateChannel.LAB
+                updates.channels.chunked(2).forEach { pair ->
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        pair.forEach { option ->
+                            Surface(color=if(updates.channel==option)Highlight else Panel,shape=RoundedCornerShape(22.dp),
+                                modifier=Modifier.weight(1f).selectable(updates.channel==option,enabled=!updates.busy,role=Role.RadioButton) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                    if(option==UpdateChannel.LAB && separateLab && updates.channel!=option)labWarning=true else updates.selectChannel(option)
+                                }) {
+                                Column(Modifier.padding(vertical=14.dp,horizontal=8.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+                                    Text(option.label,style=MaterialTheme.typography.titleSmall,
+                                        color=if(updates.channel==option)MaterialTheme.colorScheme.onPrimaryContainer else Ink)
+                                    Text(when(option){UpdateChannel.STABLE->"Uso diario";UpdateChannel.BETA->"En pruebas";UpdateChannel.ALPHA->"Desarrollo";UpdateChannel.LAB->"Experimental"},style=MaterialTheme.typography.bodySmall,
+                                        color=if(updates.channel==option)MaterialTheme.colorScheme.onPrimaryContainer else Muted)
+                                }
                             }
                         }
+                        if(pair.size==1)Spacer(Modifier.weight(1f))
                     }
                 }
                 if(updates.channel==UpdateChannel.ALPHA)Text("Alpha incluye funciones en construcción que pueden estar incompletas.",style=MaterialTheme.typography.bodySmall,color=Muted)
-                Text("Versión instalada: ${updates.installedChannel.label}.",style=MaterialTheme.typography.bodySmall,color=Muted)
-                Text(if(updates.channel==updates.installedChannel && updates.channel==UpdateChannel.STABLE)"Recibirás actualizaciones estables."
-                    else if(updates.channel==updates.installedChannel)"Recibirás actualizaciones ${updates.channel.label}."
-                    else "Elegiste ${updates.channel.label}. Instalá la versión encontrada para completar el cambio.",style=MaterialTheme.typography.bodySmall,color=Muted)
+                if(updates.channel==UpdateChannel.LAB && separateLab) {
+                    Text("Boletera Lab se instala como otra app, al lado de esta. Esta app no cambia.",style=MaterialTheme.typography.bodySmall,color=Muted)
+                    if(updates.labVersion()!=null)TextButton(onClick={updates.openLab(view.context)}) {Text("Abrir Boletera Lab")}
+                } else {
+                    Text("Versión instalada: ${updates.installedChannel.label}.",style=MaterialTheme.typography.bodySmall,color=Muted)
+                    Text(if(!separateLab)"Esta es Boletera Lab: cambia seguido y puede fallar. Tu Boletera de siempre sigue instalada aparte."
+                        else if(updates.channel==updates.installedChannel && updates.channel==UpdateChannel.STABLE)"Recibirás actualizaciones estables."
+                        else if(updates.channel==updates.installedChannel)"Recibirás actualizaciones ${updates.channel.label}."
+                        else "Elegiste ${updates.channel.label}. Instalá la versión encontrada para completar el cambio.",style=MaterialTheme.typography.bodySmall,color=Muted)
+                }
             }
+            if(labWarning)AlertDialog(onDismissRequest={labWarning=false},
+                title={Text("Boletera Lab")},
+                text={Text("Es la versión de pruebas del creador: cambia de golpe, seguido, y puede dejar de funcionar. No se recomienda para usar.\n\nSe instala como otra app, al lado de Boletera, así que tu Boletera no cambia. Vas a tener que ingresar de nuevo en Lab.\n\nSi querés novedades con menos riesgo, usá Alpha o Beta.")},
+                confirmButton={TextButton(onClick={labWarning=false;updates.selectChannel(UpdateChannel.LAB)}){Text("Buscar Boletera Lab")}},
+                dismissButton={TextButton(onClick={labWarning=false}){Text("Cancelar")}})
             WhiteCard {
                 Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
                     AppGlyph(Glyph.Download,tint=MaterialTheme.colorScheme.primary)
@@ -253,8 +270,9 @@ import java.util.Locale
                 }
                 Text(updates.message,style=MaterialTheme.typography.bodyMedium,color=Muted)
                 if(updates.busy)LinearProgressIndicator(Modifier.fillMaxWidth())
-                if(updates.ready)Primary("Instalar actualización",!updates.busy,onInstall)
-                else if(updates.release!=null)Primary("Actualizar ahora",!updates.busy,updates::download)
+                val labInstall=updates.channel==UpdateChannel.LAB && updates.installedChannel!=UpdateChannel.LAB
+                if(updates.ready)Primary(if(labInstall)"Instalar Boletera Lab" else "Instalar actualización",!updates.busy,onInstall)
+                else if(updates.release!=null)Primary(if(labInstall)"Descargar Boletera Lab" else "Actualizar ahora",!updates.busy,updates::download)
                 else OutlinedButton(onClick=updates::check,enabled=!updates.busy,modifier=Modifier.fillMaxWidth().heightIn(min=52.dp)) { Text("Buscar actualizaciones") }
                 if(updates.release!=null)TextButton(onClick=updates::check,enabled=!updates.busy) { Text("Buscar actualizaciones") }
             }

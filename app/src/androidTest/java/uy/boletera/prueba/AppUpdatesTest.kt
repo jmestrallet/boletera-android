@@ -55,12 +55,55 @@ class AppUpdatesTest {
                 UpdateRelease(candidate.versionName!!,"",1,"",channel=UpdateChannel.from(to)))
         }
     }
-    @Test fun settingsShowThreeClearlyNamedChannels() {
+    @Test fun settingsShowFourClearlyNamedChannelsAndWarnBeforeLab() {
         compose.onNodeWithContentDescription("Configuración").performClick()
         compose.onNodeWithText("Alpha").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Beta").assertIsDisplayed()
         compose.onNodeWithText("Estable").assertIsDisplayed()
         compose.onNodeWithText("Desarrollo").assertIsDisplayed()
+        compose.onNodeWithText("Lab").performScrollTo().assertIsDisplayed()
+        val updates=androidx.lifecycle.ViewModelProvider(compose.activity)[AppUpdates::class.java]
+        val before=updates.channel
+        compose.onNodeWithText("Lab").performClick()
+        compose.onNodeWithText("Buscar Boletera Lab").assertIsDisplayed()
+        compose.runOnIdle { assertEquals("Choosing Lab asks first",before,updates.channel) }
+        compose.onNodeWithText("Cancelar").performClick()
+        compose.runOnIdle { assertEquals(before,updates.channel) }
+    }
+    @Test fun labFeedIsSeparateAndUnknownToOlderParsers() {
+        fun lab(v:String)=betaFixture(v).replace("boletera-beta-","boletera-lab-")
+        fun alpha(v:String)=betaFixture(v).replace("boletera-beta-","boletera-alpha-")
+        val json="[${fixture("0.2.40")},${betaFixture("0.2.40-beta.2")},${alpha("0.2.40-alpha.5")},${lab("0.2.40-lab.1")},${lab("0.2.40-lab.2")}]"
+        assertEquals(UpdateChannel.LAB,UpdatePolicy.channel("v0.2.40-lab.1"))
+        assertEquals("0.2.40 Lab 2",UpdatePolicy.display("0.2.40-lab.2"))
+        // No other channel ever picks a Lab build.
+        assertEquals("0.2.40-alpha.5",UpdatePolicy.select(json,"0.2.40-alpha.4",UpdateChannel.ALPHA)?.version)
+        assertNull(UpdatePolicy.select(json,"0.2.40-beta.2",UpdateChannel.BETA))
+        assertNull(UpdatePolicy.select(json,"0.2.40",UpdateChannel.STABLE))
+        // From Boletera with no Lab installed, the newest Lab is offered; an installed Lab only sees newer ones.
+        assertEquals("0.2.40-lab.2",UpdatePolicy.select(json,"0.2.40-alpha.5",UpdateChannel.LAB)?.version)
+        assertEquals("0.2.40-lab.2",UpdatePolicy.select(json,"0.2.40-lab.1",UpdateChannel.LAB)?.version)
+        assertNull(UpdatePolicy.select(json,"0.2.40-lab.2",UpdateChannel.LAB))
+        // A Lab asset published under another channel's name is ignored.
+        assertNull(UpdatePolicy.select("[${alpha("0.2.40-lab.3")}]","0.2.40-lab.2",UpdateChannel.LAB))
+        // Builds released before Lab existed parse Lab tags as unknown, so they can never offer one.
+        assertNull(Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-(?:prueba|publica)|-(beta|alpha)\\.(\\d+))?$").matchEntire("v0.2.40-lab.1"))
+    }
+    @Test fun firstLabInstallTargetsTheLabPackageAndKeepsTheSignatureCheck() {
+        val pm=compose.activity.packageManager
+        val source=compose.activity.applicationInfo.sourceDir
+        val own=pm.getPackageInfo(compose.activity.packageName,PackageManager.GET_SIGNING_CERTIFICATES)
+        val candidate=pm.getPackageArchiveInfo(source,PackageManager.GET_SIGNING_CERTIFICATES)!!
+        val release=UpdateRelease("0.2.40-lab.1","",1,"",channel=UpdateChannel.LAB)
+        candidate.versionName="0.2.40-lab.1"
+        assertEquals(UpdateChannel.LAB_PACKAGE,UpdateFiles.targetPackage(compose.activity,release))
+        // This test APK is not the Lab package, so it must be rejected as a Lab download...
+        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate,null,own,UpdateChannel.LAB_PACKAGE,release) }
+        // ...and accepted once the package matches, with no installed copy and the same signature.
+        candidate.packageName=UpdateChannel.LAB_PACKAGE
+        UpdateFiles.verifyArchive(candidate,null,own,UpdateChannel.LAB_PACKAGE,release)
+        candidate.versionName="0.2.40-lab.9"
+        assertThrows(IllegalStateException::class.java) { UpdateFiles.verifyArchive(candidate,null,own,UpdateChannel.LAB_PACKAGE,release) }
     }
     @Test fun alphaIsOptInAndSwitchesBothWays() {
         fun alpha(v:String)=betaFixture(v).replace("boletera-beta-","boletera-alpha-")
@@ -228,7 +271,9 @@ class AppUpdatesTest {
     @Test fun settingsCanCheckPublicGithubAndKeepInstalledNewerVersion() {
         compose.onNodeWithContentDescription("Configuración").performClick()
         compose.onNodeWithText("Buscar actualizaciones").performScrollTo().performClick()
-        compose.waitUntil(45_000) { compose.onAllNodesWithText("Tenés la última versión estable.").fetchSemanticsNodes().isNotEmpty() }
+        val installed=UpdateChannel.from(BuildConfig.DISTRIBUTION_CHANNEL)
+        val upToDate=if(installed==UpdateChannel.STABLE)"Tenés la última versión estable." else "Tenés la última versión ${installed.label}."
+        compose.waitUntil(45_000) { compose.onAllNodesWithText(upToDate).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Descargar actualización").assertDoesNotExist()
     }
 

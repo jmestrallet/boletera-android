@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.40 Alpha 5 - Cuarto canal: Boletera Lab
+
+- Configuración muestra cuatro versiones: Estable, Beta, Alpha y Lab.
+- Lab es la versión de pruebas del creador: cambia seguido y puede fallar. Antes de buscarla, Boletera avisa y pide confirmación.
+- Boletera Lab se instala como otra app, con ícono violeta, al lado de Boletera. Tu Boletera no cambia y podés usar las dos.
+- Cuando Boletera Lab está instalada, Configuración ofrece abrirla.
+
 ## 0.2.40 Alpha 4 - Logo nuevo y Carga Express sostenida
 
 - Carga Express vuelve a pedir mantener apretado 1,2 segundos para evitar recargas por un toque sin querer. El círculo se llena mientras sostenés, vibra cada 0,4 s y soltar antes cancela. Un toque corto no inicia nada.

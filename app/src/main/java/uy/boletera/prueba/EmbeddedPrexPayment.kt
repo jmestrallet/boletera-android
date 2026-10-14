@@ -96,7 +96,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var cardCheckboxReady=false
     private val checkboxTap by lazy {CheckboxTapper(web) {stage ->
-        BuildConfig.DISTRIBUTION_CHANNEL in setOf("beta","alpha") && !destroyed && visible && !suspended && expressJourney &&
+        BuildConfig.DISTRIBUTION_CHANNEL in setOf("beta","alpha","lab") && !destroyed && visible && !suspended && expressJourney &&
             nativeMask && nativeStage==stage && expressPhase in setOf("verification","done") && !busy && !cardBusy && !expandedChallenge &&
             !cardError && !payerConflict && (stage!="card" || cardCheckboxReady) && message.isBlank() && PaymentPolicy.gateway(web.url.orEmpty())
     }}

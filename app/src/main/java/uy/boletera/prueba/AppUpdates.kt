@@ -22,8 +22,12 @@ import java.security.MessageDigest
 import java.util.concurrent.Executors
 
 enum class UpdateChannel(val key: String, val label: String) {
-    STABLE("public", "Estable"), BETA("beta", "Beta"), ALPHA("alpha", "Alpha");
-    companion object { fun from(value: String?) = entries.firstOrNull { it.key == value } ?: STABLE }
+    STABLE("public", "Estable"), BETA("beta", "Beta"), ALPHA("alpha", "Alpha"), LAB("lab", "Lab");
+    companion object {
+        fun from(value: String?) = entries.firstOrNull { it.key == value } ?: STABLE
+        /** Lab is a separate package installed next to Boletera; it never replaces the everyday app. */
+        const val LAB_PACKAGE = "uy.boletera.lab"
+    }
 }
 internal data class UpdateNews(val version: String, val notes: List<String>)
 internal data class UpdateRelease(val version: String, val url: String, val size: Long, val sha256: String,
@@ -43,16 +47,19 @@ internal object UpdatePolicy {
         return items.map { it.removePrefix("- ").replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1")
                 .replace(Regex("[*`_]"), "").replace(Regex("\\s+"), " ").trim() }.filter(String::isNotBlank)
     }
-    private data class ParsedVersion(val core: List<Int>, val beta: Int?, val alpha: Boolean)
+    /** [beta] holds the pre-release number for every pre-release channel; [tag] says which one. */
+    private data class ParsedVersion(val core: List<Int>, val beta: Int?, val tag: String)
     private fun parsed(value: String): ParsedVersion? {
-        val match=Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-(?:prueba|publica)|-(beta|alpha)\\.(\\d+))?$").matchEntire(value) ?: return null
+        val match=Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-(?:prueba|publica)|-(beta|alpha|lab)\\.(\\d+))?$").matchEntire(value) ?: return null
         val core=match.groupValues.slice(1..3).map {it.toIntOrNull() ?: return null}
-        return ParsedVersion(core,match.groupValues[5].takeIf(String::isNotBlank)?.toIntOrNull(),match.groupValues[4]=="alpha")
+        return ParsedVersion(core,match.groupValues[5].takeIf(String::isNotBlank)?.toIntOrNull(),match.groupValues[4])
     }
     fun version(value: String): List<Int>? = parsed(value)?.core
-    fun channel(value: String): UpdateChannel = if(parsed(value)?.alpha==true)UpdateChannel.ALPHA else if(parsed(value)?.beta!=null)UpdateChannel.BETA else UpdateChannel.STABLE
+    fun channel(value: String): UpdateChannel = when(parsed(value)?.tag) {
+        "lab" -> UpdateChannel.LAB; "alpha" -> UpdateChannel.ALPHA; "beta" -> UpdateChannel.BETA; else -> UpdateChannel.STABLE
+    }
     fun display(value: String): String {
-        val parsed=Regex("^(\\d+\\.\\d+\\.\\d+)-(beta|alpha)\\.(\\d+)$").matchEntire(value)
+        val parsed=Regex("^(\\d+\\.\\d+\\.\\d+)-(beta|alpha|lab)\\.(\\d+)$").matchEntire(value)
         return parsed?.let { "${it.groupValues[1]} ${it.groupValues[2].replaceFirstChar { c -> c.uppercase() }} ${it.groupValues[3]}" } ?: value.removeSuffix("-prueba").removeSuffix("-publica")
     }
     fun newer(candidate: String, installed: String): Boolean {
@@ -155,27 +162,42 @@ internal object UpdateFiles {
         } finally { connection.disconnect() }
     }
 
+    /** The package a release installs into: Lab goes next to Boletera, every other channel replaces it. */
+    fun targetPackage(context: Context, release: UpdateRelease) =
+        if (release.channel == UpdateChannel.LAB) UpdateChannel.LAB_PACKAGE else context.packageName
+
     @Suppress("DEPRECATION")
     fun verify(context: Context, file: File, release: UpdateRelease) {
         val pm = context.packageManager
         val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
         val candidate = pm.getPackageArchiveInfo(file.absolutePath, flags) ?: error("El archivo no es una APK válida.")
-        val installed = pm.getPackageInfo(context.packageName, flags)
-        verifyArchive(candidate, installed, context.packageName, release)
+        val own = pm.getPackageInfo(context.packageName, flags)
+        val target = targetPackage(context, release)
+        val installed = if (target == context.packageName) own else try { pm.getPackageInfo(target, flags) } catch (_: PackageManager.NameNotFoundException) { null }
+        verifyArchive(candidate, installed, own, target, release)
     }
 
+    fun verifyArchive(candidate: android.content.pm.PackageInfo, installed: android.content.pm.PackageInfo, packageName: String, release: UpdateRelease) =
+        verifyArchive(candidate, installed, installed, packageName, release)
+
+    /** [installed] is the copy being replaced (null for a first Lab install); [own] is the running app, whose signature must match. */
     @Suppress("DEPRECATION")
-    fun verifyArchive(candidate: android.content.pm.PackageInfo, installed: android.content.pm.PackageInfo, packageName: String, release: UpdateRelease) {
+    fun verifyArchive(candidate: android.content.pm.PackageInfo, installed: android.content.pm.PackageInfo?, own: android.content.pm.PackageInfo,
+                      packageName: String, release: UpdateRelease) {
         check(candidate.packageName == packageName) { "La descarga no es Boletera." }
-        val installedName=installed.versionName ?: ""
-        val switching=UpdatePolicy.channel(installedName)!=release.channel
-        check(candidate.versionName == release.packageVersion && (switching || UpdatePolicy.newer(release.version,installedName))) { "La descarga no corresponde a la versión elegida." }
-        val candidateCode = if (Build.VERSION.SDK_INT >= 28) candidate.longVersionCode else candidate.versionCode.toLong()
-        val installedCode = if (Build.VERSION.SDK_INT >= 28) installed.longVersionCode else installed.versionCode.toLong()
-        check(candidateCode > installedCode || switching && candidateCode == installedCode) { "La descarga no es compatible con la app instalada." }
-        val own = if (Build.VERSION.SDK_INT >= 28) installed.signingInfo?.apkContentsSigners else installed.signatures
+        if (installed == null) {
+            check(candidate.versionName == release.packageVersion) { "La descarga no corresponde a la versión elegida." }
+        } else {
+            val installedName=installed.versionName ?: ""
+            val switching=UpdatePolicy.channel(installedName)!=release.channel
+            check(candidate.versionName == release.packageVersion && (switching || UpdatePolicy.newer(release.version,installedName))) { "La descarga no corresponde a la versión elegida." }
+            val candidateCode = if (Build.VERSION.SDK_INT >= 28) candidate.longVersionCode else candidate.versionCode.toLong()
+            val installedCode = if (Build.VERSION.SDK_INT >= 28) installed.longVersionCode else installed.versionCode.toLong()
+            check(candidateCode > installedCode || switching && candidateCode == installedCode) { "La descarga no es compatible con la app instalada." }
+        }
+        val mine = if (Build.VERSION.SDK_INT >= 28) own.signingInfo?.apkContentsSigners else own.signatures
         val other = if (Build.VERSION.SDK_INT >= 28) candidate.signingInfo?.apkContentsSigners else candidate.signatures
-        check(!own.isNullOrEmpty() && !other.isNullOrEmpty() && own.toSet() == other.toSet()) { "La firma de la descarga no coincide con Boletera." }
+        check(!mine.isNullOrEmpty() && !other.isNullOrEmpty() && mine.toSet() == other.toSet()) { "La firma de la descarga no coincide con Boletera." }
     }
 }
 
@@ -195,12 +217,25 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     private val main = Handler(Looper.getMainLooper())
     private var closed = false
     private val apk get() = File(getApplication<Application>().cacheDir, "updates/boletera-${channel.key}.apk")
+    /** Lab only knows itself; the other apps offer the four channels, Lab installing beside them. */
+    val channels: List<UpdateChannel> = if(installedChannel==UpdateChannel.LAB) listOf(UpdateChannel.LAB) else UpdateChannel.entries
+    private val labIsSeparate get() = installedChannel!=UpdateChannel.LAB
     init {
         val priorArtifact=preferences.getString("installed_artifact",null)
-        channel=if(priorArtifact!=null && priorArtifact!=installedChannel.key)installedChannel
-            else UpdateChannel.from(preferences.getString("channel",installedChannel.key))
+        val stored=UpdateChannel.from(preferences.getString("channel",installedChannel.key))
+        // Choosing Lab from Boletera is a one-off install of another app, never this app's own feed.
+        channel=if(priorArtifact!=null && priorArtifact!=installedChannel.key || stored !in channels || stored==UpdateChannel.LAB && labIsSeparate)installedChannel else stored
         preferences.edit().putString("installed_artifact",installedChannel.key).putString("channel",channel.key).apply()
         message="Buscá actualizaciones de la versión ${channel.label.lowercase()}."
+    }
+    /** Version name of the Lab app installed next to this one, or null. */
+    @Suppress("DEPRECATION")
+    fun labVersion(): String? = if(!labIsSeparate) BuildConfig.VERSION_NAME else try {
+        getApplication<Application>().packageManager.getPackageInfo(UpdateChannel.LAB_PACKAGE,0).versionName
+    } catch (_: PackageManager.NameNotFoundException) { null }
+    fun openLab(context: Context): Boolean {
+        val intent=context.packageManager.getLaunchIntentForPackage(UpdateChannel.LAB_PACKAGE) ?: return false
+        return try { context.startActivity(intent);true } catch (_: Exception) { false }
     }
     private fun publish(action: () -> Unit) { main.post { if (!closed) action() } }
     private fun work(action: () -> Unit) {
@@ -221,9 +256,11 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     }
     fun check() = checkRelease(false)
     fun selectChannel(value: UpdateChannel) {
-        if(channel==value || busy)return
+        if(channel==value || busy || value !in channels)return
         channel=value
-        preferences.edit().putString("channel",value.key).remove("last_attempt.${value.key}").apply()
+        val edit=preferences.edit().remove("last_attempt.${value.key}")
+        if(!(value==UpdateChannel.LAB && labIsSeparate))edit.putString("channel",value.key)
+        edit.apply()
         installRequested=false;awaitingInstallPermission=false;reviewRequested=false;ready=false;release=null;automaticNotice=false
         message=if(value==UpdateChannel.STABLE)"Buscando la versión estable…" else "Buscando Boletera ${value.label}…"
         checkRelease(false)
@@ -248,12 +285,20 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                 val bytes = it.readBytesLimited(2 * 1024 * 1024)
                 String(bytes, Charsets.UTF_8)
             } } finally { connection.disconnect() }
-            val found = UpdatePolicy.select(json, BuildConfig.VERSION_NAME,requested)
+            // Lab installs beside this app, so compare against the Lab copy (if any), not against this app.
+            val separateLab=requested==UpdateChannel.LAB && labIsSeparate
+            val labInstalled=if(separateLab)labVersion() else null
+            val found = UpdatePolicy.select(json, labInstalled ?: BuildConfig.VERSION_NAME,requested)
             publish {
                 if(channel!=requested)return@publish
                 release = found
                 automaticNotice = automatic && found!=null
-                message = if (found == null && channel==installedChannel && channel==UpdateChannel.STABLE) "Tenés la última versión estable."
+                message = if(separateLab) {
+                    if(found!=null)"Boletera Lab ${UpdatePolicy.display(found.version)} está lista. Se instala aparte: esta app no cambia."
+                    else if(labInstalled!=null)"Tenés la última Boletera Lab."
+                    else "Todavía no hay una versión Lab publicada."
+                }
+                else if (found == null && channel==installedChannel && channel==UpdateChannel.STABLE) "Tenés la última versión estable."
                     else if(found == null && channel==installedChannel) "Tenés la última versión ${channel.label}."
                     else if(found==null && channel==UpdateChannel.STABLE)"Todavía no hay una versión estable compatible."
                     else if(found==null)"Todavía no hay una versión ${channel.label} compatible."
