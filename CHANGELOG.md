@@ -1,6 +1,6 @@
 # Cambios
 
-## Próxima Alpha - Carga Express vuelve a mantener apretado
+## 0.2.40 Alpha 4 - Carga Express vuelve a mantener apretado
 
 - Carga Express vuelve a pedir mantener apretado 1,2 segundos para evitar recargas por un toque sin querer. El círculo se llena mientras sostenés, vibra cada 0,4 s y soltar antes cancela. Un toque corto no inicia nada.
 - Express sigue usando el último medio de pago con el que recargaste bien; por ahora sólo Prex lo admite.

@@ -26,17 +26,17 @@ android {
         applicationId = "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = if (legacyUpdateBridge) 49 else 59
+        versionCode = if (legacyUpdateBridge) 49 else 60
         versionName = when {
             legacyUpdateBridge -> "0.2.31-prueba"
-            isAlpha -> "0.2.40-alpha.3"
+            isAlpha -> "0.2.40-alpha.4"
             isBeta -> "0.2.40-beta.2"
             else -> "0.2.40"
         }
         buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"$distributionChannel\"")
         buildConfigField("String", "DISPLAY_VERSION", when {
             legacyUpdateBridge -> "\"0.2.31\""
-            isAlpha -> "\"0.2.40 Alpha 3\""
+            isAlpha -> "\"0.2.40 Alpha 4\""
             isBeta -> "\"0.2.40 Beta 2\""
             else -> "\"0.2.40\""
         })

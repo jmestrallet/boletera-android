@@ -1,6 +1,6 @@
 # Carga Express — atajo puntual
 
-**Próxima Alpha:** vuelve la pulsación sostenida de 1,2 segundos (soltar antes cancela; un toque corto no inicia nada). Desde 0.2.40 Alpha 3 el intento de la casilla también corre en Alpha.
+**0.2.40 Alpha 4:** vuelve la pulsación sostenida de 1,2 segundos (soltar antes cancela; un toque corto no inicia nada). Desde 0.2.40 Alpha 3 el intento de la casilla también corre en Alpha.
 
 **0.2.39 Beta 1:** si falta el CVV, escribilo y tocá Listo. Express recuerda esa solicitud mientras resolvés la verificación y continúa después de que Sistarbanc la acepta. Editar los datos, elegir otra tarjeta, un error o salir de la app cancela esa espera. Escribir sin tocar Listo no envía el formulario.
 
