@@ -65,7 +65,7 @@ class MainActivity : FragmentActivity() {
             var appearance by remember { mutableStateOf(preferences.getString("theme", "system") ?: "system") }
             val haptics=remember {AppHaptics(this@MainActivity)}
             CompositionLocalProvider(LocalHapticFeedback provides haptics) {
-            BoleteraTheme(appearance) {
+            BoleteraTheme(if(IsLab)"dark" else appearance) {
                 App(appearance) { appearance = it; preferences.edit().putString("theme", it).apply() }
             }
             }
@@ -177,7 +177,12 @@ class MainActivity : FragmentActivity() {
                 showSettings=false; document=""; password=""; revealPassword=false; manual=false
             }
         }
-        val stage = if(state.stage=="connecting" && state.selectedCard!=null && state.balance!=null && state.amount==null) "balance" else state.stage
+        val stage = when {
+            state.stage=="connecting" && state.selectedCard!=null && state.balance!=null && state.amount==null -> "balance"
+            // Never flash the card list while the engine passes through it on the way back to the balance.
+            state.stage=="cards" && !engine.cardPickerWanted -> if(state.balance!=null && state.amount==null) "balance" else "connecting"
+            else -> state.stage
+        }
         val scroll = rememberScrollState()
         val pullState = rememberPullToRefreshState()
         LaunchedEffect(stage) { scroll.scrollTo(0) }
@@ -187,16 +192,20 @@ class MainActivity : FragmentActivity() {
             if(state.stage in listOf("paymentBoundary", "externalPayment")) engine.refresh() else engine.cancel()
         }
         BackHandler(enabled = state.stage != "welcome") { back() }
+        BackHandler(enabled = IsLab && showAmount) { showAmount=false }
         // Boletera Lab draws its own home over a blurred, wallpaper-like light; every other stage keeps the shared layout.
         val labHome=IsLab && stage=="balance"
+        // Lab screens share the home's dark light; the payment and error screens keep the shared layout for now.
+        val labScreen=IsLab && stage in setOf("balance","welcome","cards","connecting","openingPayment","accessHelp")
         val haze=remember { HazeState() }
         val onExpressCharge=if(updates.installedChannel!=UpdateChannel.STABLE && engine.expressAvailable)::requestExpress else null
-        Surface(color=if(labHome)LabColors.Base else Paper,modifier=Modifier.fillMaxSize()) {
+        Surface(color=if(labScreen)LabColors.Base else Paper,modifier=Modifier.fillMaxSize()) {
           Box(Modifier.fillMaxSize()) {
            Box(Modifier.fillMaxSize().then(if(labHome)Modifier.hazeSource(haze) else Modifier)) {
-            if(labHome)LabAmbient()
+            if(labScreen)LabAmbient()
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding(),horizontalAlignment=Alignment.CenterHorizontally) {
                 if(labHome)Spacer(Modifier.height(64.dp))
+                else if(labScreen)LabTopBar(onBack=if(stage=="cards")::back else null,onSettings={showSettings=true})
                 else AppTopBar(onSettings={showSettings=true},onBack=if(stage in listOf("paymentBoundary","cards","captcha","blocked","externalPayment"))::back else null,
                     title=when(stage){ "paymentBoundary"->"Tu recarga"; "cards"->"Boleteras"; "captcha"->"Verificación"; "externalPayment"->"Pago en eBROU"; else->null })
                 Box(Modifier.weight(1f).widthIn(max=600.dp).fillMaxWidth().pullToRefresh(
@@ -206,7 +215,19 @@ class MainActivity : FragmentActivity() {
                     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal=24.dp).padding(top=if(stage=="balance")4.dp else 12.dp,bottom=if(stage in listOf("balance","blocked"))4.dp else 32.dp)
                         .pageEntrance(stage, state.captcha==null),verticalArrangement=Arrangement.spacedBy(if(stage in listOf("balance","blocked"))0.dp else 24.dp)) {
                         when(stage) {
-                            "welcome" -> {
+                            "welcome" -> if(IsLab) LabWelcome(state,savedAccess=state.hasSavedAccess,manual=manual,onManual={manual=true},
+                                document=document,onDocument={document=it.filter(Char::isDigit).take(8)},password=password,onPassword={password=it},
+                                reveal=revealPassword,onReveal={revealPassword=!revealPassword},save=save,onSave={save=it},canSave=vault.available,
+                                authenticating=authenticating,onUnlock={unlockSavedAccess()},onSubmit={
+                                            val doc=document; val pass=password; document="";password="";revealPassword=false
+                                            if(save) {
+                                                authenticating=true
+                                                vault.save(doc,pass) { ok -> authenticating=false;engine.savedAccess(vault.exists)
+                                                    if(ok)engine.connect(doc,pass,rememberForSession=true) else engine.notice("No se guardó el acceso. Podés intentar de nuevo o ingresar sin guardarlo.") }
+                                            } else engine.connect(doc,pass)
+                                        },
+                                onAccessGuide={showAccessGuide=true})
+                            else {
                                 if(state.sessionExpired) {
                                     Title("Tu sesión venció")
                                     Text(if(state.hasSavedAccess)"STM cerró el acceso después de un tiempo. Confirmá tu huella para volver a entrar." else "STM cerró el acceso después de un tiempo. Ingresá de nuevo para continuar.",color=Muted)
@@ -266,7 +287,7 @@ class MainActivity : FragmentActivity() {
                                 TextButton(onClick=engine::cancel,modifier=Modifier.align(Alignment.CenterHorizontally)) {Text("Volver a ingresar")}
                             }
                             "openingPayment" -> LoadingState("Un momento…","Abriendo ${if(state.selectedProvider=="1033")"Prex" else "eBROU"} para tu recarga de ${Amounts.format(state.amount)}.",express=engine.expressPreparing)
-                            "cards" -> {
+                            "cards" -> if(IsLab) LabCards(state,engine::chooseCard) else {
                                 Title("Elegí tu boletera")
                                 Text("Recordamos tu elección para la próxima.",color=Muted)
                                 state.cards.forEach { card -> WhiteCard {
@@ -321,9 +342,10 @@ class MainActivity : FragmentActivity() {
            }
            if(labHome)LabHomeChrome(state,haze,blur=VisualEffects.enabled(context,effectsMode),onChangeCard=engine::changeCard,onSettings={showSettings=true},
                onCharge={showAmount=true},onExpressCharge=onExpressCharge,expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel)
+           if(labHome)LabAmountPanel(state,open=showAmount,onClose={showAmount=false},onChoose={amount->showAmount=false;engine.prepare(amount)})
           }
         }
-        if(showAmount)AmountSheet(state,{showAmount=false}){amount->showAmount=false;engine.prepare(amount)}
+        if(showAmount && !IsLab)AmountSheet(state,{showAmount=false}){amount->showAmount=false;engine.prepare(amount)}
         if(showTicketGuide)TicketGuideSheet {showTicketGuide=false}
         if(showAccessGuide)AlertDialog(onDismissRequest={showAccessGuide=false},title={Text("Primer ingreso a STM")},
             text={Column(Modifier.heightIn(max=350.dp).verticalScroll(rememberScrollState())) {StmAccessInstructions()}},

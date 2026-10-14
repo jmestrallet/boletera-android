@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.40 Lab 4 - Entrada, boleteras e importe con el diseño nuevo
+
+- La entrada (huella o documento y contraseña) y «Elegí tu boletera» usan el diseño oscuro del inicio, con el mismo fondo de luz.
+- Toda Boletera Lab va en tema oscuro; Configuración muestra Efectos visuales en lugar de Apariencia.
+- Al tocar Recargar, el botón se transforma en el panel de importe (y vuelve a ser botón al cerrar), con lo que te queda de saldo en cada opción.
+- Los campos de documento y contraseña están marcados para el autocompletar de Android: Google puede ofrecer guardarlos y completarlos en Boletera Lab.
+- Volver desde «Elegí tu boletera» sin elegir otra: la lista solo aparece cuando la pediste o tenés que elegir, así que ya no se ve pasar mientras vuelve al saldo.
+
 ## 0.2.40 Lab 3 - Arreglos del primer uso
 
 - Volver desde «Elegí tu boletera» ya no muestra la lista de nuevo por un instante antes del saldo.

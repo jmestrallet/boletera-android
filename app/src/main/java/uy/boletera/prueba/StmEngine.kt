@@ -61,6 +61,8 @@ class StmEngine(private val context: Context) {
         private set
     private var payerStoreAvailable = true
     private var choosingCard = false
+    /** The card list is shown only when the person asked for it or must choose; passing through it to reach the usual card is invisible. */
+    val cardPickerWanted: Boolean get() = choosingCard || state.selectedCard == null || state.cards.none { it.id == choices.card && it.active }
     private var activityOpened = false
     private var awaitingNavigation = false
     private val paymentBrowser = PaymentBrowser(context)

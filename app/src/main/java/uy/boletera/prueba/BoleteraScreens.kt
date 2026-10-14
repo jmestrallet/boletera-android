@@ -210,7 +210,8 @@ import java.util.Locale
             if(onTicketGuide!=null)TextButton(onClick=onTicketGuide) {
                 AppGlyph(Glyph.Ticket,tint=LocalContentColor.current);Spacer(Modifier.width(8.dp));Text("Boletos y tarifas")
             }
-            Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+            // Lab is always dark, so it offers visual effects instead of the theme choice.
+            if(effectsMode==null) Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
                 Text("Apariencia",style=MaterialTheme.typography.titleMedium,color=Ink)
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     listOf(Triple("system","Sistema",Glyph.Phone),Triple("light","Claro",Glyph.Sun),Triple("dark","Oscuro",Glyph.Moon)).forEach { (value,label,glyph) ->
