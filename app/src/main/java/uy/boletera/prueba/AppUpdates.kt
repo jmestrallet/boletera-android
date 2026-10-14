@@ -206,8 +206,16 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     private fun work(action: () -> Unit) {
         busy = true
         worker.execute {
-            try { action() } catch (_: Exception) {
-                publish { message = "No se pudo completar la actualización. Revisá la conexión y volvé a intentar." }
+            try { action() } catch (error: Exception) {
+                val detail=when(error.message) {
+                    "La descarga no es compatible con la app instalada." -> "La versión publicada no es compatible con la instalada. Buscá una actualización más reciente."
+                    "La descarga no corresponde a la versión elegida.",
+                    "La firma de la descarga no coincide con Boletera.",
+                    "La descarga está incompleta o no coincide con la publicada." -> error.message!!
+                    else -> if(error is java.io.IOException)"No se pudo completar la actualización. Revisá la conexión y volvé a intentar."
+                        else "No se pudo preparar la actualización. Buscá actualizaciones y volvé a intentar."
+                }
+                publish { message = detail }
             } finally { publish { busy = false } }
         }
     }

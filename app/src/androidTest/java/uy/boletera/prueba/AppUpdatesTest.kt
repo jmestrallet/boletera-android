@@ -14,6 +14,36 @@ import java.net.URL
 
 @RunWith(AndroidJUnit4::class)
 class AppUpdatesTest {
+    @Test fun newerAlphaRequiresHigherInstallationCode() {
+        val pm=compose.activity.packageManager
+        val source=compose.activity.applicationInfo.sourceDir
+        val installed=pm.getPackageArchiveInfo(source,PackageManager.GET_SIGNING_CERTIFICATES)!!
+        val candidate=pm.getPackageArchiveInfo(source,PackageManager.GET_SIGNING_CERTIFICATES)!!
+        installed.versionName="0.2.40-alpha.1";installed.longVersionCode=58
+        candidate.versionName="0.2.40-alpha.2";candidate.longVersionCode=58
+        assertThrows(IllegalStateException::class.java) {
+            UpdateFiles.verifyArchive(candidate,installed,compose.activity.packageName,
+                UpdateRelease(candidate.versionName!!,"",1,"",channel=UpdateChannel.ALPHA))
+        }
+        candidate.versionName="0.2.40-alpha.3";candidate.longVersionCode=59
+        UpdateFiles.verifyArchive(candidate,installed,compose.activity.packageName,
+            UpdateRelease(candidate.versionName!!,"",1,"",channel=UpdateChannel.ALPHA))
+    }
+    /** Run against the original signed Alpha 1 after the fixed release is published. */
+    @Test fun legacyAlpha1CanDownloadCurrentAlpha() {
+        val installed=compose.activity.packageManager.getPackageInfo(compose.activity.packageName,0)
+        assertEquals("0.2.40-alpha.1",installed.versionName)
+        val updates=androidx.lifecycle.ViewModelProvider(compose.activity)[AppUpdates::class.java]
+        compose.waitUntil(60000){!updates.busy}
+        compose.onNodeWithContentDescription("Configuración").performClick()
+        compose.runOnIdle {updates.check()}
+        compose.waitUntil(60000){!updates.busy}
+        assertEquals("0.2.40-alpha.3",updates.release?.version)
+        compose.onNodeWithText("Actualizar ahora").performScrollTo().performClick()
+        compose.waitUntil(90000){!updates.busy}
+        assertTrue(updates.message,updates.ready)
+        compose.onNodeWithText("Instalar").assertIsDisplayed()
+    }
     @Test fun alphaAndBetaArchivesCanReplaceEachOtherAtSameCode() {
         val pm=compose.activity.packageManager
         val source=compose.activity.applicationInfo.sourceDir
