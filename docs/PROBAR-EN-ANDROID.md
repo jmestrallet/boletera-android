@@ -2,8 +2,8 @@
 
 ## 1. Elegí una versión
 
-- **Estable:** `boletera-0.2.32.apk`. Es la recomendada y no incluye Carga Express.
-- **Beta:** `boletera-beta-0.2.32-beta.1.apk`. Incluye Carga Express como función experimental.
+- **Estable:** `boletera-0.2.33.apk`. Es la recomendada y no incluye Carga Express.
+- **Beta:** `boletera-beta-0.2.33-beta.1.apk`. Incluye Carga Express como función experimental.
 
 Ambas requieren Android 8 o posterior. Instalá el APK encima de una versión anterior para conservar los datos guardados.
 

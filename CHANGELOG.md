@@ -5,6 +5,15 @@
 - La release `v0.2.31` suma un APK puente con el nombre histórico que reconoce `0.2.30-prueba`.
 - El puente mantiene paquete, firma y versión interna compatibles; después puede avanzar al canal Estable actual sin reinstalar ni borrar los datos locales.
 
+## 0.2.33 — Azul de transporte
+
+- La app adopta la identidad del banner del README: azul de señalética de transporte en lugar del verde y lima, en tema claro y oscuro.
+- El panel de saldo usa un azul suave con el importe destacado y los textos secundarios en azul medio, como en la vista del teléfono del banner.
+- Nuevo icono de inicio: tarjeta blanca sobre un degradado azul. El mismo bloque aparece en el encabezado de la app; el icono monocromático de Android 13+ se conserva.
+- La bienvenida dibuja un mapa de líneas con los colores del banner (azul, verde y turquesa), con paradas y una combinación.
+- La página de pago de Prex toma el mismo azul en el botón principal y el fondo.
+- No cambian la distribución de la home, los recorridos de acceso y pago, Carga Express ni las actualizaciones.
+
 ## 0.2.32 — Carga Express de un toque
 
 - En Boletera Beta, Carga Express empieza con un toque. Se elimina la pulsación de 1,2 segundos y la explicación previa.
