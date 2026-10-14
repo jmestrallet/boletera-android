@@ -51,7 +51,7 @@ THEMES = {
         sBg="#F4F7FB", sSurface="#FFFFFF", sCont="#DCEBFF", sOnCont="#0B2E5C", sLabel="#1658A8",
         sPrimary="#0E5BB5", sOnPrimary="#FFFFFF", sVar="#E4ECF5", sOnVar="#4E5D6E",
         sOutline="#C9D6E5", sOn="#13233A", frame="#0E1A2A", frameEdge="#4A5A70",
-        card0="#F1F7FF", card1="#CFE2FA", cardInk="#0B2342", cardMark="#0E5BB5", cardBand="#0B3D7A", cardRim="#0B2A4F", cardRimA=0.14,
+        card0="#F1F7FF", card1="#CFE2FA", cardInk="#0B2342", cardMark="#0E5BB5", cardBand="#0B3D7A",
         toast="#FFFFFF", toastA=0.97, toastStroke="#0B2A4F", toastStrokeA=0.10, toastInk="#0B2342",
         toastMuted="#55667B", shadow="#0B2A4F", shadowA=0.22,
     ),
@@ -66,7 +66,7 @@ THEMES = {
         sBg="#0A131F", sSurface="#131F2E", sCont="#16365F", sOnCont="#DCEBFF", sLabel="#8CC2FF",
         sPrimary="#6CB0FF", sOnPrimary="#06213F", sVar="#1E2B3B", sOnVar="#A9B9CC",
         sOutline="#2C3B4E", sOn="#E6EEF7", frame="#03070C", frameEdge="#3A4A60",
-        card0="#D8E7F9", card1="#9FBFE6", cardInk="#0B2342", cardMark="#1458AE", cardBand="#0D3F7C", cardRim="#FFFFFF", cardRimA=0.35,
+        card0="#D8E7F9", card1="#9FBFE6", cardInk="#0B2342", cardMark="#1458AE", cardBand="#0D3F7C",
         toast="#132033", toastA=0.94, toastStroke="#FFFFFF", toastStrokeA=0.10, toastInk="#EEF4FB",
         toastMuted="#9FB2C8", shadow="#000000", shadowA=0.55,
     ),
@@ -212,7 +212,6 @@ def build(name):
     a(f'<rect y="121" width="250" height="37" fill="{c["cardBand"]}"/>')
     a('<rect width="250" height="158" fill="url(#cardSheen)"/>')
     a('</g>')
-    a(f'<rect x=".5" y=".5" width="249" height="157" rx="11.5" stroke="{c["cardRim"]}" stroke-opacity="{c["cardRimA"]}"/>')
     # the card's wordmark sets the M heavier than the S and T
     st, stw = T("ST", MED, 32, 18, 56, ink, tracking=10)
     a(st)
