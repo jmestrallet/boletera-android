@@ -54,7 +54,7 @@ import java.util.Locale
                     val interchange=Offset(w*0.76f,h*0.38f)
                     drawCircle(stopFill,10.dp.toPx(),interchange); drawCircle(stopRing,10.dp.toPx(),interchange,style=Stroke(3.dp.toPx()))
                 }
-                BrandTile(Modifier.align(Alignment.Center).size(80.dp).graphicsLayer { rotationZ=-10f })
+                BrandTile(Modifier.align(Alignment.Center).size(80.dp))
             }
         }
         Title("Tu próximo viaje\nempieza acá.")

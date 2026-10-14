@@ -1,9 +1,12 @@
 # Cambios
 
-## 0.2.40 Alpha 4 - Carga Express vuelve a mantener apretado
+## 0.2.40 Alpha 4 - Logo nuevo y Carga Express sostenida
 
 - Carga Express vuelve a pedir mantener apretado 1,2 segundos para evitar recargas por un toque sin querer. El círculo se llena mientras sostenés, vibra cada 0,4 s y soltar antes cancela. Un toque corto no inicia nada.
 - Express sigue usando el último medio de pago con el que recargaste bien; por ahora sólo Prex lo admite.
+- Nuevo ícono de inicio: una tarjeta blanca inclinada con cuatro barras paralelas caladas, inspiradas en la tarjeta STM, y un círculo verde con un signo más que representa la recarga. No usa el logo ni el nombre de STM.
+- Ícono temático propio para Android 13+, con las barras y el signo más calados.
+- El encabezado y la bienvenida muestran el mismo bloque de marca que el ícono de inicio.
 
 ## 0.2.40 Alpha 3 - Actualización instalable
 

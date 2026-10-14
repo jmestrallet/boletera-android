@@ -2,7 +2,7 @@
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
     <path android:pathData="M0,0 H108 V108 H0 Z">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="108" android:endY="108"
+            <gradient android:type="linear" android:startX="17.1" android:startY="-9.9" android:endX="90.9" android:endY="117.9"
                 android:startColor="@color/app_icon_background" android:endColor="@color/app_icon_background_end" />
         </aapt:attr>
     </path>
