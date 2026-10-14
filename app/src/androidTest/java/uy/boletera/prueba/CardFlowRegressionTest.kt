@@ -231,7 +231,7 @@ class CardFlowRegressionTest {
                 assertEquals(2,paymentLoads[newLink]?.get())
             }
             compose.onNodeWithText("Recargar boletera").assertExists()
-            if(BuildConfig.DISTRIBUTION_CHANNEL!="beta") {
+            if(BuildConfig.DISTRIBUTION_CHANNEL !in setOf("beta","alpha")) {
                 compose.onNodeWithText("Carga Express").assertDoesNotExist()
                 return
             }
