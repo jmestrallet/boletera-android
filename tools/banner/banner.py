@@ -205,7 +205,7 @@ def build(name):
     # in the banner's own colours: the balance panel's pale blue, the accent blue and the top strip.
     # No printed number and no STM or Intendencia logo marks.
     ink = c["cardInk"]
-    a(f'<g class="float2"><g transform="translate(590 300) rotate(-12) scale(.9)" filter="url(#soft)">')
+    a(f'<g class="float2"><g transform="translate(636 296) rotate(-12)" filter="url(#soft)">')
     a('<clipPath id="cardShape"><rect width="250" height="158" rx="12"/></clipPath>')
     a('<g clip-path="url(#cardShape)">')
     a('<rect width="250" height="158" fill="url(#card)"/>')
