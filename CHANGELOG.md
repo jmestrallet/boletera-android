@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.40 Lab 5 - La tarjeta del ingreso
+
+- La entrada ya no muestra el cuadrado azul: la tarjeta del ícono (blanca, cuatro rayas azules y el + verde) flota en el centro.
+- La tarjeta es el indicador del ingreso: al entrar, las rayas se vuelven una carga que corre y el + se transforma en un indicador que cambia de forma; al lograrlo vuelve el + con una onda verde antes de pasar al inicio; si falla, se pone roja con una cruz y explica el motivo.
+- Mientras la huella y STM responden, la pantalla de entrada queda visible en lugar de la pantalla genérica de «Conectando».
+- Al abrir la app, la tarjeta sale del ícono en el centro y viaja a su lugar mientras aparece el resto.
+- Con «quitar animaciones» de Android activado, la tarjeta se muestra quieta.
+
 ## 0.2.40 Lab 4 - Entrada, boleteras e importe con el diseño nuevo
 
 - La entrada (huella o documento y contraseña) y «Elegí tu boletera» usan el diseño oscuro del inicio, con el mismo fondo de luz.

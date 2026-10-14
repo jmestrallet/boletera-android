@@ -177,7 +177,30 @@ class MainActivity : FragmentActivity() {
                 showSettings=false; document=""; password=""; revealPassword=false; manual=false
             }
         }
-        val stage = when {
+        // Lab: the sign-in card stays on screen while STM connects, celebrates the entry, or flags a failed attempt.
+        var labLoggingIn by remember { mutableStateOf(false) }
+        var labConnected by remember { mutableStateOf(false) }
+        var labHeroResult by remember { mutableStateOf(HeroPhase.IDLE) }
+        LaunchedEffect(authenticating) { if(IsLab && authenticating) labLoggingIn=true }
+        LaunchedEffect(state.stage, state.busy, authenticating) {
+            if(!IsLab || !labLoggingIn) return@LaunchedEffect
+            if(state.stage=="connecting") labConnected=true
+            when {
+                state.stage=="balance" || state.stage=="cards" -> { labLoggingIn=false; labConnected=false; labHeroResult=HeroPhase.SUCCESS }
+                state.stage=="blocked" || state.stage=="accessHelp" -> { labLoggingIn=false; labConnected=false }
+                state.stage=="welcome" && !authenticating && !state.busy -> { if(labConnected)labHeroResult=HeroPhase.ERROR; labLoggingIn=false; labConnected=false }
+            }
+        }
+        LaunchedEffect(labHeroResult) {
+            if(labHeroResult!=HeroPhase.IDLE) { kotlinx.coroutines.delay(if(labHeroResult==HeroPhase.SUCCESS)1300 else 1800); labHeroResult=HeroPhase.IDLE }
+        }
+        val labHeroPhase = when { labHeroResult!=HeroPhase.IDLE -> labHeroResult; authenticating || labLoggingIn -> HeroPhase.LOADING; else -> HeroPhase.IDLE }
+        val labHold = IsLab && ((labLoggingIn && state.stage=="connecting") || labHeroResult==HeroPhase.SUCCESS)
+        val labOpening = remember { IsLab && !LabLaunch.openingPlayed }
+        SideEffect { if(IsLab) LabLaunch.openingPlayed = true }
+        val labVeil = remember { androidx.compose.animation.core.Animatable(if(labOpening) 1f else 0f) }
+        LaunchedEffect(Unit) { if(labOpening) { kotlinx.coroutines.delay(350); labVeil.animateTo(0f, androidx.compose.animation.core.tween(450)) } }
+        val stage = if(labHold) "welcome" else when {
             state.stage=="connecting" && state.selectedCard!=null && state.balance!=null && state.amount==null -> "balance"
             // Never flash the card list while the engine passes through it on the way back to the balance.
             state.stage=="cards" && !engine.cardPickerWanted -> if(state.balance!=null && state.amount==null) "balance" else "connecting"
@@ -203,6 +226,8 @@ class MainActivity : FragmentActivity() {
           Box(Modifier.fillMaxSize()) {
            Box(Modifier.fillMaxSize().then(if(labHome)Modifier.hazeSource(haze) else Modifier)) {
             if(labScreen)LabAmbient()
+            // App opening: dark like the system splash, dissolving while the card leaves the launcher icon.
+            if(labScreen && labVeil.value>0f)Box(Modifier.fillMaxSize().background(LabColors.Base.copy(alpha=labVeil.value)))
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding(),horizontalAlignment=Alignment.CenterHorizontally) {
                 if(labHome)Spacer(Modifier.height(64.dp))
                 else if(labScreen)LabTopBar(onBack=if(stage=="cards")::back else null,onSettings={showSettings=true})
@@ -219,6 +244,7 @@ class MainActivity : FragmentActivity() {
                                 document=document,onDocument={document=it.filter(Char::isDigit).take(8)},password=password,onPassword={password=it},
                                 reveal=revealPassword,onReveal={revealPassword=!revealPassword},save=save,onSave={save=it},canSave=vault.available,
                                 authenticating=authenticating,onUnlock={unlockSavedAccess()},onSubmit={
+                                            labLoggingIn=true
                                             val doc=document; val pass=password; document="";password="";revealPassword=false
                                             if(save) {
                                                 authenticating=true
@@ -226,7 +252,7 @@ class MainActivity : FragmentActivity() {
                                                     if(ok)engine.connect(doc,pass,rememberForSession=true) else engine.notice("No se guardó el acceso. Podés intentar de nuevo o ingresar sin guardarlo.") }
                                             } else engine.connect(doc,pass)
                                         },
-                                onAccessGuide={showAccessGuide=true})
+                                onAccessGuide={showAccessGuide=true},heroPhase=labHeroPhase,opening=labOpening)
                             else {
                                 if(state.sessionExpired) {
                                     Title("Tu sesión venció")

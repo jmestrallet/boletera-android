@@ -1,5 +1,13 @@
 package uy.boletera.prueba
 
+import kotlinx.coroutines.launch
+
+import androidx.compose.ui.layout.boundsInRoot
+
+import androidx.compose.ui.layout.onGloballyPositioned
+
+import androidx.compose.animation.core.Animatable
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
@@ -45,10 +53,12 @@ import androidx.compose.ui.unit.sp
         .clickable(onClick = onClick), contentAlignment = Alignment.Center) { content() }
 }
 
-@Composable private fun LabPrimary(label: String, enabled: Boolean = true, onClick: () -> Unit) {
+@Composable private fun LabPrimary(label: String, enabled: Boolean = true, onClick: () -> Unit, glyph: Glyph? = null) {
     val haptic = LocalHapticFeedback.current
-    Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(32.dp)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
-        .clickable(enabled = enabled) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() }, contentAlignment = Alignment.Center) {
+    Row(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(32.dp)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
+        .clickable(enabled = enabled) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() },
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        if (glyph != null) { AppGlyph(glyph, Modifier.size(22.dp), tint = LabColors.OnPrimary); Spacer(Modifier.width(10.dp)) }
         Text(label, style = MaterialTheme.typography.titleMedium, color = LabColors.OnPrimary)
     }
 }
@@ -57,31 +67,50 @@ import androidx.compose.ui.unit.sp
     TextButton(onClick = onClick, modifier = modifier) { Text(label, color = LabColors.Primary, style = MaterialTheme.typography.titleSmall) }
 
 /** Sign-in for Lab: fingerprint first when saved, otherwise the gub.uy fields marked for Android autofill. */
+/** The app opening plays once per process: the card travels from the launcher icon into place. */
+internal object LabLaunch { var openingPlayed = false }
+
+/** Staggered fade-and-rise for the sign-in content while the card lands; already settled when not opening. */
+@Composable private fun introStates(count: Int, opening: Boolean): List<State<Float>> {
+    val items = remember { List(count) { Animatable(if (opening) 0f else 1f) } }
+    LaunchedEffect(opening) {
+        if (opening) items.forEachIndexed { i, a -> launch { kotlinx.coroutines.delay(550L + i * 70L); a.animateTo(1f, spring(dampingRatio = .7f, stiffness = 260f)) } }
+    }
+    return items.map { it.asState() }
+}
+private fun Modifier.intro(v: State<Float>) = graphicsLayer { alpha = v.value.coerceIn(0f, 1f); translationY = (1 - v.value) * 16.dp.toPx() }
+
+/** Sign-in for Lab: the card is the progress indicator; fingerprint first when saved, otherwise the gub.uy fields marked for Android autofill. */
 @Composable internal fun LabWelcome(state: UiState, savedAccess: Boolean, manual: Boolean, onManual: () -> Unit,
     document: String, onDocument: (String) -> Unit, password: String, onPassword: (String) -> Unit,
     reveal: Boolean, onReveal: () -> Unit, save: Boolean, onSave: (Boolean) -> Unit, canSave: Boolean,
-    authenticating: Boolean, onUnlock: () -> Unit, onSubmit: () -> Unit, onAccessGuide: () -> Unit) {
+    authenticating: Boolean, onUnlock: () -> Unit, onSubmit: () -> Unit, onAccessGuide: () -> Unit,
+    heroPhase: HeroPhase = HeroPhase.IDLE, opening: Boolean = false) {
     val type = MaterialTheme.typography
+    val view = androidx.compose.ui.platform.LocalView.current
+    var fromY by remember { mutableFloatStateOf(0f) }
+    val intro = introStates(6, opening)
+    val working = heroPhase == HeroPhase.LOADING || heroPhase == HeroPhase.SUCCESS
     Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Spacer(Modifier.height(12.dp))
-        BrandTile(Modifier.size(64.dp))
+        val heroHeight = if (savedAccess && !manual) 260.dp else 190.dp
+        LabCardHero(heroPhase, Modifier.fillMaxWidth().height(heroHeight).onGloballyPositioned {
+            val r = it.boundsInRoot(); fromY = view.height / 2f - r.center.y }, opening = opening, openingFromY = fromY)
         Text(if (state.sessionExpired) "Tu sesión venció" else "Entrá a tu STM", style = type.headlineLarge.copy(fontSize = 34.sp, lineHeight = 40.sp), color = LabColors.On,
-            modifier = Modifier.padding(top = 10.dp))
+            modifier = Modifier.intro(intro[0]))
         Text(when {
+            heroPhase == HeroPhase.LOADING -> if (authenticating) "Confirmá con tu huella." else "Conectando con STM…"
+            heroPhase == HeroPhase.SUCCESS -> "Listo."
+            heroPhase == HeroPhase.ERROR -> state.message.ifBlank { "No pudimos entrar. Probá de nuevo." }
             state.sessionExpired && savedAccess -> "STM cierra el acceso después de un rato. Confirmá tu huella y volvés a donde estabas."
             state.sessionExpired -> "STM cierra el acceso después de un rato. Ingresá de nuevo para seguir."
             else -> "Con tu Usuario gub.uy."
-        }, style = type.bodyLarge, color = LabColors.Muted)
+        }, style = type.bodyLarge, color = if (heroPhase == HeroPhase.ERROR) Color(0xFFFFB4AB) else LabColors.Muted, modifier = Modifier.intro(intro[1]))
         if (state.sessionExpired && state.paymentNeedsReview) Text("Si ya habías autorizado un pago, revisamos el saldo al entrar. No se repite la recarga.", style = type.bodyMedium, color = LabColors.Faint)
         if (savedAccess && !manual) {
-            Box(Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
-                val pulse = rememberInfiniteTransition(label = "fingerprint").animateFloat(0.06f, 0.10f, infiniteRepeatable(tween(1300, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "pulse")
-                Box(Modifier.size(128.dp).background(LabColors.Primary, PolarShape(12, pulse.value)).clickable(enabled = !authenticating && !state.busy, onClick = onUnlock), contentAlignment = Alignment.Center) {
-                    AppGlyph(Glyph.Fingerprint, Modifier.size(60.dp), tint = LabColors.OnPrimary, label = "Entrar con huella")
-                }
+            Box(Modifier.intro(intro[2]).padding(top = 18.dp)) {
+                LabPrimary(if (authenticating) "Esperando tu huella…" else if (working) "Entrando…" else "Entrar con huella", !authenticating && !state.busy && !working, onUnlock, Glyph.Fingerprint)
             }
-            LabPrimary(if (authenticating) "Esperando tu huella…" else "Entrar con huella", !authenticating && !state.busy, onUnlock)
-            LabTextLink("Ingresar con contraseña", onManual, Modifier.align(Alignment.CenterHorizontally))
+            LabTextLink("Ingresar con contraseña", onManual, Modifier.align(Alignment.CenterHorizontally).intro(intro[3]))
         } else {
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(document, onDocument, label = { Text("Documento uruguayo") }, singleLine = true, shape = RoundedCornerShape(16.dp),
@@ -97,13 +126,13 @@ import androidx.compose.ui.unit.sp
                 Switch(checked = save, onCheckedChange = onSave)
             }
             LabPrimary(if (authenticating) "Esperando tu huella…" else if (save) "Guardar e ingresar" else "Ingresar",
-                document.length == 8 && password.isNotBlank() && !authenticating && !state.busy, onSubmit)
+                document.length == 8 && password.isNotBlank() && !authenticating && !state.busy && !working, onSubmit)
         }
-        Row(Modifier.padding(top = 8.dp, start = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.intro(intro[4]).padding(top = 8.dp, start = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             AppGlyph(Glyph.Lock, Modifier.size(16.dp), tint = LabColors.Faint)
             Text("Proyecto independiente y no oficial de STM", style = type.bodySmall, color = LabColors.Faint)
         }
-        LabTextLink("¿Es tu primer ingreso a STM?", onAccessGuide)
+        LabTextLink("¿Es tu primer ingreso a STM?", onAccessGuide, Modifier.intro(intro[5]))
     }
 }
 
@@ -183,7 +212,7 @@ import androidx.compose.ui.unit.sp
                         isError = text.isNotEmpty() && !Amounts.valid(amount, state.minimum),
                         supportingText = { if (text.isNotEmpty() && !Amounts.valid(amount, state.minimum)) Text("Ingresá al menos ${Amounts.format(state.minimum)}.") })
                     LabTextLink(if (custom) "Usar un importe sugerido" else "Otro importe", { custom = !custom })
-                    LabPrimary("Continuar", Amounts.valid(amount, state.minimum) && !state.busy) { amount?.let(onChoose) }
+                    LabPrimary("Continuar", Amounts.valid(amount, state.minimum) && !state.busy, onClick = { amount?.let(onChoose) })
                 }
             }
             if (!open) Box(Modifier.fillMaxWidth().height(64.dp))

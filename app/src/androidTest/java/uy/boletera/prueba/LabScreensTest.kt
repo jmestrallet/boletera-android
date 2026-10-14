@@ -54,6 +54,24 @@ class LabScreensTest {
         compose.onNodeWithText("Guardar acceso con huella").assertIsDisplayed()
         capture("lab-welcome-password.png")
     }
+    @Test fun signInCardShowsLoadingAndSuccess() {
+        var phase by mutableStateOf(HeroPhase.IDLE)
+        compose.setContent { Frame {
+            LabWelcome(UiState(stage = "welcome", hasSavedAccess = true), savedAccess = true, manual = false, onManual = {},
+                document = "", onDocument = {}, password = "", onPassword = {}, reveal = false, onReveal = {}, save = true, onSave = {}, canSave = true,
+                authenticating = false, onUnlock = {}, onSubmit = {}, onAccessGuide = {}, heroPhase = phase, opening = false)
+        } }
+        android.os.SystemClock.sleep(1600)
+        capture("lab-signin-idle.png")
+        phase = HeroPhase.LOADING
+        compose.onNodeWithText("Conectando con STM…").assertIsDisplayed()
+        android.os.SystemClock.sleep(500)
+        capture("lab-signin-loading.png")
+        phase = HeroPhase.SUCCESS
+        android.os.SystemClock.sleep(250)
+        capture("lab-signin-success.png")
+        compose.onNodeWithText("Listo.").assertIsDisplayed()
+    }
     @Test fun cardPickerMarksCurrentCard() {
         var chosen = ""
         val state = UiState(stage = "cards", selectedCard = "ABCD1234", cards = listOf(CardInfo("ABCD1234", true, "Operativa"), CardInfo("DEAD5678", false, "Pte. Anular")))
