@@ -78,6 +78,8 @@ dependencies {
     implementation("androidx.fragment:fragment-ktx:1.8.6")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.compose.material3:material3")
+    // Backdrop blur for the Lab glass panels; falls back to a tinted surface before Android 12.
+    implementation("dev.chrisbanes.haze:haze:1.6.10")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")

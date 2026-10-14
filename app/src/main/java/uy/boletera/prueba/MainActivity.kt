@@ -29,6 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -111,6 +114,8 @@ class MainActivity : FragmentActivity() {
             }
         }
         var showSettings by rememberSaveable { mutableStateOf(false) }
+        val context = LocalContext.current
+        var effectsMode by remember { mutableStateOf(VisualEffects.mode(context)) }
         var showTicketGuide by rememberSaveable { mutableStateOf(false) }
         var showAccessGuide by rememberSaveable { mutableStateOf(false) }
         var showPaymentReview by remember {mutableStateOf(false)}
@@ -174,9 +179,17 @@ class MainActivity : FragmentActivity() {
             if(state.stage in listOf("paymentBoundary", "externalPayment")) engine.refresh() else engine.cancel()
         }
         BackHandler(enabled = state.stage != "welcome") { back() }
-        Surface(color=Paper,modifier=Modifier.fillMaxSize()) {
+        // Boletera Lab draws its own home over a blurred, wallpaper-like light; every other stage keeps the shared layout.
+        val labHome=IsLab && stage=="balance"
+        val haze=remember { HazeState() }
+        val onExpressCharge=if(updates.installedChannel!=UpdateChannel.STABLE && engine.expressAvailable)::requestExpress else null
+        Surface(color=if(labHome)LabColors.Base else Paper,modifier=Modifier.fillMaxSize()) {
+          Box(Modifier.fillMaxSize()) {
+           Box(Modifier.fillMaxSize().then(if(labHome)Modifier.hazeSource(haze) else Modifier)) {
+            if(labHome)LabAmbient()
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding(),horizontalAlignment=Alignment.CenterHorizontally) {
-                AppTopBar(onSettings={showSettings=true},onBack=if(stage in listOf("paymentBoundary","cards","captcha","blocked","externalPayment"))::back else null,
+                if(labHome)Spacer(Modifier.height(64.dp))
+                else AppTopBar(onSettings={showSettings=true},onBack=if(stage in listOf("paymentBoundary","cards","captcha","blocked","externalPayment"))::back else null,
                     title=when(stage){ "paymentBoundary"->"Tu recarga"; "cards"->"Boleteras"; "captcha"->"Verificación"; "externalPayment"->"Pago en eBROU"; else->null })
                 Box(Modifier.weight(1f).widthIn(max=600.dp).fillMaxWidth().pullToRefresh(
                     isRefreshing=stage=="balance"&&state.busy,state=pullState,enabled=stage=="balance"&&!state.busy,
@@ -227,8 +240,10 @@ class MainActivity : FragmentActivity() {
                                 }
                                 TextButton(onClick={showAccessGuide=true}) {Text("¿Es tu primer ingreso a STM?")}
                             }
-                            "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
-                                onExpressCharge=if(updates.installedChannel!=UpdateChannel.STABLE && engine.expressAvailable)::requestExpress else null,
+                            "balance" -> if(IsLab) LabHomeContent(state,onPaymentReviewed={showPaymentReview=true},
+                                onActivity=engine::openActivity,onTicketGuide={showTicketGuide=true})
+                            else WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
+                                onExpressCharge=onExpressCharge,
                                 onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel,
                                 onPaymentReviewed={showPaymentReview=true},onActivity=if(BuildConfig.DEBUG || updates.installedChannel in setOf(UpdateChannel.ALPHA,UpdateChannel.LAB))engine::openActivity else null)
                             "connecting" -> {
@@ -286,7 +301,7 @@ class MainActivity : FragmentActivity() {
                         }
                         if(cap!=null)Primary("Ya completé la verificación"){engine.continueCaptcha()}
                     }
-                    SnackbarHost(hostState=snackbar,modifier=Modifier.align(Alignment.BottomCenter).padding(16.dp))
+                    SnackbarHost(hostState=snackbar,modifier=Modifier.align(Alignment.BottomCenter).padding(16.dp).padding(bottom=if(labHome)140.dp else 0.dp))
                     if(stage=="balance")PullToRefreshDefaults.Indicator(state=pullState,isRefreshing=state.busy,modifier=Modifier.align(Alignment.TopCenter),containerColor=Highlight,color=MaterialTheme.colorScheme.onPrimaryContainer)
                 }
                 if(stage=="paymentBoundary")Box(Modifier.widthIn(max=600.dp).fillMaxWidth()) {
@@ -295,6 +310,10 @@ class MainActivity : FragmentActivity() {
                         onChoosePayer={showPayerPicker=true},onContinue=engine::beginPayment)
                 }
             }
+           }
+           if(labHome)LabHomeChrome(state,haze,blur=VisualEffects.enabled(context,effectsMode),onChangeCard=engine::changeCard,onSettings={showSettings=true},
+               onCharge={showAmount=true},onExpressCharge=onExpressCharge,expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel)
+          }
         }
         if(showAmount)AmountSheet(state,{showAmount=false}){amount->showAmount=false;engine.prepare(amount)}
         if(showTicketGuide)TicketGuideSheet {showTicketGuide=false}
@@ -313,7 +332,8 @@ class MainActivity : FragmentActivity() {
             dismissButton={TextButton(onClick=::closeBetaIntro){Text("Ahora no")}})
         if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",engine.helpDiagnostic,
             onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall=updates::requestReview,onClose={showSettings=false},
-            onTicketGuide={showSettings=false;showTicketGuide=true})
+            onTicketGuide={showSettings=false;showTicketGuide=true},
+            effectsMode=if(IsLab)effectsMode else null,onEffectsMode={effectsMode=it;VisualEffects.setMode(context,it)})
 
         if(updates.reviewRequested && updates.ready && !updates.busy) UpdateReviewDialog(updates.release,updates::acceptReview,updates::dismissReview)
 

@@ -195,7 +195,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun SettingsSheet(updates: AppUpdates, appearance: String, onAppearance: (String) -> Unit, hasSavedAccess: Boolean,
     canLogout: Boolean, diagnostic: String, onForget: () -> Unit, onLogout: () -> Unit, onInstall: () -> Unit, onClose: () -> Unit,
-    onTicketGuide: (() -> Unit)? = null) {
+    onTicketGuide: (() -> Unit)? = null, effectsMode: EffectsMode? = null, onEffectsMode: (EffectsMode) -> Unit = {}) {
     var details by remember { mutableStateOf(false) }
     var copied by remember(diagnostic) { mutableStateOf(false) }
     val haptic=LocalHapticFeedback.current
@@ -223,6 +223,28 @@ import java.util.Locale
                         }
                     }
                 }
+            }
+            if(effectsMode!=null) Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                Text("Efectos visuales",style=MaterialTheme.typography.titleMedium,color=Ink)
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    EffectsMode.entries.forEach { option ->
+                        Surface(color=if(effectsMode==option)Highlight else Panel,shape=RoundedCornerShape(20.dp),
+                            modifier=Modifier.weight(1f).selectable(effectsMode==option,role=Role.RadioButton) {
+                                if(effectsMode!=option){haptic.performHapticFeedback(HapticFeedbackType.ContextClick);onEffectsMode(option)}
+                            }) {
+                            Text(option.label,style=MaterialTheme.typography.bodyMedium,textAlign=androidx.compose.ui.text.style.TextAlign.Center,
+                                color=if(effectsMode==option)MaterialTheme.colorScheme.onPrimaryContainer else Ink,modifier=Modifier.padding(vertical=14.dp,horizontal=4.dp).fillMaxWidth())
+                        }
+                    }
+                }
+                val context=view.context
+                Text(when {
+                    !VisualEffects.supported -> "Tu Android no admite el vidrio esmerilado: los paneles se ven lisos. Hace falta Android 12 o más nuevo."
+                    effectsMode==EffectsMode.AUTO && VisualEffects.capable(context) -> "Automático: este celular puede con el vidrio, así que está activado."
+                    effectsMode==EffectsMode.AUTO -> "Automático: para que no se trabe, este celular usa paneles lisos. Podés activarlo igual."
+                    effectsMode==EffectsMode.ON -> "Vidrio activado. Si notás que la app va lenta, probá Automático."
+                    else -> "Paneles lisos, sin desenfoque."
+                },style=MaterialTheme.typography.bodySmall,color=Muted)
             }
             Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
                 Text("Versión",style=MaterialTheme.typography.titleMedium,color=Ink)

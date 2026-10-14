@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.2.40 Lab 1 - Inicio 2026
+
+- Primera Boletera Lab: se instala aparte, con ícono violeta, y no reemplaza a Boletera.
+- Inicio nuevo: saldo grande, cuántos viajes de 1 hora te alcanzan, y Actividad y Tarifas como tarjetas.
+- Recargar queda abajo, donde cae el pulgar. Express es un botón con forma de galletita: mantenelo 1,2 s, el anillo se llena y al aceptarse se vuelve círculo.
+- Paneles de vidrio esmerilado sobre un fondo con luz. En Android 11 o anterior se ven lisos.
+- Configuración → Efectos visuales: Automático (según el celular), Activados o Desactivados.
+- El resto de las pantallas todavía usa el diseño de Alpha.
+
 ## 0.2.40 Alpha 5 - Cuarto canal: Boletera Lab
 
 - Configuración muestra cuatro versiones: Estable, Beta, Alpha y Lab.
