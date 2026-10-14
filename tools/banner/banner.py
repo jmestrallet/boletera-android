@@ -51,7 +51,7 @@ THEMES = {
         sBg="#F4F7FB", sSurface="#FFFFFF", sCont="#DCEBFF", sOnCont="#0B2E5C", sLabel="#1658A8",
         sPrimary="#0E5BB5", sOnPrimary="#FFFFFF", sVar="#E4ECF5", sOnVar="#4E5D6E",
         sOutline="#C9D6E5", sOn="#13233A", frame="#0E1A2A", frameEdge="#4A5A70",
-        card0="#1A73D9", card1="#0B3D7A", cardInk="#FFFFFF", cardInkA=0.85,
+        card0="#F1F7FF", card1="#CFE2FA", cardInk="#0B2342", cardMark="#0E5BB5", cardBand="#0B3D7A", cardRim="#0B2A4F", cardRimA=0.14,
         toast="#FFFFFF", toastA=0.97, toastStroke="#0B2A4F", toastStrokeA=0.10, toastInk="#0B2342",
         toastMuted="#55667B", shadow="#0B2A4F", shadowA=0.22,
     ),
@@ -66,7 +66,7 @@ THEMES = {
         sBg="#0A131F", sSurface="#131F2E", sCont="#16365F", sOnCont="#DCEBFF", sLabel="#8CC2FF",
         sPrimary="#6CB0FF", sOnPrimary="#06213F", sVar="#1E2B3B", sOnVar="#A9B9CC",
         sOutline="#2C3B4E", sOn="#E6EEF7", frame="#03070C", frameEdge="#3A4A60",
-        card0="#2B86F0", card1="#0E4C96", cardInk="#FFFFFF", cardInkA=0.85,
+        card0="#D8E7F9", card1="#9FBFE6", cardInk="#0B2342", cardMark="#1458AE", cardBand="#0D3F7C", cardRim="#FFFFFF", cardRimA=0.35,
         toast="#132033", toastA=0.94, toastStroke="#FFFFFF", toastStrokeA=0.10, toastInk="#EEF4FB",
         toastMuted="#9FB2C8", shadow="#000000", shadowA=0.55,
     ),
@@ -201,18 +201,27 @@ def build(name):
         cx += cw + 10
 
     # ---------- transit card, tilted behind the phone ----------
-    a(f'<g class="float2"><g transform="translate(636 296) rotate(-12)" filter="url(#soft)">')
-    a('<rect width="250" height="158" rx="20" fill="url(#card)"/>')
-    a('<rect width="250" height="158" rx="20" fill="url(#cardSheen)"/>')
-    a('<rect x=".5" y=".5" width="249" height="157" rx="19.5" stroke="#fff" stroke-opacity=".25"/>')
-    a(T("STM", BOLD, 26, 22, 44, c["cardInk"], tracking=40)[0])
-    # contactless arcs, next to the brand so they stay visible beside the phone
-    for i, r in enumerate([7, 13, 19]):
-        a(f'<path d="M{0} {-r * .8:.1f} A {r} {r} 0 0 1 {0} {r * .8:.1f}" transform="translate({86 + i * 3} 35)" '
-          f'stroke="{c["cardInk"]}" stroke-opacity="{c["cardInkA"]}" stroke-width="2.6" stroke-linecap="round"/>')
-    a(f'<rect x="22" y="66" width="40" height="30" rx="7" fill="{c["cardInk"]}" fill-opacity=".2"/>')
-    a(f'<path d="M22 81 H62 M42 66 V96" stroke="{c["cardInk"]}" stroke-opacity=".18"/>')
-    a(T("•••• 1234", MED, 16, 22, 134, c["cardInk"], opacity=c["cardInkA"], tracking=50)[0])
+    # The STM card's layout (light card, wordmark, centred slanted bars, contactless waves, dark band)
+    # in the banner's own colours: the balance panel's pale blue, the accent blue and the top strip.
+    # No printed number and no STM or Intendencia logo marks.
+    ink = c["cardInk"]
+    a(f'<g class="float2"><g transform="translate(590 300) rotate(-12) scale(.9)" filter="url(#soft)">')
+    a('<clipPath id="cardShape"><rect width="250" height="158" rx="12"/></clipPath>')
+    a('<g clip-path="url(#cardShape)">')
+    a('<rect width="250" height="158" fill="url(#card)"/>')
+    a(f'<rect y="121" width="250" height="37" fill="{c["cardBand"]}"/>')
+    a('<rect width="250" height="158" fill="url(#cardSheen)"/>')
+    a('</g>')
+    a(f'<rect x=".5" y=".5" width="249" height="157" rx="11.5" stroke="{c["cardRim"]}" stroke-opacity="{c["cardRimA"]}"/>')
+    # the card's wordmark sets the M heavier than the S and T
+    st, stw = T("ST", MED, 32, 18, 56, ink, tracking=10)
+    a(st)
+    a(T("M", BOLD, 32, 18 + stw + 32 * .01, 56, ink)[0])
+    bars = " ".join(f"M{79 + 19.2 * k:.1f} 113 L{95.7 + 19.2 * k:.1f} 87.2" for k in range(5))
+    a(f'<path d="{bars}" stroke="{c["cardMark"]}" stroke-width="8.9" stroke-linecap="round"/>')
+    waves = " ".join(f"M{201 + .669 * r:.2f} {100 - .743 * r:.2f} A{r} {r} 0 0 1 {201 + .669 * r:.2f} {100 + .743 * r:.2f}"
+                     for r in (4, 9, 14, 19))
+    a(f'<path d="{waves}" stroke="{c["cardMark"]}" stroke-width="3.2" stroke-linecap="round"/>')
     a('</g></g>')
 
     # ---------- phone ----------
