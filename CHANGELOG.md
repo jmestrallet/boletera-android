@@ -1,5 +1,36 @@
 # Cambios
 
+## 0.2.40 Alpha 5 - Cuarto canal: Boletera Lab
+
+- Configuración muestra cuatro versiones: Estable, Beta, Alpha y Lab.
+- Lab es la versión de pruebas del creador: cambia seguido y puede fallar. Antes de buscarla, Boletera avisa y pide confirmación.
+- Boletera Lab se instala como otra app, con ícono violeta, al lado de Boletera. Tu Boletera no cambia y podés usar las dos.
+- Cuando Boletera Lab está instalada, Configuración ofrece abrirla.
+
+## 0.2.40 Alpha 4 - Logo nuevo y Carga Express sostenida
+
+- Carga Express vuelve a pedir mantener apretado 1,2 segundos para evitar recargas por un toque sin querer. El círculo se llena mientras sostenés, vibra cada 0,4 s y soltar antes cancela. Un toque corto no inicia nada.
+- Express sigue usando el último medio de pago con el que recargaste bien; por ahora sólo Prex lo admite.
+- Nuevo ícono de inicio: una tarjeta blanca inclinada con cuatro barras paralelas caladas, inspiradas en la tarjeta STM, y un círculo verde con un signo más que representa la recarga. No usa el logo ni el nombre de STM.
+- Ícono temático propio para Android 13+, con las barras y el signo más calados.
+- El encabezado y la bienvenida muestran el mismo bloque de marca que el ícono de inicio.
+
+## 0.2.40 Alpha 3 - Actualización instalable
+
+- Corrige el rechazo al actualizar desde Alpha 1 o Alpha 2: el APK ahora usa un código de instalación superior.
+- Conserva el diseño azul de Alpha 2. Se instala encima de la versión anterior sin borrar datos.
+- Los errores de incompatibilidad, firma o archivo incompleto se muestran con su causa, en lugar de atribuirlos siempre a la conexión.
+- Beta 0.2.40 Beta 2 comparte el código de instalación nuevo para permitir volver de Alpha a Beta.
+
+## 0.2.40 Alpha 2 - Azul de transporte
+
+- La app adopta la identidad del banner del README: azul de señalética de transporte en lugar del verde y lima, en tema claro y oscuro.
+- El panel de saldo usa un azul suave con el importe destacado y los textos secundarios en azul medio, como en la vista del teléfono del banner.
+- Nuevo icono de inicio: tarjeta blanca sobre un degradado azul. El mismo bloque aparece en el encabezado de la app; el icono monocromático de Android 13+ se conserva.
+- La bienvenida dibuja un mapa de líneas con los colores del banner (azul, verde y turquesa), con paradas y una combinación.
+- La página de pago de Prex toma el mismo azul en el botón principal y el fondo.
+- No cambian la distribución de la home, los recorridos de acceso y pago, Carga Express, Actividad ni las actualizaciones. Por ahora el diseño nuevo solo está en Alpha.
+
 ## 0.2.40 Beta 1 - Puente al canal Alpha
 
 - Configuración permite elegir Estable, Beta o Alpha. Alpha se ofrece únicamente cuando se elige ese canal.

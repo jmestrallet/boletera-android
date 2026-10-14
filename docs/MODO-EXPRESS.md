@@ -1,5 +1,7 @@
 # Carga Express — atajo puntual
 
+**0.2.40 Alpha 4:** vuelve la pulsación sostenida de 1,2 segundos (soltar antes cancela; un toque corto no inicia nada). Desde 0.2.40 Alpha 3 el intento de la casilla también corre en Alpha.
+
 **0.2.39 Beta 1:** si falta el CVV, escribilo y tocá Listo. Express recuerda esa solicitud mientras resolvés la verificación y continúa después de que Sistarbanc la acepta. Editar los datos, elegir otra tarjeta, un error o salir de la app cancela esa espera. Escribir sin tocar Listo no envía el formulario.
 
 **0.2.38 Beta 1:** después de la verificación, continúa con el titular conocido o la tarjeta completamente autocompletada cuando puede reconocer la aceptación de Sistarbanc. Una versión desconocida del sitio conserva Continuar manual. Sigue intentando una vez la casilla normal, como en 0.2.37; las imágenes/audio quedan a cargo de la persona. No hay una tasa medida de aprobación sin fotos en STM/Prex.
@@ -10,7 +12,7 @@
 
 **Base del recorrido desde 0.2.32:** el alcance y la validación están en [EXPRESS-0.2.32.md](EXPRESS-0.2.32.md). El recorrido anterior de 0.2.30 se conserva como [evidencia histórica](EXPRESS-0.2.30.md).
 
-La recarga común mantiene el botón principal **Recargar boletera**, con elección de importe y medio. Debajo aparece **Carga Express** únicamente en Boletera Beta y cuando la cuenta ya tiene todo lo necesario. No hay configuración, encendido persistente, explicación previa ni pulsación larga.
+La recarga común mantiene el botón principal **Recargar boletera**, con elección de importe y medio. Debajo aparece **Carga Express** únicamente en Boletera Beta y Alpha, y cuando la cuenta ya tiene todo lo necesario. Se inicia manteniendo apretado 1,2 segundos. No hay configuración, encendido persistente ni explicación previa.
 
 ## Cuándo aparece
 
@@ -23,7 +25,7 @@ eBROU permanece en la recarga común porque su autorización se abre fuera de Bo
 
 ## Recorrido
 
-1. Un toque inicia una sola solicitud con el mínimo vigente. El botón queda ocupado para bloquear duplicados.
+1. Mantener apretado 1,2 segundos inicia una sola solicitud con el mínimo vigente. El botón queda ocupado para bloquear duplicados.
 2. Boletera vuelve a comprobar boletera, importe y opciones que devuelve STM.
 3. Dentro de Prex, avanza por el resumen y el titular sólo si coinciden con la solicitud y el perfil conocido. Una diferencia, un consentimiento o una pantalla desconocida detiene el avance.
 4. Boletera Beta puede activar una vez la casilla normal. La persona resuelve las imágenes/audio que aparezcan. El avance posterior requiere reconocer la aceptación del servidor en el componente del proveedor; de lo contrario permanece manual. La respuesta de Google no se exporta ni se trata por sí sola como autorización de Sistarbanc.

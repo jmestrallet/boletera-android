@@ -10,37 +10,44 @@ val localSigning = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val distributionChannel = providers.gradleProperty("boleteraChannel").orElse("public").get().also {
-    require(it in setOf("public", "beta", "alpha")) { "boleteraChannel must be public, beta or alpha" }
+    require(it in setOf("public", "beta", "alpha", "lab")) { "boleteraChannel must be public, beta, alpha or lab" }
 }
 val isAlpha = distributionChannel == "alpha"
 val isBeta = distributionChannel == "beta"
+// Lab is a separate app installed next to Boletera, so a broken experiment never replaces it.
+val isLab = distributionChannel == "lab"
 val legacyUpdateBridge = providers.gradleProperty("boleteraLegacyUpdateBridge").orElse("false").get().let {
     it.toBooleanStrictOrNull() ?: error("boleteraLegacyUpdateBridge must be true or false")
 }.also { enabled ->
-    require(!enabled || (!isBeta && !isAlpha)) { "The legacy update bridge must use the public channel" }
+    require(!enabled || (!isBeta && !isAlpha && !isLab)) { "The legacy update bridge must use the public channel" }
 }
 android {
     namespace = "uy.boletera.prueba"
     compileSdk = 35
     defaultConfig {
-        applicationId = "uy.boletera.prueba"
+        applicationId = if (isLab) "uy.boletera.lab" else "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = if (legacyUpdateBridge) 49 else 58
+        versionCode = if (legacyUpdateBridge) 49 else 61
         versionName = when {
             legacyUpdateBridge -> "0.2.31-prueba"
-            isAlpha -> "0.2.40-alpha.1"
-            isBeta -> "0.2.40-beta.1"
+            isLab -> "0.2.40-lab.1"
+            isAlpha -> "0.2.40-alpha.5"
+            isBeta -> "0.2.40-beta.2"
             else -> "0.2.40"
         }
         buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"$distributionChannel\"")
         buildConfigField("String", "DISPLAY_VERSION", when {
             legacyUpdateBridge -> "\"0.2.31\""
-            isAlpha -> "\"0.2.40 Alpha 1\""
-            isBeta -> "\"0.2.40 Beta 1\""
+            isLab -> "\"0.2.40 Lab 1\""
+            isAlpha -> "\"0.2.40 Alpha 5\""
+            isBeta -> "\"0.2.40 Beta 2\""
             else -> "\"0.2.40\""
         })
-        resValue("string", "app_name", if (isAlpha) "Boletera Alpha" else if (isBeta) "Boletera Beta" else "Boletera")
+        resValue("string", "app_name", if (isLab) "Boletera Lab" else if (isAlpha) "Boletera Alpha" else if (isBeta) "Boletera Beta" else "Boletera")
+        // Lab gets a violet launcher tile so it is never mistaken for the everyday app.
+        resValue("color", "app_icon_background", if (isLab) "#7C4DFF" else "#1A73D9")
+        resValue("color", "app_icon_background_end", if (isLab) "#4527A0" else "#0B4A94")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }

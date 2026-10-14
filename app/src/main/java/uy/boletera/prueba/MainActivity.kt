@@ -230,7 +230,7 @@ class MainActivity : FragmentActivity() {
                             "balance" -> WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
                                 onExpressCharge=if(updates.installedChannel!=UpdateChannel.STABLE && engine.expressAvailable)::requestExpress else null,
                                 onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel,
-                                onPaymentReviewed={showPaymentReview=true},onActivity=if(BuildConfig.DEBUG || updates.installedChannel==UpdateChannel.ALPHA)engine::openActivity else null)
+                                onPaymentReviewed={showPaymentReview=true},onActivity=if(BuildConfig.DEBUG || updates.installedChannel in setOf(UpdateChannel.ALPHA,UpdateChannel.LAB))engine::openActivity else null)
                             "connecting" -> {
                                 LoadingState(if(state.recoveringSession)"Volviendo a entrar" else if(state.amount!=null)"Preparando tu recarga" else "Conectando con STM", if(state.recoveringSession)"Tu sesión de STM venció. Estamos renovándola sin pedirte los datos otra vez." else if(engine.expressPreparing)"Estamos abriendo Prex y completando los datos conocidos." else "Estamos consultando STM. Tu información va a aparecer acá.",express=engine.expressPreparing)
                                 TextButton(onClick=::back) { Text("Cancelar") }
@@ -287,7 +287,7 @@ class MainActivity : FragmentActivity() {
                         if(cap!=null)Primary("Ya completé la verificación"){engine.continueCaptcha()}
                     }
                     SnackbarHost(hostState=snackbar,modifier=Modifier.align(Alignment.BottomCenter).padding(16.dp))
-                    if(stage=="balance")PullToRefreshDefaults.Indicator(state=pullState,isRefreshing=state.busy,modifier=Modifier.align(Alignment.TopCenter),containerColor=Lime,color=MaterialTheme.colorScheme.onPrimaryContainer)
+                    if(stage=="balance")PullToRefreshDefaults.Indicator(state=pullState,isRefreshing=state.busy,modifier=Modifier.align(Alignment.TopCenter),containerColor=Highlight,color=MaterialTheme.colorScheme.onPrimaryContainer)
                 }
                 if(stage=="paymentBoundary")Box(Modifier.widthIn(max=600.dp).fillMaxWidth()) {
                     PaymentSetupFooter(state,engine.payerProfiles,
