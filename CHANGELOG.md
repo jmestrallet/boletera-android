@@ -1,5 +1,11 @@
 # Cambios
 
+## Próxima Alpha - Logo nuevo
+
+- Nuevo ícono de inicio: una tarjeta blanca inclinada con cuatro barras paralelas caladas, inspiradas en la tarjeta STM, y un círculo verde con un signo más que representa la recarga. No usa el logo ni el nombre de STM.
+- Ícono temático propio para Android 13+, con las barras y el signo más calados.
+- El encabezado y la bienvenida muestran el mismo bloque de marca que el ícono de inicio.
+
 ## 0.2.40 Alpha 3 - Actualización instalable
 
 - Corrige el rechazo al actualizar desde Alpha 1 o Alpha 2: el APK ahora usa un código de instalación superior.

@@ -3,6 +3,7 @@ package uy.boletera.prueba
 import android.app.Activity
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -146,10 +147,10 @@ internal enum class Glyph { Ticket, Swap, Arrow, Back, Close, Settings, Check, L
     }
 }
 
-/** Launcher-style tile: blue gradient with the white boletera symbol. */
+/** The launcher icon as a tile: blue gradient with the visible part of its foreground. */
 @Composable internal fun BrandTile(modifier: Modifier = Modifier) {
-    BoxWithConstraints(modifier.background(Brush.linearGradient(listOf(Color(0xFF1A73D9), Color(0xFF0B3D7A))), RoundedCornerShape(30)), contentAlignment=Alignment.Center) {
-        AppGlyph(Glyph.Ticket,Modifier.size(maxWidth*0.6f),tint=Color.White)
+    Box(modifier.background(Brush.linearGradient(listOf(Color(0xFF1A73D9), Color(0xFF0B4A94))), RoundedCornerShape(30))) {
+        Image(painterResource(R.drawable.ic_boletera_mark),contentDescription=null,modifier=Modifier.fillMaxSize())
     }
 }
 

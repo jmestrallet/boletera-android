@@ -113,3 +113,9 @@ La interfaz informa que se solicitaron los pulsos, sin afirmar que se sintieron.
 La app adopta la paleta del banner del README (`tools/banner/banner.py`): azul institucional de señalética de transporte en lugar del verde profundo y lima. Primario #0E5BB5 en claro y #6CB0FF en oscuro; el panel de saldo pasa a #DCEBFF / #16365F con el importe en #0B2E5C / #DCEBFF y los textos secundarios en el azul medio #1658A8 / #8CC2FF (color terciario del tema). Fondos #F4F7FB y #0A131F. Los pares de texto principales medidos superan 5,6:1 en claro y 6,5:1 en oscuro.
 
 El icono de inicio y el bloque del encabezado usan la tarjeta blanca sobre un degradado #1A73D9 → #0B3D7A, igual que el banner. La bienvenida reemplaza la ruta única por un mapa con las tres líneas del banner (azul, verde y turquesa), paradas y una combinación. La página de pago de Prex toma el mismo azul. No cambian distribución, tamaños, movimiento ni recorridos.
+
+## Logo nuevo — próxima Alpha
+
+Ícono elegido por el dueño entre varias propuestas: una tarjeta blanca inclinada −10° con cuatro barras paralelas caladas (57°, centradas, con una relación entre barra y espacio cercana a la de la tarjeta STM) y un círculo verde #2FA35A con un signo más. Un corte limpio separa el círculo de la tarjeta y deja ver el fondo. No reproduce el logo ni el nombre de STM: Boletera es independiente.
+
+El conjunto queda centrado en la zona visible del ícono adaptable (18–90 de 108) y dentro de la zona segura. El fondo es el degradado #1A73D9 → #0B4A94 a 150°. Los recursos son `ic_boletera_foreground` (color), `ic_boletera_monochrome` (ícono temático de Android 13+, con el signo más calado) e `ic_boletera_mark` (la zona visible, que usa `BrandTile` en el encabezado y la bienvenida). Las barras y el corte son trazados exactos, porque VectorDrawable no admite máscaras. Se compararon contra el diseño aprobado renderizado con máscaras: no hay diferencias más allá del suavizado de bordes.
