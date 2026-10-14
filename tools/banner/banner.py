@@ -19,6 +19,23 @@ SETTINGS = "M370,880L354,752Q341,747 329.5,740Q318,733 307,725L188,775L78,585L18
 CHECK = "M382,720L154,492L211,435L382,606L749,239L806,296L382,720Z"
 INFO = "M440,680L520,680L520,440L440,440L440,680ZM480,360Q497,360 508.5,348.5Q520,337 520,320Q520,303 508.5,291.5Q497,280 480,280Q463,280 451.5,291.5Q440,303 440,320Q440,337 451.5,348.5Q463,360 480,360ZM480,880Q397,880 324,848.5Q251,817 197,763Q143,709 111.5,636Q80,563 80,480Q80,397 111.5,324Q143,251 197,197Q251,143 324,111.5Q397,80 480,80Q563,80 636,111.5Q709,143 763,197Q817,251 848.5,324Q880,397 880,480Q880,563 848.5,636Q817,709 763,763Q709,817 636,848.5Q563,880 480,880ZM480,800Q614,800 707,707Q800,614 800,480Q800,346 707,253Q614,160 480,160Q346,160 253,253Q160,346 160,480Q160,614 253,707Q346,800 480,800Z"
 
+# The app's launcher mark (res/drawable/ic_boletera_foreground.xml), drawn in its 108-unit grid.
+MARK_BARS = "M-13.15 4.1 L-7.85 -4.1 M-6.15 4.1 L-0.85 -4.1 M0.85 4.1 L6.15 -4.1 M7.85 4.1 L13.15 -4.1"
+
+
+def mark(x, y, size, uid):
+    """The visible 72-unit area of the launcher foreground at (x, y), size px wide."""
+    return (f'<g transform="translate({x} {y}) scale({size / 72:.4f}) translate(-18 -18)">'
+            f'<mask id="{uid}" maskUnits="userSpaceOnUse" x="0" y="0" width="108" height="108">'
+            f'<rect width="108" height="108" fill="#fff"/><g transform="translate(52 54) rotate(-10)">'
+            f'<path d="{MARK_BARS}" stroke="#000" stroke-width="2.9" stroke-linecap="round"/>'
+            f'<circle cx="18.4" cy="11.8" r="10.5" fill="#000"/></g></mask>'
+            f'<g mask="url(#{uid})"><rect x="-22" y="-14" width="44" height="28" rx="5.5" '
+            f'transform="translate(52 54) rotate(-10)" fill="#fff"/></g>'
+            f'<circle cx="72.17" cy="62.42" r="8.5" fill="#2FA35A"/>'
+            f'<path d="M72.17 58 V66.84 M67.75 62.42 H76.59" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></g>')
+
+
 BOLD, MED, REG, TXT = "google_sans_bold.ttf", "google_sans_medium.ttf", "google_sans_regular.ttf", "google_sans_text.ttf"
 
 THEMES = {
@@ -28,13 +45,13 @@ THEMES = {
         grid="#0B2A4F", gridA=0.06, ink="#0B2342", muted="#44566C", faint="#66788E",
         accent="#0E5BB5", chipFill="#FFFFFF", chipFillA=0.9,
         chipStroke="#0B2A4F", chipStrokeA=0.12, chipInk="#1A2E48", rim="#0B2A4F", rimA=0.10,
-        tile0="#1A73D9", tile1="#0B3D7A", tileInk="#FFFFFF",
+        tile0="#1A73D9", tile1="#0B4A94", tileInk="#FFFFFF",
         strip="#0B3D7A", stripInk="#FFFFFF", stripMuted="#A9C6EA",
         lines=["#1A73D9", "#2FA35A", "#14A3B8"], stop="#FFFFFF", stopRing="#0B2342",
         sBg="#F4F7FB", sSurface="#FFFFFF", sCont="#DCEBFF", sOnCont="#0B2E5C", sLabel="#1658A8",
         sPrimary="#0E5BB5", sOnPrimary="#FFFFFF", sVar="#E4ECF5", sOnVar="#4E5D6E",
         sOutline="#C9D6E5", sOn="#13233A", frame="#0E1A2A", frameEdge="#4A5A70",
-        card0="#1A73D9", card1="#0B3D7A", cardInk="#FFFFFF", cardInkA=0.85,
+        card0="#F1F7FF", card1="#CFE2FA", cardInk="#0B2342", cardMark="#0E5BB5", cardBand="#0B3D7A",
         toast="#FFFFFF", toastA=0.97, toastStroke="#0B2A4F", toastStrokeA=0.10, toastInk="#0B2342",
         toastMuted="#55667B", shadow="#0B2A4F", shadowA=0.22,
     ),
@@ -43,13 +60,13 @@ THEMES = {
         grid="#FFFFFF", gridA=0.06, ink="#EEF4FB", muted="#A9B9CC", faint="#7F93AA",
         accent="#6CB0FF", chipFill="#FFFFFF", chipFillA=0.05,
         chipStroke="#FFFFFF", chipStrokeA=0.11, chipInk="#DCE7F3", rim="#FFFFFF", rimA=0.07,
-        tile0="#2B86F0", tile1="#0B3D7A", tileInk="#FFFFFF",
+        tile0="#1A73D9", tile1="#0B4A94", tileInk="#FFFFFF",
         strip="#0D3F7C", stripInk="#FFFFFF", stripMuted="#9DBDE6",
         lines=["#3D8EF0", "#45C26F", "#1FB8CC"], stop="#0B1A2E", stopRing="#EEF4FB",
         sBg="#0A131F", sSurface="#131F2E", sCont="#16365F", sOnCont="#DCEBFF", sLabel="#8CC2FF",
         sPrimary="#6CB0FF", sOnPrimary="#06213F", sVar="#1E2B3B", sOnVar="#A9B9CC",
         sOutline="#2C3B4E", sOn="#E6EEF7", frame="#03070C", frameEdge="#3A4A60",
-        card0="#2B86F0", card1="#0E4C96", cardInk="#FFFFFF", cardInkA=0.85,
+        card0="#D8E7F9", card1="#9FBFE6", cardInk="#0B2342", cardMark="#1458AE", cardBand="#0D3F7C",
         toast="#132033", toastA=0.94, toastStroke="#FFFFFF", toastStrokeA=0.10, toastInk="#EEF4FB",
         toastMuted="#9FB2C8", shadow="#000000", shadowA=0.55,
     ),
@@ -159,7 +176,7 @@ def build(name):
     ty = 178
     a(f'<rect x="{x0}" y="{ty}" width="92" height="92" rx="28" fill="url(#tile)"/>')
     a(f'<rect x="{x0 + .5}" y="{ty + .5}" width="91" height="91" rx="27.5" stroke="#fff" stroke-opacity=".22"/>')
-    a(icon(CARD_ICON, x0 + 16, ty + 16, 60, c["tileInk"], stroke=1.8))
+    a(mark(x0, ty, 92, "markTile"))
     wm, wmw = T("boletera", MED, 112, x0 + 118, ty + 80, c["ink"], tracking=-22)
     a(wm)
 
@@ -184,18 +201,26 @@ def build(name):
         cx += cw + 10
 
     # ---------- transit card, tilted behind the phone ----------
+    # The STM card's layout (light card, wordmark, centred slanted bars, contactless waves, dark band)
+    # in the banner's own colours: the balance panel's pale blue, the accent blue and the top strip.
+    # No printed number and no STM or Intendencia logo marks.
+    ink = c["cardInk"]
     a(f'<g class="float2"><g transform="translate(636 296) rotate(-12)" filter="url(#soft)">')
-    a('<rect width="250" height="158" rx="20" fill="url(#card)"/>')
-    a('<rect width="250" height="158" rx="20" fill="url(#cardSheen)"/>')
-    a('<rect x=".5" y=".5" width="249" height="157" rx="19.5" stroke="#fff" stroke-opacity=".25"/>')
-    a(T("STM", BOLD, 26, 22, 44, c["cardInk"], tracking=40)[0])
-    # contactless arcs, next to the brand so they stay visible beside the phone
-    for i, r in enumerate([7, 13, 19]):
-        a(f'<path d="M{0} {-r * .8:.1f} A {r} {r} 0 0 1 {0} {r * .8:.1f}" transform="translate({86 + i * 3} 35)" '
-          f'stroke="{c["cardInk"]}" stroke-opacity="{c["cardInkA"]}" stroke-width="2.6" stroke-linecap="round"/>')
-    a(f'<rect x="22" y="66" width="40" height="30" rx="7" fill="{c["cardInk"]}" fill-opacity=".2"/>')
-    a(f'<path d="M22 81 H62 M42 66 V96" stroke="{c["cardInk"]}" stroke-opacity=".18"/>')
-    a(T("•••• 1234", MED, 16, 22, 134, c["cardInk"], opacity=c["cardInkA"], tracking=50)[0])
+    a('<clipPath id="cardShape"><rect width="250" height="158" rx="12"/></clipPath>')
+    a('<g clip-path="url(#cardShape)">')
+    a('<rect width="250" height="158" fill="url(#card)"/>')
+    a(f'<rect y="121" width="250" height="37" fill="{c["cardBand"]}"/>')
+    a('<rect width="250" height="158" fill="url(#cardSheen)"/>')
+    a('</g>')
+    # the card's wordmark sets the M heavier than the S and T
+    st, stw = T("ST", MED, 32, 18, 56, ink, tracking=10)
+    a(st)
+    a(T("M", BOLD, 32, 18 + stw + 32 * .01, 56, ink)[0])
+    bars = " ".join(f"M{79 + 19.2 * k:.1f} 113 L{95.7 + 19.2 * k:.1f} 87.2" for k in range(5))
+    a(f'<path d="{bars}" stroke="{c["cardMark"]}" stroke-width="8.9" stroke-linecap="round"/>')
+    waves = " ".join(f"M{201 + .669 * r:.2f} {100 - .743 * r:.2f} A{r} {r} 0 0 1 {201 + .669 * r:.2f} {100 + .743 * r:.2f}"
+                     for r in (4, 9, 14, 19))
+    a(f'<path d="{waves}" stroke="{c["cardMark"]}" stroke-width="3.2" stroke-linecap="round"/>')
     a('</g></g>')
 
     # ---------- phone ----------
@@ -216,8 +241,8 @@ def build(name):
     a(f'<rect x="{sx + sw - 48}" y="{sy + 21}" width="13" height="6" rx="1.5" fill="{c["sOn"]}"/>')
     # header
     hx, hy = sx + 18, sy + 56
-    a(f'<rect x="{hx}" y="{hy}" width="36" height="36" rx="11" fill="{c["sCont"]}"/>')
-    a(icon(CARD_ICON, hx + 7, hy + 7, 22, c["sOnCont"], stroke=1.9))
+    a(f'<rect x="{hx}" y="{hy}" width="36" height="36" rx="11" fill="url(#tile)"/>')
+    a(mark(hx, hy, 36, "markPhone"))
     a(T("boletera", MED, 27, hx + 47, hy + 27, c["sOn"], tracking=-10)[0])
     a(f'<circle cx="{sx + sw - 36}" cy="{hy + 18}" r="18" fill="{c["sVar"]}"/>')
     a(icon(SETTINGS, sx + sw - 46, hy + 8, 20, c["sOn"], viewbox=960))
