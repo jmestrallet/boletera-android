@@ -19,6 +19,23 @@ SETTINGS = "M370,880L354,752Q341,747 329.5,740Q318,733 307,725L188,775L78,585L18
 CHECK = "M382,720L154,492L211,435L382,606L749,239L806,296L382,720Z"
 INFO = "M440,680L520,680L520,440L440,440L440,680ZM480,360Q497,360 508.5,348.5Q520,337 520,320Q520,303 508.5,291.5Q497,280 480,280Q463,280 451.5,291.5Q440,303 440,320Q440,337 451.5,348.5Q463,360 480,360ZM480,880Q397,880 324,848.5Q251,817 197,763Q143,709 111.5,636Q80,563 80,480Q80,397 111.5,324Q143,251 197,197Q251,143 324,111.5Q397,80 480,80Q563,80 636,111.5Q709,143 763,197Q817,251 848.5,324Q880,397 880,480Q880,563 848.5,636Q817,709 763,763Q709,817 636,848.5Q563,880 480,880ZM480,800Q614,800 707,707Q800,614 800,480Q800,346 707,253Q614,160 480,160Q346,160 253,253Q160,346 160,480Q160,614 253,707Q346,800 480,800Z"
 
+# The app's launcher mark (res/drawable/ic_boletera_foreground.xml), drawn in its 108-unit grid.
+MARK_BARS = "M-13.15 4.1 L-7.85 -4.1 M-6.15 4.1 L-0.85 -4.1 M0.85 4.1 L6.15 -4.1 M7.85 4.1 L13.15 -4.1"
+
+
+def mark(x, y, size, uid):
+    """The visible 72-unit area of the launcher foreground at (x, y), size px wide."""
+    return (f'<g transform="translate({x} {y}) scale({size / 72:.4f}) translate(-18 -18)">'
+            f'<mask id="{uid}" maskUnits="userSpaceOnUse" x="0" y="0" width="108" height="108">'
+            f'<rect width="108" height="108" fill="#fff"/><g transform="translate(52 54) rotate(-10)">'
+            f'<path d="{MARK_BARS}" stroke="#000" stroke-width="2.9" stroke-linecap="round"/>'
+            f'<circle cx="18.4" cy="11.8" r="10.5" fill="#000"/></g></mask>'
+            f'<g mask="url(#{uid})"><rect x="-22" y="-14" width="44" height="28" rx="5.5" '
+            f'transform="translate(52 54) rotate(-10)" fill="#fff"/></g>'
+            f'<circle cx="72.17" cy="62.42" r="8.5" fill="#2FA35A"/>'
+            f'<path d="M72.17 58 V66.84 M67.75 62.42 H76.59" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></g>')
+
+
 BOLD, MED, REG, TXT = "google_sans_bold.ttf", "google_sans_medium.ttf", "google_sans_regular.ttf", "google_sans_text.ttf"
 
 THEMES = {
@@ -28,7 +45,7 @@ THEMES = {
         grid="#0B2A4F", gridA=0.06, ink="#0B2342", muted="#44566C", faint="#66788E",
         accent="#0E5BB5", chipFill="#FFFFFF", chipFillA=0.9,
         chipStroke="#0B2A4F", chipStrokeA=0.12, chipInk="#1A2E48", rim="#0B2A4F", rimA=0.10,
-        tile0="#1A73D9", tile1="#0B3D7A", tileInk="#FFFFFF",
+        tile0="#1A73D9", tile1="#0B4A94", tileInk="#FFFFFF",
         strip="#0B3D7A", stripInk="#FFFFFF", stripMuted="#A9C6EA",
         lines=["#1A73D9", "#2FA35A", "#14A3B8"], stop="#FFFFFF", stopRing="#0B2342",
         sBg="#F4F7FB", sSurface="#FFFFFF", sCont="#DCEBFF", sOnCont="#0B2E5C", sLabel="#1658A8",
@@ -43,7 +60,7 @@ THEMES = {
         grid="#FFFFFF", gridA=0.06, ink="#EEF4FB", muted="#A9B9CC", faint="#7F93AA",
         accent="#6CB0FF", chipFill="#FFFFFF", chipFillA=0.05,
         chipStroke="#FFFFFF", chipStrokeA=0.11, chipInk="#DCE7F3", rim="#FFFFFF", rimA=0.07,
-        tile0="#2B86F0", tile1="#0B3D7A", tileInk="#FFFFFF",
+        tile0="#1A73D9", tile1="#0B4A94", tileInk="#FFFFFF",
         strip="#0D3F7C", stripInk="#FFFFFF", stripMuted="#9DBDE6",
         lines=["#3D8EF0", "#45C26F", "#1FB8CC"], stop="#0B1A2E", stopRing="#EEF4FB",
         sBg="#0A131F", sSurface="#131F2E", sCont="#16365F", sOnCont="#DCEBFF", sLabel="#8CC2FF",
@@ -159,7 +176,7 @@ def build(name):
     ty = 178
     a(f'<rect x="{x0}" y="{ty}" width="92" height="92" rx="28" fill="url(#tile)"/>')
     a(f'<rect x="{x0 + .5}" y="{ty + .5}" width="91" height="91" rx="27.5" stroke="#fff" stroke-opacity=".22"/>')
-    a(icon(CARD_ICON, x0 + 16, ty + 16, 60, c["tileInk"], stroke=1.8))
+    a(mark(x0, ty, 92, "markTile"))
     wm, wmw = T("boletera", MED, 112, x0 + 118, ty + 80, c["ink"], tracking=-22)
     a(wm)
 
@@ -216,8 +233,8 @@ def build(name):
     a(f'<rect x="{sx + sw - 48}" y="{sy + 21}" width="13" height="6" rx="1.5" fill="{c["sOn"]}"/>')
     # header
     hx, hy = sx + 18, sy + 56
-    a(f'<rect x="{hx}" y="{hy}" width="36" height="36" rx="11" fill="{c["sCont"]}"/>')
-    a(icon(CARD_ICON, hx + 7, hy + 7, 22, c["sOnCont"], stroke=1.9))
+    a(f'<rect x="{hx}" y="{hy}" width="36" height="36" rx="11" fill="url(#tile)"/>')
+    a(mark(hx, hy, 36, "markPhone"))
     a(T("boletera", MED, 27, hx + 47, hy + 27, c["sOn"], tracking=-10)[0])
     a(f'<circle cx="{sx + sw - 36}" cy="{hy + 18}" r="18" fill="{c["sVar"]}"/>')
     a(icon(SETTINGS, sx + sw - 46, hy + 8, 20, c["sOn"], viewbox=960))
