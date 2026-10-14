@@ -51,7 +51,7 @@ THEMES = {
         sBg="#F4F7FB", sSurface="#FFFFFF", sCont="#DCEBFF", sOnCont="#0B2E5C", sLabel="#1658A8",
         sPrimary="#0E5BB5", sOnPrimary="#FFFFFF", sVar="#E4ECF5", sOnVar="#4E5D6E",
         sOutline="#C9D6E5", sOn="#13233A", frame="#0E1A2A", frameEdge="#4A5A70",
-        card0="#1A73D9", card1="#0B3D7A", cardInk="#FFFFFF", cardInkA=0.85,
+        card0="#C4E2FF", card1="#4D9BF2", cardInk="#0D4688", cardBand="#0B2E5C", cardRim="#0B2A4F", cardRimA=0.16,
         toast="#FFFFFF", toastA=0.97, toastStroke="#0B2A4F", toastStrokeA=0.10, toastInk="#0B2342",
         toastMuted="#55667B", shadow="#0B2A4F", shadowA=0.22,
     ),
@@ -66,7 +66,7 @@ THEMES = {
         sBg="#0A131F", sSurface="#131F2E", sCont="#16365F", sOnCont="#DCEBFF", sLabel="#8CC2FF",
         sPrimary="#6CB0FF", sOnPrimary="#06213F", sVar="#1E2B3B", sOnVar="#A9B9CC",
         sOutline="#2C3B4E", sOn="#E6EEF7", frame="#03070C", frameEdge="#3A4A60",
-        card0="#2B86F0", card1="#0E4C96", cardInk="#FFFFFF", cardInkA=0.85,
+        card0="#CFE7FF", card1="#5AA5F5", cardInk="#0D4688", cardBand="#0A2850", cardRim="#FFFFFF", cardRimA=0.55,
         toast="#132033", toastA=0.94, toastStroke="#FFFFFF", toastStrokeA=0.10, toastInk="#EEF4FB",
         toastMuted="#9FB2C8", shadow="#000000", shadowA=0.55,
     ),
@@ -201,24 +201,26 @@ def build(name):
         cx += cw + 10
 
     # ---------- transit card, tilted behind the phone ----------
-    # Keeps the brand's blue glass but follows the STM card's layout: centred slanted bars, contactless
-    # waves to their right and a bottom band whose faint lines stand for the printed notice. No number
-    # and no STM or Intendencia logo marks.
+    # The STM card's layout (light card, wordmark, centred slanted bars, contactless waves, dark band)
+    # in the banner's light-blue glass. No printed number and no STM or Intendencia logo marks.
+    ink = c["cardInk"]
     a(f'<g class="float2"><g transform="translate(590 300) rotate(-12) scale(.9)" filter="url(#soft)">')
-    a('<rect width="250" height="158" rx="20" fill="url(#card)"/>')
-    a('<path d="M0 122 H250 V138 A20 20 0 0 1 230 158 H20 A20 20 0 0 1 0 138 Z" fill="#06224A" fill-opacity=".5"/>')
-    a('<rect width="250" height="158" rx="20" fill="url(#cardSheen)"/>')
-    a('<rect x=".5" y=".5" width="249" height="157" rx="19.5" stroke="#fff" stroke-opacity=".25"/>')
+    a('<clipPath id="cardShape"><rect width="250" height="158" rx="10"/></clipPath>')
+    a('<g clip-path="url(#cardShape)">')
+    a('<rect width="250" height="158" fill="url(#card)"/>')
+    a(f'<rect y="121" width="250" height="37" fill="{c["cardBand"]}"/>')
+    a('<rect width="250" height="158" fill="url(#cardSheen)"/>')
+    a('</g>')
+    a(f'<rect x=".5" y=".5" width="249" height="157" rx="9.5" stroke="{c["cardRim"]}" stroke-opacity="{c["cardRimA"]}"/>')
     # the card's wordmark sets the M heavier than the S and T
-    st, stw = T("ST", MED, 26, 22, 44, c["cardInk"], tracking=40)
+    st, stw = T("ST", MED, 32, 18, 56, ink, tracking=10)
     a(st)
-    a(T("M", BOLD, 26, 22 + stw + 26 * .04, 44, c["cardInk"])[0])
-    bars = " ".join(f"M{78.15 + 19.3 * k:.2f} 112.5 L{94.65 + 19.3 * k:.2f} 87.1" for k in range(5))
-    a(f'<path d="{bars}" stroke="{c["cardInk"]}" stroke-opacity=".92" stroke-width="8.9" stroke-linecap="round"/>')
-    waves = " ".join(f"M{200 + .643 * r:.2f} {100 - .766 * r:.2f} A{r} {r} 0 0 1 {200 + .643 * r:.2f} {100 + .766 * r:.2f}"
-                     for r in (4.5, 9, 13.5, 18))
-    a(f'<path d="{waves}" stroke="{c["cardInk"]}" stroke-opacity=".92" stroke-width="3.2" stroke-linecap="round"/>')
-    a(f'<path d="M22 135 H150 M22 145 H138" stroke="{c["cardInk"]}" stroke-opacity=".3" stroke-width="3" stroke-linecap="round"/>')
+    a(T("M", BOLD, 32, 18 + stw + 32 * .01, 56, ink)[0])
+    bars = " ".join(f"M{79 + 19.2 * k:.1f} 113 L{95.7 + 19.2 * k:.1f} 87.2" for k in range(5))
+    a(f'<path d="{bars}" stroke="{ink}" stroke-width="8.9" stroke-linecap="round"/>')
+    waves = " ".join(f"M{201 + .669 * r:.2f} {100 - .743 * r:.2f} A{r} {r} 0 0 1 {201 + .669 * r:.2f} {100 + .743 * r:.2f}"
+                     for r in (4, 9, 14, 19))
+    a(f'<path d="{waves}" stroke="{ink}" stroke-width="3.2" stroke-linecap="round"/>')
     a('</g></g>')
 
     # ---------- phone ----------
