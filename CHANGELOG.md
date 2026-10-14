@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.40 Alpha 3 - Actualización instalable
+
+- Corrige el rechazo al actualizar desde Alpha 1 o Alpha 2: el APK ahora usa un código de instalación superior.
+- Conserva el diseño azul de Alpha 2. Se instala encima de la versión anterior sin borrar datos.
+- Los errores de incompatibilidad, firma o archivo incompleto se muestran con su causa, en lugar de atribuirlos siempre a la conexión.
+- Beta 0.2.40 Beta 2 comparte el código de instalación nuevo para permitir volver de Alpha a Beta.
+
 ## 0.2.40 Alpha 2 - Azul de transporte
 
 - La app adopta la identidad del banner del README: azul de señalética de transporte en lugar del verde y lima, en tema claro y oscuro.
