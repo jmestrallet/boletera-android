@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.2.40 Beta 2 - Compatibilidad de actualizaciones
+
+- Permite actualizar desde Beta 1 y volver desde Alpha 3 con un código de instalación compatible, sin borrar los datos.
+- Los errores de incompatibilidad, firma o archivo incompleto muestran su causa en lugar de atribuirse siempre a la conexión.
+
 ## 0.2.40 Beta 1 - Puente al canal Alpha
 
 - Configuración permite elegir Estable, Beta o Alpha. Alpha se ofrece únicamente cuando se elige ese canal.
