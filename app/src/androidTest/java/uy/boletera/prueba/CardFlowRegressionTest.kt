@@ -235,7 +235,7 @@ class CardFlowRegressionTest {
                 compose.onNodeWithText("Carga Express").assertDoesNotExist()
                 return
             }
-            compose.onNodeWithText("Carga Express").performScrollTo().performClick()
+            compose.onNodeWithText("Carga Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
             compose.runOnIdle { engine.startExpress() } // Duplicate cannot initiate another submission.
             compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" && engine.prexPayment.expressPhase=="done" }
             compose.onNodeWithText("Número de tarjeta").assertExists()
@@ -277,7 +277,7 @@ class CardFlowRegressionTest {
             instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
             compose.waitForIdle()
             compose.onNodeWithText("Información de ayuda").assertDoesNotExist()
-            compose.onNodeWithText("Carga Express").performScrollTo().performClick()
+            compose.onNodeWithText("Carga Express").performScrollTo().performTouchInput { longClick(durationMillis=1500) }
             compose.waitUntil(15000) { engine.state.stage=="embeddedPrex" && engine.prexPayment.nativeStage=="card" && engine.prexPayment.expressPhase=="done" }
             assertEquals(4,paymentLoads[newLink]?.get())
         } finally {
