@@ -82,11 +82,15 @@ return JSON.stringify({ruta:location.pathname,titulo:document.title.replace(/\d/
 columnas:pick('th',12),botones:pick('button,a.ui-commandlink,input[type=submit]',12),filas:document.querySelectorAll('tbody tr').length,
 avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     /** Records what STM showed, then fails; the owner can share it from Configuración → Información de ayuda. */
-    private fun failActivityWithShape(message: String) {
+    private fun failActivityWithShape(message: String) = failWithShape("Actividad", message)
+    /** Same as [fail], keeping the masked shape of the page so an unknown STM step can be diagnosed later. */
+    private fun failWithShape(where: String, message: String) {
         active=false
+        val request=sessionRequest
         web.evaluateJavascript(activityShapeScript) { raw ->
-            activityShape = "Actividad · $message\n" + (try { org.json.JSONTokener(raw).nextValue().toString() } catch (_: Exception) { "" }).take(1500)
-            fail(message)
+            activityShape = "$where · $message\n" + (try { org.json.JSONTokener(raw).nextValue().toString() } catch (_: Exception) { "" }).take(1500)
+            // A late answer after Back or a new login must not paint an error over the next screen.
+            if (request == sessionRequest && !destroyed) fail(message)
         }
     }
     val expressPreparing: Boolean get() = expressPayment && state.busy
@@ -164,7 +168,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                     view.stopLoading(); openPrexPayment(url); return
                 }
                 if (url != null && url != "about:blank" && !allowedPage(url)) {
-                    view.stopLoading(); fail("Navegación no reconocida. No se enviaron credenciales desde la app.")
+                    // After Back or sign-out a late redirect is just stopped, never shown as an error.
+                    view.stopLoading(); if (active) fail("Navegación no reconocida. No se enviaron credenciales desde la app.")
                 }
             }
             override fun onPageFinished(view: WebView, url: String?) {
@@ -174,12 +179,16 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                 handler.cancel(); fail("No se pudo verificar la conexión segura. No continuamos.")
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                if (request.isForMainFrame && active) fail("No se pudo conectar. Revisá tu conexión y el estado del pago antes de repetirlo.")
+                if (!request.isForMainFrame || !active) return
+                // With working internet, an unreachable STM is STM's outage, not the person's connection.
+                if (stmHost(request.url.host) && online()) fail(stmDown("sin respuesta del servidor"))
+                else fail("No se pudo conectar. Revisá tu conexión y el estado del pago antes de repetirlo.")
             }
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
                 if (request.isForMainFrame && active) {
                     // The completed body may explicitly say session expired, even on a protected URL.
-                    pendingHttpError = "El servicio no respondió correctamente. La consulta se detuvo."
+                    pendingHttpError = if (errorResponse.statusCode >= 500 && stmHost(request.url.host)) stmDown("error ${errorResponse.statusCode}")
+                        else "El servicio no respondió correctamente. La consulta se detuvo."
                 }
             }
         }
@@ -206,7 +215,9 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     private fun trackAuthorization(): Boolean {
         val pending=state.activePayment ?: return false
         val account=choices.accountKey ?: return false
-        if(journalUnavailable || paymentRecord?.let {it.phase!="reviewing" || it.startedAt!=pending.createdAt || it.card!=pending.card || it.provider!=pending.provider || it.amount!=pending.amount}==true)return false
+        // A finished payment (credited or rejected) on another card must not block new recharges forever.
+        val open=paymentRecord?.takeUnless {it.phase in setOf("credited","rejected")}
+        if(journalUnavailable || open?.let {it.phase!="reviewing" || it.startedAt!=pending.createdAt || it.card!=pending.card || it.provider!=pending.provider || it.amount!=pending.amount}==true)return false
         val transaction=prexPayment.summaryRows.firstOrNull {paymentLabel(it.first)=="transaccion"}?.second.orEmpty()
         val record=PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance,transaction=transaction)
         if(!paymentJournal.write(account,record))return false
@@ -217,7 +228,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     private fun trackOriginalReview(): Boolean {
         val pending=state.activePayment ?: return false
         if(journalUnavailable)return false
-        paymentRecord?.let {return it.startedAt==pending.createdAt && it.card==pending.card && it.provider==pending.provider && it.amount==pending.amount}
+        paymentRecord?.takeUnless {it.phase in setOf("credited","rejected")}?.let {return it.startedAt==pending.createdAt && it.card==pending.card && it.provider==pending.provider && it.amount==pending.amount}
         val account=choices.accountKey ?: return false
         val record=PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance,"reviewing")
         if(!paymentJournal.write(account,record))return false
@@ -271,6 +282,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     fun connect(doc: String, pass: String, rememberForSession: Boolean = false) {
         if (state.busy) return
         if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
+        if (noInternet()) { notice(OFFLINE); return }
         expressTiming.clear()
         clearSecrets()
         sessionAccess.clear()
@@ -479,6 +491,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
 
     fun refresh() {
         if (state.busy) return
+        if (noInternet()) { notice(if (state.balance != null) "No hay internet en el celular. Te mostramos el último saldo consultado." else OFFLINE); return }
         activityOpened=false
         expressTiming.move(ExpressTiming.Phase.RETURN)
         balanceRefreshTask?.let(handler::removeCallbacks);balanceRefreshTask=null
@@ -536,11 +549,19 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     fun continueCaptcha() {
         if (!active || state.captcha == null) return
         lastAction = ""
+        // Leaving the app wipes the typed access; the fingerprint-saved session copy can bring it back.
+        if (pageStage in setOf("document", "password") && (document == null || password == null)) sessionAccess.open()?.let {
+            document = it.first; password = it.second; secretsExpireAt = System.currentTimeMillis() + 180000
+        }
         when (pageStage) {
-            "document" -> document?.let { act("document", it) }
-            "password" -> password?.let { act("password", it) }
+            "document" -> document?.let { act("document", it) } ?: lostAccess()
+            "password" -> password?.let { act("password", it) } ?: lostAccess()
             else -> notice("Terminá la verificación. Si aparece otro paso, Boletera se va a detener.")
         }
+    }
+    private fun lostAccess() {
+        cancel()
+        state = state.copy(message = "Por seguridad, Boletera olvida lo que escribiste cuando salís de la app. Ingresá de nuevo para terminar la verificación.")
     }
 
     fun cancel() {
@@ -596,6 +617,20 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
 
     private fun clearSecrets() { document = null; password = null; secretsExpireAt = 0L }
+    private fun stmHost(host: String?) = host != null && (host == "stm.gub.uy" || host.endsWith(".stm.gub.uy") || host == "iduruguay.gub.uy" || host.endsWith(".iduruguay.gub.uy"))
+    /** No network at all (airplane mode, Wi-Fi and data off): say so at once instead of waiting for a timeout. */
+    internal fun noInternet(): Boolean = try {
+        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+        cm?.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) != true
+    } catch (_: Exception) { false }
+    /** The phone has validated internet access, so a failing STM is STM's problem. */
+    private fun online(): Boolean = try {
+        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+        cm?.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+    } catch (_: Exception) { false }
+    /** Marker text recognized by errorPresentation as an STM outage. */
+    private fun stmDown(detail: String) = "STM no está respondiendo ($detail). La página oficial parece caída o con problemas."
+
     private fun fail(message: String) {
         if(activityOpened) {
             active=false;handler.removeCallbacks(poll)
@@ -677,7 +712,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
             if (System.currentTimeMillis() - actionStarted > 35000) fail("No comenzó la nueva consulta. Volvé a ingresar.")
             return
         }
-        if (secretsExpireAt != 0L && System.currentTimeMillis() > secretsExpireAt) {
+        // A slow verification is not an expired session: the person is still solving it.
+        if (secretsExpireAt != 0L && System.currentTimeMillis() > secretsExpireAt && state.captcha == null) {
             expired(); return
         }
         polling = true
@@ -791,7 +827,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
             return
         }
         if (state.busy && System.currentTimeMillis() - actionStarted > 35000 && rect == null) {
-            if (recoveringSession) expired() else fail("El sitio demoró demasiado. La app no repetirá el paso automáticamente.")
+            if (recoveringSession) expired() else fail(if (online() && stmHost(android.net.Uri.parse(web.url ?: "").host)) stmDown("demasiado lenta") else "El sitio demoró demasiado. La app no repetirá el paso automáticamente.")
             return
         }
         if (rect != null) {
@@ -841,11 +877,18 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
             "cardsLoading" -> {
                 state = state.copy(stage = "connecting", busy = true, message = "Esperando que STM termine de mostrar las boleteras…")
                 if (System.currentTimeMillis() - actionStarted > 20000) {
-                    fail("No pudimos leer la lista de boleteras. Esto no significa que no tengas ninguna. Pasame una captura con la referencia que aparece abajo.")
+                    fail("No pudimos leer la lista de boleteras. No quiere decir que no tengas ninguna: probá de nuevo en un rato.")
                 }
             }
             "balance" -> {
                 clearSecrets()
+                // Never show one card's balance under another card's name.
+                // An all-digit match may be the person's document number, so only a clear card code counts.
+                val pageCard = data.optString("cardId").takeIf { it.isNotBlank() && it != "null" && it.any(Char::isLetter) }
+                if (pageCard != null && state.selectedCard != null && !pageCard.equals(state.selectedCard, ignoreCase = true)) {
+                    fail("STM mostró una boletera distinta a la que elegiste. No mostramos ese saldo para no confundirte; volvé a consultar.")
+                    return
+                }
                 state = state.copy(stage = "balance", balance = cents("balance"), consultedAt = System.currentTimeMillis())
                 if (lastAction != "minimum") act("minimum")
             }
@@ -861,7 +904,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                         minimum = minimum,
                         message = "Esperando que STM termine de mostrar el saldo y el mínimo."
                     )
-                    if (System.currentTimeMillis() - actionStarted > 8000) {
+                    // STM fills these by AJAX and can be slow; give it time before calling it a failure.
+                    if (System.currentTimeMillis() - actionStarted > 20000) {
                         val missing = listOfNotNull(
                             if (resolvedBalance == null) "saldo" else null,
                             if (minimum == null) "mínimo" else null
@@ -944,13 +988,16 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                 }
             }
             "signedOut" -> expired()
-            "unknown", "verification" -> if (System.currentTimeMillis() - actionStarted > 25000) {
+            "unknown", "verification" -> if (data.optString("reason") == "passwordChange") {
+                clearSecrets()
+                failWithShape("Cambio de contraseña", "gub.uy te pide cambiar o confirmar tu contraseña. Ese paso se hace en el sitio; después volvé a entrar.")
+            } else if (System.currentTimeMillis() - actionStarted > 25000) {
                 if(recoveringSession)expired()
                 else if(!accountVerified && !paymentInFlight && passwordStepSeen) {
                     clearSecrets();active=false;pendingHttpError=null;handler.removeCallbacks(poll)
                     host.crop=null;web.stopLoading()
                     state=state.copy(stage="accessHelp",busy=false,captcha=null,message="")
-                } else fail("Este acceso requiere un paso que Boletera todavía no reconoce. No vamos a mostrarte la página completa.")
+                } else failWithShape("Paso desconocido", "Este acceso requiere un paso que Boletera todavía no reconoce. No vamos a mostrarte la página completa.")
             }
             "blocked" -> fail("Pantalla fuera del recorrido permitido.")
         }
@@ -1005,7 +1052,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         return true
     }
     companion object {
-        const val START = "https://stm.gub.uy/app/mistm/cuenta/"
+        const val OFFLINE = "No hay internet en el celular. Conectate a Wi-Fi o datos y volvé a intentar."
+        const val START ="https://stm.gub.uy/app/mistm/cuenta/"
         const val CARDS = "https://stm.gub.uy/app/mistm/cuenta/pages/tarjetas.xhtml"
     }
 }

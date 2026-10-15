@@ -22,6 +22,9 @@ class AccessVault(private val activity: FragmentActivity) {
     private val alias = "boletera.access.v1"
     private var prompt: BiometricPrompt? = null
     val exists get() = prefs.contains("ciphertext") && prefs.contains("iv")
+    /** Set when Android dropped the key because a fingerprint was added or removed; the saved access was cleared. */
+    var invalidated = false
+        private set
     val available get() = BiometricManager.from(activity).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
 
     private fun key(create: Boolean): SecretKey {
@@ -55,7 +58,11 @@ class AccessVault(private val activity: FragmentActivity) {
     fun save(document: String, password: String, result: (Boolean) -> Unit) {
         val bytes = JSONObject().put("document", document).put("password", password).toString().toByteArray(Charsets.UTF_8)
         try {
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key(true)) }
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            // A key dropped by a fingerprint change can never encrypt again: replace it with a fresh one.
+            try { cipher.init(Cipher.ENCRYPT_MODE, key(true)) }
+            catch (_: android.security.keystore.KeyPermanentlyInvalidatedException) { deleteKey(); cipher.init(Cipher.ENCRYPT_MODE, key(true)) }
+            invalidated = false
             authorize(cipher, "Guardar acceso con huella") { authorized ->
                 try {
                     if (authorized == null) result(false)
@@ -74,7 +81,9 @@ class AccessVault(private val activity: FragmentActivity) {
         try {
             val iv = Base64.decode(prefs.getString("iv", null), Base64.NO_WRAP)
             val encrypted = Base64.decode(prefs.getString("ciphertext", null), Base64.NO_WRAP)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, key(false), GCMParameterSpec(128, iv)) }
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            try { cipher.init(Cipher.DECRYPT_MODE, key(false), GCMParameterSpec(128, iv)) }
+            catch (_: android.security.keystore.KeyPermanentlyInvalidatedException) { forget(); invalidated = true; result(null, null); return }
             authorize(cipher, "Entrar a STM con huella") { authorized ->
                 if (authorized == null) result(null, null)
                 else try {
@@ -89,7 +98,8 @@ class AccessVault(private val activity: FragmentActivity) {
     fun forget() {
         prompt?.cancelAuthentication()
         prefs.edit().clear().commit()
-        KeyStore.getInstance("AndroidKeyStore").apply { load(null); if (containsAlias(alias)) deleteEntry(alias) }
+        deleteKey()
     }
+    private fun deleteKey() { KeyStore.getInstance("AndroidKeyStore").apply { load(null); if (containsAlias(alias)) deleteEntry(alias) } }
     fun cancel() { prompt?.cancelAuthentication(); prompt = null }
 }

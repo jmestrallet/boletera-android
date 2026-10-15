@@ -1,5 +1,41 @@
 # Cambios
 
+## 0.2.40 Lab 6 - Más firme y más clara
+
+**Apertura**
+- La app abre oscura de punta a punta, sin el destello claro, y la tarjeta aparece con un fundido en su lugar. La huella aparece enseguida.
+
+**Errores**
+- Si la página de STM está caída (error del servidor, sin respuesta o demasiado lenta) y tu celular tiene internet, aparece «STM no responde»: explica que no es tu conexión ni Boletera, con «Abrir STM en el navegador».
+- Casi todos los errores ofrecen «Probar en el sitio de STM ↗» para hacerlo a mano si estás apurado. No aparece sin internet ni con un pago en curso (para no pagar dos veces).
+- La pantalla de error tiene el diseño de Lab: la tarjeta en rojo, el motivo en palabras simples, «Volver a intentar» que de verdad reintenta y el detalle técnico escondido.
+- Los errores del ingreso quedan escritos en la entrada, con la tarjeta en rojo, hasta que volvés a intentar. Si le errás a la contraseña, el documento queda escrito.
+- Sin internet en el celular te lo dice al instante, sin ruedita eterna, y te deja el último saldo consultado.
+
+**Saldo**
+- Nunca muestra un número dudoso: si STM escribe un monto de forma rara, no lo confunde con otro (por ejemplo, el mínimo de recarga) y avisa que no lo pudo leer.
+- Si STM muestra otra boletera distinta a la elegida, no muestra ese saldo.
+- El horario del saldo dice de qué día es («ayer 14:32»). Con saldo cero dice que no alcanza para un viaje.
+- El saldo aparece apenas se lee, sin ruedita mientras se busca el mínimo de recarga. El festejo de la entrada es más corto.
+- Al elegir «Otro importe», el panel sube con el teclado y el teclado se abre solo.
+
+**Arreglos**
+- Si agregás o borrás una huella en el celular, la app avisa que hay que volver a guardar el acceso en vez de fallar siempre. Si no se puede guardar la huella, entrás igual.
+- Girar el celular o cambiar el tamaño de letra ya no te saca de la verificación ni del pago.
+- Si salís de la app durante la verificación de STM y volvés, el botón vuelve a funcionar.
+- Después de un pago rechazado o acreditado en otra boletera, podés volver a recargar.
+- En el error de un pago, el botón atrás del celular vuelve a consultar el saldo en vez de cerrar la sesión.
+- Si gub.uy pide cambiar la contraseña, Boletera no escribe tu contraseña en ese formulario: te manda al sitio.
+- Las páginas de STM que Boletera no conoce quedan registradas (sin datos) en «Información de ayuda».
+- STM lento tiene más tiempo para mostrar el saldo y el mínimo antes de dar error.
+- El actualizador encuentra las versiones aunque haya muchas publicadas.
+
+**Diseño**
+- El pago, Prex, la verificación, Actividad y Configuración usan los colores de Lab, sin sombras.
+- La tarjeta de la entrada ya no tiene sombra.
+- Atajos al mantener apretado el ícono: «Ver saldo» y «Recargar».
+- La primera vez después de actualizar aparece «Qué hay de nuevo».
+
 ## 0.2.40 Lab 5 - La tarjeta del ingreso
 
 - La entrada ya no muestra el cuadrado azul: la tarjeta del ícono (blanca, cuatro rayas azules y el + verde) flota en el centro.

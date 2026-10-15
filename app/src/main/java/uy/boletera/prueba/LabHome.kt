@@ -62,13 +62,15 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
         val balance = state.balance
         if (balance != null) {
             val trips = (balance / LAB_ONE_HOUR_FARE).coerceAtLeast(0)
-            Text(if (balance < 0) buildAnnotatedString { append("Saldo pendiente de cubrir") } else buildAnnotatedString {
+            Text(if (balance < 0) buildAnnotatedString { append("Saldo pendiente de cubrir") }
+            else if (trips == 0L) buildAnnotatedString { append("No alcanza para un viaje de 1 hora") }
+            else buildAnnotatedString {
                 append("Te alcanza para ")
                 withStyle(SpanStyle(color = LabColors.Primary, fontWeight = FontWeight.Medium)) { append(if (trips == 1L) "1 viaje" else "$trips viajes") }
                 append(" de 1 hora")
             }, style = type.titleMedium.copy(fontWeight = FontWeight.Normal), color = LabColors.On, modifier = Modifier.padding(top = 20.dp))
         }
-        Text(if (state.busy) "Actualizando…" else state.consultedAt?.let { "Informado por STM · ${SimpleDateFormat("HH:mm", Locale.forLanguageTag("es-UY")).format(Date(it))}" }
+        Text(if (state.busy && state.consultedAt == null) "Actualizando…" else state.consultedAt?.let { "Informado por STM · ${consultedLabel(it)}" }
             ?: "Deslizá hacia abajo para actualizar", style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Faint, modifier = Modifier.padding(top = 6.dp))
         if (state.paymentStatus.isNotBlank()) Surface(color = LabColors.Warn.copy(alpha = 0.12f), shape = RoundedCornerShape(28.dp), modifier = Modifier.padding(top = 28.dp)) {
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -225,5 +227,17 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
             }
             Icon(painterResource(R.drawable.ic_bolt), contentDescription = null, tint = LabColors.OnPrimary, modifier = Modifier.size(34.dp))
         }
+    }
+}
+
+/** "14:32" today, "ayer 14:32", or "12 oct 14:32": an old balance must never look like today's. */
+internal fun consultedLabel(at: Long, now: Long = System.currentTimeMillis()): String {
+    val locale = Locale.forLanguageTag("es-UY")
+    val day = SimpleDateFormat("yyyyMMdd", locale)
+    val time = SimpleDateFormat("HH:mm", locale).format(Date(at))
+    return when (day.format(Date(at))) {
+        day.format(Date(now)) -> time
+        day.format(Date(now - 86_400_000L)) -> "ayer $time"
+        else -> SimpleDateFormat("d MMM", locale).format(Date(at)).trimEnd('.') + " $time"
     }
 }

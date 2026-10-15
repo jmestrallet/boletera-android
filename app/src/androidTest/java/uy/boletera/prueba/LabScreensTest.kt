@@ -72,6 +72,33 @@ class LabScreensTest {
         capture("lab-signin-success.png")
         compose.onNodeWithText("Listo.").assertIsDisplayed()
     }
+    @Test fun signInErrorStaysWithSiteLink() {
+        var opened = 0
+        compose.setContent { Frame {
+            LabWelcome(UiState(stage = "welcome", hasSavedAccess = true), savedAccess = true, manual = false, onManual = {},
+                document = "", onDocument = {}, password = "", onPassword = {}, reveal = false, onReveal = {}, save = true, onSave = {}, canSave = true,
+                authenticating = false, onUnlock = {}, onSubmit = {}, onAccessGuide = {}, heroPhase = HeroPhase.ERROR, opening = false,
+                errorText = "STM no está respondiendo (sin respuesta del servidor). La página oficial parece caída o con problemas.", onOpenSite = { opened++ })
+        } }
+        android.os.SystemClock.sleep(1200)
+        compose.onNodeWithText("STM no está respondiendo", substring = true).assertIsDisplayed()
+        capture("lab-signin-error.png")
+        compose.onNodeWithText("Probar en el sitio de STM ↗").performClick()
+        assertEquals(1, opened)
+    }
+    @Test fun errorScreenOffersRetryAndSite() {
+        var retried = 0
+        compose.setContent { Frame(back = true) {
+            AppErrorScreen("STM no está respondiendo (error 503). La página oficial parece caída o con problemas.", "ABC123",
+                onOpenSite = {}, onRetry = { retried++ }, onExit = {})
+        } }
+        android.os.SystemClock.sleep(1200)
+        compose.onNodeWithText("STM no responde").assertIsDisplayed()
+        compose.onNodeWithText("Abrir STM en el navegador").assertIsDisplayed()
+        capture("lab-error-outage.png")
+        compose.onNodeWithText("Volver a intentar").performClick()
+        assertEquals(1, retried)
+    }
     @Test fun cardPickerMarksCurrentCard() {
         var chosen = ""
         val state = UiState(stage = "cards", selectedCard = "ABCD1234", cards = listOf(CardInfo("ABCD1234", true, "Operativa"), CardInfo("DEAD5678", false, "Pte. Anular")))

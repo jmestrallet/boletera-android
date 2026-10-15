@@ -198,7 +198,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
             if(providerError) Notice("No se pudo avanzar. Revisá la página original para ver la respuesta de Sistarbanc antes de intentar de nuevo.")
             Box(Modifier.fillMaxWidth().bringIntoViewRequester(verificationView)) { verification() }
         }
-        Surface(color=Paper,shadowElevation=6.dp) {
+        Surface(color=Paper,shadowElevation=if(IsLab)0.dp else 6.dp) {
             Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=12.dp)) {
                 Primary(if(providerError)"Revisar respuesta" else if(busy)"Procesando…" else "Continuar",(providerError||canContinue)&&!busy&&!expandedChallenge) {
                     if(providerError) {autofill?.cancel();onOriginal()}

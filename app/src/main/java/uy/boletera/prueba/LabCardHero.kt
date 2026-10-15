@@ -61,8 +61,7 @@ private fun loaderPath(radius: Float, blend: Float, rotation: Float): Path {
 }
 
 /**
- * The sign-in card. [openingFromY] is how far (in px) the card centre starts below its place,
- * so it can travel up from the launcher icon at the centre of the screen when the app opens.
+ * The sign-in card. With [opening] it fades in on launch; [openingFromY] is kept for callers and no longer moves it.
  */
 @Composable internal fun LabCardHero(phase: HeroPhase, modifier: Modifier = Modifier, opening: Boolean = false, openingFromY: Float = 0f) {
     val context = LocalContext.current
@@ -71,13 +70,15 @@ private fun loaderPath(radius: Float, blend: Float, rotation: Float): Path {
     // An infinite animation by design: tests freeze it, the app keeps it running.
     LaunchedEffect(still) { if (!still) while (true) androidx.compose.animation.core.withInfiniteAnimationFrameMillis { now = it / 1000f } }
     var origin by remember { mutableFloatStateOf(-1f) }
-    var phaseStart by remember { mutableFloatStateOf(-1f) }
-    LaunchedEffect(Unit) { androidx.compose.animation.core.withInfiniteAnimationFrameMillis { origin = it / 1000f } }
+    // Keyed on phase so a new phase never draws one frame with the previous phase's clock.
+    var phaseStart by remember(phase) { mutableFloatStateOf(-1f) }
+    // The first frames after launch are slow; start the clock once they are out of the way so the card glides instead of jumping.
+    LaunchedEffect(Unit) { repeat(3) { androidx.compose.animation.core.withInfiniteAnimationFrameMillis { origin = it / 1000f } } }
     LaunchedEffect(phase) { androidx.compose.animation.core.withInfiniteAnimationFrameMillis { phaseStart = it / 1000f } }
     Canvas(modifier) {
         val T = if (still) 0f else now
-        val e = if (still || phaseStart < 0f) 10f else (now - phaseStart).coerceAtLeast(0f)
-        val o = if (still || !opening) 10f else if (origin < 0f) 10f else (now - origin).coerceAtLeast(0f)
+        val e = if (still) 10f else if (phaseStart < 0f) 0f else (now - phaseStart).coerceAtLeast(0f)
+        val o = if (still || !opening) 10f else if (origin < 0f) 0f else (now - origin).coerceAtLeast(0f)
         val k = size.width / 80f // px per card unit; the card is 44 units wide
         var y = 0f; var rot = 0f; var scale = 1f
         var loaderAlpha = 0f; var plus = 1f; var blend = 0f; var wave = -1f; var badge = HeroGreen; var cross = false
@@ -107,26 +108,16 @@ private fun loaderPath(radius: Float, blend: Float, rotation: Float): Path {
                 plus = if (e > .15f) springStep(e - .15f, .5f, 16f) else 0f
             }
         }
-        // App opening: the card travels from the icon at the centre of the screen and grows into place.
+        // App opening: the card simply fades in where it sits, settling from a hair smaller.
         var openAlpha = 1f
-        if (o < 1.4f) {
-            val fly = springStep(clamp01(o - .35f), .62f, 9.5f)
-            y += (1 - fly) * openingFromY / k; scale *= mixF(.27f, 1f, fly)
-            openAlpha = clamp01(o / .15f)
+        if (o < 1f) {
+            val t = clamp01(o / .5f); val eased = 1 - (1 - t) * (1 - t) * (1 - t)
+            openAlpha = eased; scale *= mixF(.94f, 1f, eased)
         }
         val cx = size.width / 2; val cy = size.height / 2
-        // shadow under the floating card
-        val lift = (-y).coerceAtLeast(0f)
-        val shadowAlpha = (.45f - lift * .012f) * clamp01((o - .75f) / .4f)
-        drawOval(Brush.radialGradient(listOf(Color.Black.copy(alpha = shadowAlpha.coerceAtLeast(0f)), Color.Transparent), Offset(cx, cy + 25 * k), 26 * k),
-            topLeft = Offset(cx - 26 * k * (1 - lift * .02f), cy + 22 * k), size = Size(52 * k * (1 - lift * .02f), 6 * k))
         translate(cx, cy + y * k) {
             rotate(rot, Offset.Zero) {
                 scale(scale * k, Offset.Zero) {
-                    // the launcher tile the card leaves behind (72 units, as in the icon's visible area)
-                    val tileAlpha = if (opening) 1 - clamp01((o - .3f) / .25f) else 0f
-                    if (tileAlpha > 0f) drawRoundRect(Brush.linearGradient(listOf(Color(0xFF1A73D9), Color(0xFF0B4A94)), Offset(-36f, -36f), Offset(36f, 36f)),
-                        Offset(-38f, -36f), Size(72f, 72f), CornerRadius(21.6f), alpha = tileAlpha)
                     rotate(-10f, Offset.Zero) {
                         drawRoundRect(Color.White.copy(alpha = openAlpha), Offset(-22f, -14f), Size(44f, 28f), CornerRadius(5.5f))
                         HeroBars.forEachIndexed { i, p -> drawPath(p, barColors[i].copy(alpha = openAlpha)) }

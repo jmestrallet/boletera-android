@@ -60,7 +60,7 @@ import androidx.compose.ui.unit.dp
                 if (existing != null && !paymentOnly) TextButton(onClick = { deleting = true }) { Text("Eliminar datos guardados") }
                 Spacer(Modifier.height(4.dp))
             }
-            Surface(color = Paper, shadowElevation = 4.dp) {
+            Surface(color = Paper, shadowElevation = if (IsLab) 0.dp else 4.dp) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val invalidMessage = when {
                         given.isBlank() || family.isBlank() -> "Completá el nombre y el apellido."

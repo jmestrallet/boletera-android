@@ -71,7 +71,15 @@ private val AppTypography = Typography(
 @Composable internal fun BoleteraTheme(appearance: String = "system", content: @Composable () -> Unit) {
     val dark = when (appearance) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
     // Public-transport blue, shared with the README banner (tools/banner/banner.py).
-    val targetColors = if (dark) darkColorScheme(
+    // Boletera Lab paints every screen (payment, Prex, verification, settings) with its own neutral dark palette.
+    val targetColors = if (IsLab) darkColorScheme(
+        primary = LabColors.Primary, onPrimary = LabColors.OnPrimary, primaryContainer = Color(0xFF1F2A3D), onPrimaryContainer = LabColors.On,
+        secondary = LabColors.Muted, onSecondary = LabColors.Base, secondaryContainer = Color(0xFF1A1F29), onSecondaryContainer = LabColors.On,
+        tertiary = LabColors.Teal, onTertiary = LabColors.OnTeal,
+        background = LabColors.Base, onBackground = LabColors.On, surface = Color(0xFF141922), onSurface = LabColors.On,
+        surfaceVariant = Color(0xFF1C222D), onSurfaceVariant = LabColors.Muted, outline = LabColors.Faint, outlineVariant = Color(0xFF2A303B),
+        error = Color(0xFFFFB4AB), onError = Color(0xFF690005), errorContainer = Color(0xFF3A1A1A), onErrorContainer = Color(0xFFFFDAD6)
+    ) else if (dark) darkColorScheme(
         primary = Color(0xFF6CB0FF), onPrimary = Color(0xFF06213F), primaryContainer = Color(0xFF16365F), onPrimaryContainer = Color(0xFFDCEBFF),
         secondary = Color(0xFFA9C6EA), onSecondary = Color(0xFF10263F), secondaryContainer = Color(0xFF1D3350), onSecondaryContainer = Color(0xFFD6E5F7),
         tertiary = Color(0xFF8CC2FF), onTertiary = Color(0xFF06213F),
@@ -140,7 +148,7 @@ internal enum class Glyph { Ticket, Swap, Arrow, Back, Close, Settings, Check, L
 @Composable internal fun AppTopBar(onSettings: (() -> Unit)? = null, title: String? = null, onBack: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().heightIn(min=72.dp).padding(horizontal=16.dp), verticalAlignment=Alignment.CenterVertically) {
         if(onBack != null) IconButton(onClick=onBack) { AppGlyph(Glyph.Back,label="Volver") }
-        else BrandTile(Modifier.size(40.dp))
+        else if(!IsLab) BrandTile(Modifier.size(40.dp))
         Text(title ?: "boletera",style=if(title==null)MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge,
             modifier=Modifier.weight(1f).padding(start=12.dp),color=Ink)
         if(onSettings!=null) FilledTonalIconButton(onClick=onSettings, colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)) { AppGlyph(Glyph.Settings,label="Configuración") }

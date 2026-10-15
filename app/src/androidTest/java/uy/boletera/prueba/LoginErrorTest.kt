@@ -83,7 +83,8 @@ class LoginErrorTest {
     @Test fun rejectionBodyTakesPrecedenceOverHttpError()=checkRejection(401)
     @Test fun serverFailureDoesNotClaimWrongPassword() {
         setup(503,"<div role='alert'>El servicio no está disponible.</div>")
-        compose.onNodeWithText("SERVICIO").assertIsDisplayed()
+        // With validated internet a 5xx from STM/gub.uy is an outage ("STM CAÍDO"); offline it stays a service error.
+        compose.waitUntil(10000) { listOf("SERVICIO","STM CAÍDO").any { compose.onAllNodesWithText(it).fetchSemanticsNodes().isNotEmpty() } }
         compose.onNodeWithText("DATOS DE ACCESO").assertDoesNotExist()
         assertEquals(1,submitted.get())
         compose.runOnIdle {engine.forgetChoices()}

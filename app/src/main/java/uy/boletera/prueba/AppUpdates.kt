@@ -280,15 +280,20 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
         ready = false; release = null; message = "Buscando actualizaciones…"
         work {
-            val connection = UpdateFiles.open(UpdatePolicy.API)
-            val json = try { connection.inputStream.use {
-                val bytes = it.readBytesLimited(2 * 1024 * 1024)
-                String(bytes, Charsets.UTF_8)
-            } } finally { connection.disconnect() }
             // Lab installs beside this app, so compare against the Lab copy (if any), not against this app.
             val separateLab=requested==UpdateChannel.LAB && labIsSeparate
             val labInstalled=if(separateLab)labVersion() else null
-            val found = UpdatePolicy.select(json, labInstalled ?: BuildConfig.VERSION_NAME,requested)
+            // Many Lab and Alpha releases can push the newest stable past the first page, so look a few pages deep.
+            var found: UpdateRelease? = null
+            for (page in 1..4) {
+                val connection = UpdateFiles.open(UpdatePolicy.API + "&page=" + page)
+                val json = try { connection.inputStream.use {
+                    val bytes = it.readBytesLimited(4 * 1024 * 1024)
+                    String(bytes, Charsets.UTF_8)
+                } } finally { connection.disconnect() }
+                found = UpdatePolicy.select(json, labInstalled ?: BuildConfig.VERSION_NAME,requested)
+                if (found != null || org.json.JSONArray(json).length() < 100) break
+            }
             publish {
                 if(channel!=requested)return@publish
                 release = found

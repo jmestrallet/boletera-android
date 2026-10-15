@@ -72,7 +72,7 @@ import androidx.compose.ui.unit.dp
             }
             if(payment.completionSubmitted)Text(if(confirming)"Esperando la respuesta de Prex…" else "Volviendo a STM…",style=MaterialTheme.typography.bodyMedium,color=Muted)
         }
-        Surface(color=Paper,shadowElevation=6.dp) {
+        Surface(color=Paper,shadowElevation=if(IsLab)0.dp else 6.dp) {
             Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=12.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 Primary(if(confirming)"Confirmar pago" else "Volver a mi boletera",payment.canContinue) {payment.advance(stage)}
                 TextButton(onClick=onOriginal) {Text("Ver página original")}

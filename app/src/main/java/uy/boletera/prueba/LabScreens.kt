@@ -16,6 +16,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -32,6 +36,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -53,7 +59,7 @@ import androidx.compose.ui.unit.sp
         .clickable(onClick = onClick), contentAlignment = Alignment.Center) { content() }
 }
 
-@Composable private fun LabPrimary(label: String, enabled: Boolean = true, onClick: () -> Unit, glyph: Glyph? = null) {
+@Composable internal fun LabPrimary(label: String, enabled: Boolean = true, onClick: () -> Unit, glyph: Glyph? = null) {
     val haptic = LocalHapticFeedback.current
     Row(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(32.dp)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
         .clickable(enabled = enabled) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() },
@@ -63,12 +69,16 @@ import androidx.compose.ui.unit.sp
     }
 }
 
-@Composable private fun LabTextLink(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) =
+@Composable internal fun LabTextLink(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) =
     TextButton(onClick = onClick, modifier = modifier) { Text(label, color = LabColors.Primary, style = MaterialTheme.typography.titleSmall) }
 
 /** Sign-in for Lab: fingerprint first when saved, otherwise the gub.uy fields marked for Android autofill. */
 /** The app opening plays once per process: the card travels from the launcher icon into place. */
-internal object LabLaunch { var openingPlayed = false }
+internal object LabLaunch {
+    var openingPlayed = false
+    /** Uptime until which the opening runs; heavy work (STM page, fingerprint prompt) waits for it. */
+    var openingUntil = 0L
+}
 
 /** Staggered fade-and-rise for the sign-in content while the card lands; already settled when not opening. */
 @Composable private fun introStates(count: Int, opening: Boolean): List<State<Float>> {
@@ -85,7 +95,7 @@ private fun Modifier.intro(v: State<Float>) = graphicsLayer { alpha = v.value.co
     document: String, onDocument: (String) -> Unit, password: String, onPassword: (String) -> Unit,
     reveal: Boolean, onReveal: () -> Unit, save: Boolean, onSave: (Boolean) -> Unit, canSave: Boolean,
     authenticating: Boolean, onUnlock: () -> Unit, onSubmit: () -> Unit, onAccessGuide: () -> Unit,
-    heroPhase: HeroPhase = HeroPhase.IDLE, opening: Boolean = false) {
+    heroPhase: HeroPhase = HeroPhase.IDLE, opening: Boolean = false, errorText: String = "", onOpenSite: (() -> Unit)? = null) {
     val type = MaterialTheme.typography
     val view = androidx.compose.ui.platform.LocalView.current
     var fromY by remember { mutableFloatStateOf(0f) }
@@ -100,11 +110,15 @@ private fun Modifier.intro(v: State<Float>) = graphicsLayer { alpha = v.value.co
         Text(when {
             heroPhase == HeroPhase.LOADING -> if (authenticating) "Confirmá con tu huella." else "Conectando con STM…"
             heroPhase == HeroPhase.SUCCESS -> "Listo."
-            heroPhase == HeroPhase.ERROR -> state.message.ifBlank { "No pudimos entrar. Probá de nuevo." }
+            errorText.isNotBlank() -> errorText
+            heroPhase == HeroPhase.ERROR -> "No pudimos entrar. Probá de nuevo." 
             state.sessionExpired && savedAccess -> "STM cierra el acceso después de un rato. Confirmá tu huella y volvés a donde estabas."
             state.sessionExpired -> "STM cierra el acceso después de un rato. Ingresá de nuevo para seguir."
             else -> "Con tu Usuario gub.uy."
-        }, style = type.bodyLarge, color = if (heroPhase == HeroPhase.ERROR) Color(0xFFFFB4AB) else LabColors.Muted, modifier = Modifier.intro(intro[1]))
+        }, style = type.bodyLarge, color = if (heroPhase == HeroPhase.ERROR || (errorText.isNotBlank() && !working)) Color(0xFFFFB4AB) else LabColors.Muted,
+            modifier = Modifier.intro(intro[1]).semantics { liveRegion = LiveRegionMode.Polite })
+        // When something failed, the official site is one tap away for anyone in a hurry.
+        if (errorText.isNotBlank() && !working && onOpenSite != null) LabTextLink("Probar en el sitio de STM ↗", onOpenSite)
         if (state.sessionExpired && state.paymentNeedsReview) Text("Si ya habías autorizado un pago, revisamos el saldo al entrar. No se repite la recarga.", style = type.bodyMedium, color = LabColors.Faint)
         if (savedAccess && !manual) {
             Box(Modifier.intro(intro[2]).padding(top = 18.dp)) {
@@ -176,16 +190,20 @@ private fun Modifier.intro(v: State<Float>) = graphicsLayer { alpha = v.value.co
     var text by remember(open) { mutableStateOf("") }
     var selected by remember(open, state.minimum) { mutableStateOf(state.minimum) }
     val amount = if (custom) Amounts.parse(text) else selected
+    val customFocus = remember { FocusRequester() }
+    // "Otro importe" opens the keyboard straight away.
+    LaunchedEffect(custom) { if (custom) { kotlinx.coroutines.delay(60); runCatching { customFocus.requestFocus() } } }
     Box(modifier.fillMaxSize()) {
         // Scrim fades in with the morph; tapping it closes.
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = progress.coerceIn(0f, 1f) }.background(Color(0x99040609)).clickable(enabled = open, onClick = onClose))
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding()
+        // Rises with the keyboard so the custom amount stays visible while typing.
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
             .padding(horizontal = lerp(24.dp, 8.dp, progress.coerceIn(0f, 1f)), vertical = lerp(36.dp, 8.dp, progress.coerceIn(0f, 1f)))
             .clip(RoundedCornerShape(lerp(32.dp, 32.dp, progress)))
             .background(lerpColor(LabColors.Primary, Color(0xFF151B27), progress.coerceIn(0f, 1f)))
             .heightIn(min = 64.dp).animateContentSize()) {
             AnimatedVisibility(open, enter = fadeIn(tween(220, delayMillis = 90)), exit = fadeOut(tween(90))) {
-                Column(Modifier.padding(horizontal = 20.dp, vertical = 22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("¿Cuánto cargás?", style = type.headlineMedium, color = LabColors.On)
                     Text("STM ···· ${state.selectedCard?.takeLast(4).orEmpty()} · mínimo ${Amounts.format(state.minimum)}", style = type.bodyMedium, color = LabColors.Muted)
                     Spacer(Modifier.height(6.dp))
@@ -208,7 +226,7 @@ private fun Modifier.intro(v: State<Float>) = graphicsLayer { alpha = v.value.co
                         }
                     }
                     if (custom) OutlinedTextField(text, { text = it }, label = { Text("Importe en pesos") }, singleLine = true, shape = RoundedCornerShape(16.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth().focusRequester(customFocus),
                         isError = text.isNotEmpty() && !Amounts.valid(amount, state.minimum),
                         supportingText = { if (text.isNotEmpty() && !Amounts.valid(amount, state.minimum)) Text("Ingresá al menos ${Amounts.format(state.minimum)}.") })
                     LabTextLink(if (custom) "Usar un importe sugerido" else "Otro importe", { custom = !custom })
