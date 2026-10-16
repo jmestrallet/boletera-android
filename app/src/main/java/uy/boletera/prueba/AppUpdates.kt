@@ -206,6 +206,8 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     var message by mutableStateOf("Buscá actualizaciones sin salir de Boletera."); private set
     internal var release by mutableStateOf<UpdateRelease?>(null); private set
     var ready by mutableStateOf(false); private set
+    /** Percent downloaded while a download runs, or null. */
+    var progress by mutableStateOf<Int?>(null); private set
     var installRequested by mutableStateOf(false); private set
     var reviewRequested by mutableStateOf(false); private set
     var automaticNotice by mutableStateOf(false); private set
@@ -319,16 +321,16 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         if (busy) return
         val destination=apk
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
-        ready = false; message = "Descargando…"
+        ready = false; message = "Descargando…"; progress = 0
         work {
             destination.parentFile!!.mkdirs()
             val partial = File(destination.parentFile, "boletera-${selected.channel.key}.part")
             try {
-                UpdateFiles.download(selected, partial) { percent -> publish { message = "Descargando… $percent %" } }
+                UpdateFiles.download(selected, partial) { percent -> publish { message = "Descargando… $percent %"; progress = percent } }
                 UpdateFiles.verify(getApplication(), partial, selected)
                 check(partial.renameTo(destination)) { "No se pudo guardar la descarga." }
                 publish { downloadReady() }
-            } finally { partial.delete() }
+            } finally { partial.delete(); publish { progress = null } }
         }
     }
     internal fun downloadReady() {

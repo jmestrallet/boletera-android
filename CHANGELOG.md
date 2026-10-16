@@ -1,5 +1,18 @@
 # Cambios
 
+## 0.2.40 Lab 7 - Todo nuevo, y en movimiento
+
+- Lab entera con el diseño nuevo: entrada, inicio, montos, pago con Prex, resultados, avisos y Configuración, como en las maquetas.
+- La tarjeta viaja entre pantallas: de la entrada al inicio, del inicio al pago, al centro para el resultado y de vuelta a su lugar.
+- Pago más corto: del importe a «Pagar» sin pasos repetidos. El titular va en el panel de montos y el captcha de Prex aparece adentro de la app.
+- «Pagar» se convierte en el círculo de la tarjeta; al terminar salen chispas y el saldo nuevo rueda cifra por cifra.
+- Recarga hecha en una sola pantalla, con «Ver detalle del pago». Si Prex rechaza, «Probar de nuevo» vuelve a abrir los montos.
+- Carga Express: mantené el rayo 1,2 segundos; una luz recorre el borde de la pantalla y cae en tu tarjeta. Siempre carga el mínimo.
+- Modo demo (Configuración → Ayuda): probá todo, Express incluido, sin cargar plata ni entrar a STM.
+- Tus boleteras con nombre, el último saldo mientras conecta, saldo negativo en rosa y la pantalla encendida durante el pago.
+- Configuración nueva, ordenada como la de Android, con «Olvidar este celular» al final y pidiendo confirmación.
+- Volver atrás nunca cierra la sesión ni pide la huella.
+
 ## 0.2.40 Lab 6 - Más firme y más clara
 
 **Apertura**

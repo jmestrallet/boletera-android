@@ -22,6 +22,8 @@ data class UiState(
     val recoveringSession: Boolean = false,
     val paymentNeedsReview: Boolean = false,
     val paymentStatus: String = "",
+    /** Amount STM just confirmed as credited, for Lab's "Recarga hecha"; cleared when seen. */
+    val credited: Long? = null,
     val providers: List<ProviderInfo> = emptyList(), val selectedProvider: String? = null,
     val activePayment: ActivePayment? = null,
     val payerProfileId: String? = null,

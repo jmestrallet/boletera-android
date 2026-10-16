@@ -36,7 +36,7 @@ class LabGlassTest {
                         LabAmbient()
                         Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 24.dp)) {
                             Spacer(Modifier.height(64.dp))
-                            LabHomeContent(state, onPaymentReviewed = null, onActivity = {}, onTicketGuide = {})
+                            LabHomeContent(state, offline = false, onTicketGuide = {})
                         }
                     }
                     LabHomeChrome(state, haze, blur = blur, onChangeCard = {}, onSettings = {}, onCharge = {},

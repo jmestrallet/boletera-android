@@ -17,7 +17,9 @@
     return true;
   };
   const buttons = () => [...document.querySelectorAll('button, a, [role="button"]')].filter(visible);
-  const button = re => buttons().find(el => re.test(text(el) || el.getAttribute('aria-label') || ''));
+  // STM's icon buttons carry no text of their own («ui-button»); their name is a separate <label for> (seen 15/10/2026).
+  const nameOf = el => text(el).replace(/^ui-button$/i, '') || el.getAttribute('aria-label') || text(el.labels?.[0]) || '';
+  const button = re => buttons().find(el => re.test(nameOf(el)));
   const formButton = (field, re) => {
     const form = field?.closest('form');
     return form ? [...form.querySelectorAll('button, a, [role="button"]')].filter(visible)

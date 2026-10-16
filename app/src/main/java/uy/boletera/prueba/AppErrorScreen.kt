@@ -32,8 +32,8 @@ internal fun errorPresentation(message:String):ErrorPresentation {
     }
 }
 
-@Composable internal fun AppErrorScreen(message:String,reference:String="",payment:Boolean=false,onOpenSite:(()->Unit)?=null,onRetry:(()->Unit)?=null,onExit:()->Unit) {
-    if(IsLab){LabErrorScreen(message,reference,payment,onOpenSite,onRetry,onExit);return}
+@Composable internal fun AppErrorScreen(message:String,reference:String="",payment:Boolean=false,onOpenSite:(()->Unit)?=null,onRetry:(()->Unit)?=null,paymentAmount:Long?=null,onExit:()->Unit) {
+    if(IsLab){LabErrorScreen(message,payment,paymentAmount,onOpenSite,onRetry,onExit);return}
     val info=remember(message){errorPresentation(message)}
     var details by remember(message){mutableStateOf(false)}
     val ink=MaterialTheme.colorScheme.primary
@@ -83,31 +83,24 @@ internal fun errorPresentation(message:String):ErrorPresentation {
     }
 }
 
-/** Lab error: the sign-in card turns red, the reason in plain words, a real retry and the official site as a way out. */
-@Composable private fun LabErrorScreen(message:String,reference:String,payment:Boolean,onOpenSite:(()->Unit)?,onRetry:(()->Unit)?,onExit:()->Unit) {
+/**
+ * Lab error, the same shape as the sign-in error (reglas.html): the card turns red, the title says what happened, one grey
+ * line explains, the official site is a link in the text, and the one button below repeats what failed. The arrow at the
+ * top is the way back to the balance, so there is no second exit. A cut during a payment says only what happened: the
+ * balance is read again on the way back, and nothing here talks about charges.
+ */
+@Composable private fun LabErrorScreen(message:String,payment:Boolean,paymentAmount:Long?,onOpenSite:(()->Unit)?,onRetry:(()->Unit)?,onExit:()->Unit) {
     val info=remember(message){errorPresentation(message)}
-    var details by remember(message){mutableStateOf(false)}
-    val type=MaterialTheme.typography
-    val outage=info.code=="STM CAÍDO"
-    Column(Modifier.fillMaxWidth().padding(horizontal=4.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        LabCardHero(HeroPhase.ERROR,Modifier.fillMaxWidth().height(170.dp))
-        Text(info.code,style=type.labelMedium,color=androidx.compose.ui.graphics.Color(0xFFFFB4AB))
-        Text(info.title.replace('\n',' '),style=type.headlineLarge.copy(fontSize=32.sp,lineHeight=38.sp),color=LabColors.On)
-        Text(info.explanation,style=type.bodyLarge,color=LabColors.Muted)
-        if(payment)Text("Si ya autorizaste el pago, revisá su estado en el proveedor antes de iniciar otra recarga.",style=type.bodyMedium,color=LabColors.Warn)
-        Spacer(Modifier.height(8.dp))
-        val retry=if(info.code=="DATOS DE ACCESO")null else onRetry
-        when {
-            outage && onOpenSite!=null && !payment -> { LabPrimary("Abrir STM en el navegador",onClick=onOpenSite); LabTextLink(if(retry!=null)"Volver a intentar" else "Volver al inicio",retry?:onExit) }
-            retry!=null && !payment -> { LabPrimary("Volver a intentar",onClick=retry); LabTextLink("Volver al inicio",onExit) }
-            else -> LabPrimary(if(info.code=="DATOS DE ACCESO")"Corregir datos" else if(payment)"Volver a Boletera" else "Volver al inicio",onClick=onExit)
-        }
-        if(!outage && onOpenSite!=null && !payment && info.code in siteFallbackCodes) LabTextLink("Probar en el sitio de STM ↗",onOpenSite)
-        // The technical detail stays available but quiet, for the help report.
-        LabTextLink(if(details)"Ocultar detalle" else "Detalle técnico",{details=!details})
-        AnimatedVisibility(details) {
-            Text(listOf(message,if(reference.isNotBlank())"Referencia: $reference" else "").filter{it.isNotBlank()}.joinToString("\n"),
-                style=type.bodySmall,color=LabColors.Faint,modifier=Modifier.padding(horizontal=4.dp))
-        }
+    val (title,line)=labErrorCopy(info.code)
+    if(payment) {
+        LabStatusScreen(HeroPhase.ERROR,title,line,primary=LabAction("Volver al inicio",onClick=onExit),secondary=null)
+        return
     }
+    val site=if(onOpenSite!=null && (info.code=="STM CAÍDO" || info.code in siteFallbackCodes))LabAction("Probar en el sitio de STM ↗",onClick=onOpenSite) else null
+    val primary=when {
+        info.code=="DATOS DE ACCESO" -> LabAction("Corregir datos",onClick=onExit)
+        onRetry!=null -> LabAction("Volver a intentar",onClick=onRetry)
+        else -> LabAction("Volver al inicio",onClick=onExit)
+    }
+    LabStatusScreen(HeroPhase.ERROR,title,line,primary=primary,secondary=null,link=site)
 }

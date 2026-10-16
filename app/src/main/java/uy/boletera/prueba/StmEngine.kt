@@ -40,6 +40,8 @@ class StmEngine(private val context: Context) {
     private val stageTrail = ArrayDeque<String>()
     private var interruptedAccess = false
     private var accountVerified = false
+    /** STM already accepted this session: retrying or going back re-reads with it instead of signing in again. */
+    val sessionVerified: Boolean get() = accountVerified
     private var accessRequestId = 0
     private var recoveringSession = false
     private val recoverySteps = mutableSetOf<String>()
@@ -203,6 +205,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         recoverSession()
         return true
     }
+    fun dismissCredited() { state = state.copy(credited = null); lastReceipt = emptyList() }
     fun dismissNotice(message: String) { if (state.message == message) state = state.copy(message = "") }
     fun notice(message: String) { state = state.copy(message = message, busy = false) }
 
@@ -235,7 +238,12 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         paymentRecord=record;paymentNeedsReview=true;return true
     }
 
+    /** Prex's receipt rows of the last approved payment, kept until «Recarga hecha» is closed (its «Ver detalle del pago»). */
+    var lastReceipt by mutableStateOf<List<Pair<String,String>>>(emptyList())
+        private set
+
     private fun observePaymentOutcome(stage: String, rows: List<Pair<String,String>>) {
+        if(stage=="receipt" && rows.isNotEmpty()) lastReceipt=rows
         val account=choices.accountKey ?: return
         val pending=state.activePayment ?: return
         val previous=paymentRecord ?: PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance)
@@ -326,6 +334,23 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         act("card", id)
     }
 
+    /** The card Lab is switching to from the «Tus boleteras» sheet, while STM answers for it. */
+    var switchingTo by mutableStateOf<String?>(null)
+        private set
+
+    /**
+     * Lab: another card chosen in the sheet over the home, from the list already read. STM is asked straight for that
+     * card (the usual card becomes this one, and the regular re-read reaches it); no full-screen picker in between.
+     */
+    fun switchCard(id: String) {
+        if (state.busy || id == state.selectedCard || state.cards.none { it.id == id && it.active }) return
+        choices.card = id
+        switchingTo = id
+        activityOpened = false
+        state = state.copy(selectedCard = id, balance = null, minimum = null, consultedAt = null, amount = null, activity = ActivityState())
+        refresh()
+    }
+
     fun changeCard() {
         if (state.busy) return
         choosingCard = true
@@ -400,7 +425,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         val provider = state.selectedProvider ?: return
         val amount = state.amount ?: return
         val card = state.selectedCard ?: return
-        if (!accountVerified || paymentNeedsReview || journalUnavailable || paymentInFlight || state.stage != "paymentBoundary" || state.busy || provider !in PaymentPolicy.supported || !Amounts.valid(amount, state.minimum)) return
+        // Lab (A3): a previous payment never blocks the next one; the journal still resolves it from the balance.
+        if (!accountVerified || (paymentNeedsReview && !IsLab) || journalUnavailable || paymentInFlight || state.stage != "paymentBoundary" || state.busy || provider !in PaymentPolicy.supported || !Amounts.valid(amount, state.minimum)) return
         if (provider == "1033" && payerProfiles.none { it.id == state.payerProfileId }) {
             notice("Elegí o guardá los datos para esta Prex antes de seguir.")
             return
@@ -514,6 +540,23 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         act("amount", amount.toString())
     }
 
+    /**
+     * Lab's «Continuar con Prex» from the amount panel: the amount and the payment go together, with the payer already
+     * chosen there, so there is no «Tu recarga» step. It rides the same one-shot request as Express, but as a normal
+     * journey: Prex still asks for the card and nothing is confirmed without the person's «Pagar».
+     */
+    fun prepareWithPrex(amount: Long) {
+        val card = state.selectedCard ?: return
+        if (state.busy || pageStage != "amount") return
+        if (!Amounts.valid(amount, state.minimum)) { notice("El monto debe alcanzar el mínimo informado por STM."); return }
+        val payer = payerProfiles.find { it.id == state.payerProfileId && it.valid() } ?: payerProfiles.singleOrNull()?.takeIf { it.valid() }
+        if (payer == null) { notice("Agregá el titular de la Prex para seguir."); return }
+        expressRequest = ExpressChoice(card, "1033", payer.id)
+        expressPayment = false
+        state = state.copy(amount = amount, payerProfileId = payer.id)
+        act("amount", amount.toString())
+    }
+
     private fun expressPayer(): PayerProfile? {
         if(choices.successfulProvider=="1033")return payerProfiles.find {it.id==choices.successfulPayer && it.valid()}
         return payerProfiles.find {it.id==state.payerProfileId && it.valid()} ?: payerProfiles.singleOrNull()?.takeIf {it.valid()}
@@ -523,7 +566,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     val expressProviderName: String get() = if(expressProvider=="1033")"Prex" else "Medio guardado"
     val expressPaymentLabel: String get()=expressProviderName + choices.successfulCardSuffix?.let {" · •••• $it"}.orEmpty()
     private val expressProviderReady: Boolean get() = expressProvider=="1033" && payerStoreAvailable && expressPayer()!=null
-    val expressAvailable: Boolean get() = accountVerified && !paymentNeedsReview && !journalUnavailable && expressProviderReady &&
+    val expressAvailable: Boolean get() = accountVerified && (!paymentNeedsReview || IsLab) && !journalUnavailable && expressProviderReady &&
         choices.card==state.selectedCard &&
         state.selectedCard!=null && state.cards.any { it.id==state.selectedCard && it.active } &&
         Amounts.valid(state.minimum,state.minimum)
@@ -565,6 +608,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
 
     fun cancel() {
+        switchingTo = null
         activityOpened=false
         expressTiming.finish(ExpressTiming.End.CANCELLED)
         sessionRequest++
@@ -882,6 +926,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
             }
             "balance" -> {
                 clearSecrets()
+                switchingTo = null
                 // Never show one card's balance under another card's name.
                 // An all-digit match may be the person's document number, so only a clear card code counts.
                 val pageCard = data.optString("cardId").takeIf { it.isNotBlank() && it != "null" && it.any(Char::isLetter) }
@@ -947,7 +992,10 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                             }
                         } else if(account!=null && paymentJournal.clear(account)) {
                             paymentRecord=null;paymentNeedsReview=false
-                            state=state.copy(message=if(record?.phase=="credited")"Recarga confirmada por STM. Saldo actualizado." else "El pago fue rechazado. Saldo consultado.")
+                            val credited=record?.phase=="credited"
+                            // Lab shows its own "Recarga hecha" screen instead of a passing message.
+                            state=state.copy(credited=if(credited && IsLab)record?.amount else null,
+                                message=if(credited && IsLab)"" else if(credited)"Recarga confirmada por STM. Saldo actualizado." else "El pago fue rechazado. Saldo consultado.")
                         }
                     }
                     showPaymentStatus()

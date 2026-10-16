@@ -26,6 +26,13 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         private set
     private var expectedAmount: Long? = null
     private var finalSubmitted = false
+    /**
+     * The provider shows its check only after a first «Confirmar», which it refuses without authorizing (seen 15/10/2026).
+     * [captchaRetry] says the page is in that state; [retried] makes sure the one extra confirmation happens only once.
+     */
+    var captchaRetry by mutableStateOf(false)
+        private set
+    private var retried = false
     var payerValues by mutableStateOf<List<String>>(emptyList())
         private set
     var canContinue by mutableStateOf(false)
@@ -129,6 +136,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                         cardBusy = state.optBoolean("cardBusy")
                         cardError = state.optBoolean("cardError")
                         expressPhase = state.optString("expressPhase","off")
+                        captchaRetry = state.optBoolean("captchaRetry")
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
                         verificationRequired = state.optBoolean("verificationRequired") || challenge != null
@@ -160,7 +168,10 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                             expectedCardSuffix==enteredCardSuffix && summaryRows.any {
                                 it.first.trim().trimEnd(':').equals("Medio de pago",true) && it.second.takeLast(4)==expectedCardSuffix
                             }) advance(nativeStage,automatic=true)
-                        if(expressJourney && nativeStage=="receipt" && canContinue) advance(nativeStage,automatic=true)
+                        // The person already said «Pagar»: once the provider's check is solved, that same confirmation is sent, once.
+                        if(IsLab && nativeStage=="finalConfirmation" && captchaRetry && finalSubmitted && !retried && canContinue) advance(nativeStage,automatic=true)
+                        // Lab (B8): no «Pago confirmado / Ver mi saldo» stop; the receipt goes straight back to the balance.
+                        if((expressJourney || IsLab) && nativeStage=="receipt" && canContinue) advance(nativeStage,automatic=true)
                         if(nativeStage=="stmSuccess" && canContinue) advance(nativeStage,automatic=true)
                         if(nativeStage!=progressStage) {
                             progressStage=nativeStage;progressSince=clock();slowStep=false
@@ -335,8 +346,10 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         val expected = nativeStage
         if(expected in listOf("receipt","paymentRejected","paymentPending","stmSuccess"))returningToWallet=true
         if (expected == "finalConfirmation") {
-            if (finalSubmitted) return
-            if(!beforeAuthorize()) {stopExpress();fail("No pudimos guardar el seguimiento de esta recarga. El pago no fue enviado.");return}
+            val retry = IsLab && finalSubmitted && captchaRetry && !retried
+            if (finalSubmitted && !retry) return
+            if (retry) retried = true
+            if(!retry && !beforeAuthorize()) {stopExpress();fail("No pudimos guardar el seguimiento de esta recarga. El pago no fue enviado.");return}
             finalSubmitted = true // Conservative lock survives navigation and reopening this journey.
         }
         if(!automatic)manualContinueObserver()
@@ -357,7 +370,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     }
 
     fun positionVerification() {
-        if (!destroyed && visible && nativeStage in listOf("payer","card")) web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.showVerification()", null)
+        if (!destroyed && visible && nativeStage in listOf("payer","card","finalConfirmation")) web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.showVerification()", null)
     }
 
     fun submitCard(pan: String, expiry: String, cvv: String) = submitCard(pan,expiry,cvv,automatic=false)
@@ -379,6 +392,9 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     fun restoreVerification() {
         if (!destroyed) web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.restoreVerification()", null)
     }
+
+    /** «Seguir esperando» on a step that stalls: the clock starts again, nothing is sent again. */
+    fun keepWaiting() { slowStep = false; progressSince = clock() }
 
     fun stopExpress() {
         checkboxTap.cancel()
@@ -456,6 +472,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         summaryRows = emptyList()
         expectedAmount = null
         finalSubmitted = false
+        retried = false; captchaRetry = false
         expressJourney=false;expectedCardIdentity=null;expectedCardSuffix=null;enteredCardIdentity=null;enteredCardSuffix=null;verifiedCardSuffix=null;observedOutcome=""
         completionNotice = ""
         completionSubmitted = false

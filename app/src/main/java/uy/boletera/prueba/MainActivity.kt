@@ -81,12 +81,15 @@ class MainActivity : FragmentActivity() {
         engine.savedAccess(vault.exists)
         handleShortcut(intent); publishShortcuts()
         val preferences = getSharedPreferences("appearance", MODE_PRIVATE)
+        if (IsLab) LabDemo.load(this)
         setContent {
             var appearance by remember { mutableStateOf(preferences.getString("theme", "system") ?: "system") }
             val haptics=remember {AppHaptics(this@MainActivity)}
             CompositionLocalProvider(LocalHapticFeedback provides haptics) {
             BoleteraTheme(if(IsLab)"dark" else appearance) {
-                App(appearance) { appearance = it; preferences.edit().putString("theme", it).apply() }
+                // Modo demo replaces the whole app with its made-up journey; the real session waits untouched behind it.
+                if(IsLab && LabDemo.on) LabDemoApp() else App(appearance) { appearance = it; preferences.edit().putString("theme", it).apply() }
+                if(IsLab) { LabCardFlightOverlay(); LabExpressLightOverlay() }
             }
             }
         }
@@ -163,7 +166,8 @@ class MainActivity : FragmentActivity() {
             engine.startExpress()
         }
         if (state.stage == "embeddedPrex") {
-            EmbeddedPrexScreen(engine.prexPayment, state.activePayment, engine::leavePrexPayment)
+            if(IsLab) BoleteraTheme("dark") { LabEmbeddedPrexScreen(engine.prexPayment, state.activePayment, state.selectedCard, engine::leavePrexPayment) }
+            else EmbeddedPrexScreen(engine.prexPayment, state.activePayment, engine::leavePrexPayment)
             return
         }
         if(state.stage=="activity") {
@@ -197,6 +201,26 @@ class MainActivity : FragmentActivity() {
         var showForget by remember { mutableStateOf(false) }
         var showAmount by remember { mutableStateOf(false) }
         var showPayerPicker by remember { mutableStateOf(false) }
+        var showCardsSheet by remember { mutableStateOf(false) }
+        var namingCard by remember { mutableStateOf<String?>(null) }
+        // «Probar de nuevo» after a rejection: the amount panel opens again once the balance is back.
+        LaunchedEffect(LabRetry.reopenAmount, state.stage, state.busy, state.minimum) {
+            if(IsLab && LabRetry.reopenAmount && state.stage=="balance" && !state.busy && state.minimum!=null) { LabRetry.reopenAmount=false; showAmount=true }
+        }
+        val lastBalances = remember { LastBalanceStore(context) }
+        fun forgetPhone() {
+            if (engine.forgetChoices()) {
+                // Forgetting the phone is not a new install: the news already read stay read.
+                val seen=helpPreferences.getString("whats_new_seen",null)
+                helpPreferences.edit().clear().putString("whats_new_seen",seen).apply();vault.forget(); lastBalances.clear()
+                for (name in listOf("lab_card_names","lab_hints")) context.getSharedPreferences(name, android.content.Context.MODE_PRIVATE).edit().clear().apply(); engine.savedAccess(false); engine.logout(); engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.")
+            }
+        }
+        // Every balance STM reports becomes the «último saldo» shown while connecting next time.
+        LaunchedEffect(state.balance, state.consultedAt, state.selectedCard) {
+            val card=state.selectedCard; val balance=state.balance; val at=state.consultedAt
+            if(IsLab && card!=null && balance!=null && at!=null) lastBalances.save(card, LastBalance(balance, at))
+        }
         var showPayerEditor by remember { mutableStateOf(false) }
         var editingPayer by remember { mutableStateOf<PayerProfile?>(null) }
         LaunchedEffect(rechargeShortcut, state.stage, state.minimum, state.busy) {
@@ -206,7 +230,9 @@ class MainActivity : FragmentActivity() {
         var showWhatsNew by remember { mutableStateOf(false) }
         LaunchedEffect(state.stage) {
             if(IsLab && state.stage=="balance" && helpPreferences.getString("whats_new_seen",null)!=BuildConfig.VERSION_NAME) {
-                helpPreferences.edit().putString("whats_new_seen",BuildConfig.VERSION_NAME).apply(); showWhatsNew=true
+                // B12: a fresh install has nothing «new»; only an update shows what changed.
+                val info=packageManager.getPackageInfo(packageName,0)
+                helpPreferences.edit().putString("whats_new_seen",BuildConfig.VERSION_NAME).apply(); showWhatsNew=info.firstInstallTime!=info.lastUpdateTime
             }
         }
         LaunchedEffect(state.sessionExpired, state.recoveringSession) {
@@ -227,7 +253,7 @@ class MainActivity : FragmentActivity() {
                 state.stage=="balance" || state.stage=="cards" -> { labLoggingIn=false; labConnected=false; labHeroResult=HeroPhase.SUCCESS }
                 state.stage=="blocked" || state.stage=="accessHelp" -> { labLoggingIn=false; labConnected=false }
                 state.stage=="welcome" && !authenticating && !state.busy -> {
-                    if(labConnected) { labHeroResult=HeroPhase.ERROR; if(labEntryError.isBlank())labEntryError="No pudimos entrar. Probá de nuevo." }
+                    if(labConnected) { labHeroResult=HeroPhase.ERROR; if(labEntryError.isBlank() || labEntryError.startsWith("No se guardó"))labEntryError="No pudimos entrar. Probá de nuevo." }
                     labLoggingIn=false; labConnected=false }
             }
         }
@@ -256,15 +282,35 @@ class MainActivity : FragmentActivity() {
         var pulling by remember { mutableStateOf(false) }
         LaunchedEffect(state.busy) { if(!state.busy) pulling=false }
         LaunchedEffect(stage) { scroll.scrollTo(0) }
+        val activity: android.app.Activity? = this@MainActivity
         fun back() {
             document=""; password=""
             if(engine.returnFromCardPicker())return
+            // Leaving the home is leaving the app, like any app: the session stays, the next open is straight in.
+            if(IsLab && stage=="balance") { activity?.moveTaskToBack(true); return }
+            // After an error with a live session, back is the way to the balance, not a sign-out.
+            if(IsLab && state.stage=="blocked" && state.activePayment==null && engine.sessionVerified) { engine.refresh(); return }
             // After a payment problem, back re-reads the balance like the on-screen button instead of signing out.
             if(state.stage in listOf("paymentBoundary", "externalPayment") || (state.stage=="blocked" && state.activePayment!=null)) engine.refresh() else engine.cancel()
         }
         BackHandler(enabled = state.stage != "welcome") { back() }
         BackHandler(enabled = IsLab && showAmount) { showAmount=false }
+        BackHandler(enabled = IsLab && manual && state.stage=="welcome") { manual=false }
         // Boletera Lab draws its own home over a blurred, wallpaper-like light; every other stage keeps the shared layout.
+        val blockedScreen: @Composable () -> Unit = {
+            AppErrorScreen(state.message,state.diagnostic,payment=state.activePayment!=null,onOpenSite=::openStmAccess,
+                // Retry really retries: with a live session it reads again with it (no fingerprint), otherwise the saved
+                // fingerprint access signs in again, or back to the sign-in.
+                onRetry=if(state.activePayment!=null)null else ({ if(IsLab && engine.sessionVerified)engine.refresh() else { engine.cancel(); if(vault.exists)unlockSavedAccess() } }),
+                paymentAmount=state.activePayment?.amount,
+                onExit={
+                    if(state.activePayment!=null || (IsLab && engine.sessionVerified))engine.refresh() else {
+                        val accessError=errorPresentation(state.message).code=="DATOS DE ACCESO"
+                        engine.cancel()
+                        if(accessError)manual=true
+                    }
+                })
+        }
         val labHome=IsLab && stage=="balance"
         // Lab screens share the home's dark light; the payment and error screens keep the shared layout for now.
         val labScreen=IsLab && stage in setOf("balance","welcome","cards","connecting","openingPayment","accessHelp","blocked","paymentBoundary","externalPayment","captcha")
@@ -279,33 +325,41 @@ class MainActivity : FragmentActivity() {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding(),horizontalAlignment=Alignment.CenterHorizontally) {
                 if(labHome)Spacer(Modifier.height(64.dp))
                 else if(labScreen)LabTopBar(title=when(stage){ "paymentBoundary"->"Tu recarga"; "captcha"->"Verificación"; "externalPayment"->"Pago en eBROU"; else->null },
-                    onBack=if(stage in setOf("cards","blocked","paymentBoundary","captcha","externalPayment"))::back else null,onSettings={showSettings=true})
+                    // An error is a moment, not a place for settings: only the way back.
+                    onBack=if(stage in setOf("blocked","paymentBoundary","captcha","externalPayment","accessHelp"))::back else null,
+                    // A moment or a wait is not a place for settings (reglas.html).
+                    onSettings=if(stage in setOf("blocked","connecting","accessHelp","openingPayment"))null else ({showSettings=true}))
                 else AppTopBar(onSettings={showSettings=true},onBack=if(stage in listOf("paymentBoundary","cards","captcha","blocked","externalPayment"))::back else null,
                     title=when(stage){ "paymentBoundary"->"Tu recarga"; "cards"->"Boleteras"; "captcha"->"Verificación"; "externalPayment"->"Pago en eBROU"; else->null })
                 Box(Modifier.weight(1f).widthIn(max=600.dp).fillMaxWidth().pullToRefresh(
                     isRefreshing=stage=="balance"&&state.busy&&(pulling||!IsLab),state=pullState,enabled=stage=="balance"&&!state.busy,
                     onRefresh={if(engine.state.stage=="balance"&&!engine.state.busy){pulling=true;engine.refresh()}}
                 )) {
-                    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal=24.dp).padding(top=if(stage=="balance")4.dp else 12.dp,bottom=if(stage in listOf("balance","blocked"))4.dp else 32.dp)
+                    if(IsLab && stage=="blocked") Box(Modifier.fillMaxSize().padding(horizontal=24.dp)) { blockedScreen() }
+                    else if(IsLab && stage=="connecting" && state.amount==null) Box(Modifier.fillMaxSize().padding(horizontal=24.dp)) {
+                        val switching=engine.switchingTo
+                        when {
+                            state.recoveringSession -> LabConnecting("Volviendo a entrar","Entramos de nuevo con tu acceso guardado.",::back)
+                            // A switch takes a moment and the previous card is already left: nothing to cancel back to.
+                            switching!=null -> LabConnecting("Cambiando de boletera","Consultando el saldo de STM ···· ${switching.takeLast(4)}.",null)
+                            else -> LabConnecting("Conectando con STM","Tu saldo aparece en un momento.",::back,last=lastBalances.read(state.selectedCard))
+                        }
+                    }
+                    // B9: preparing the recharge and opening Prex are one wait, with the amount and only «Cancelar».
+                    else if(IsLab && (stage=="openingPayment" || stage=="connecting" && state.amount!=null)) Box(Modifier.fillMaxSize().padding(horizontal=24.dp)) {
+                        LabPaymentWait(state.amount, state.selectedCard, engine.expressPreparing, onCancel=::back)
+                    }
+                    else if(IsLab && stage=="accessHelp") Box(Modifier.fillMaxSize().padding(horizontal=24.dp)) {
+                        LabAccessHelp(onOpenSite=::openStmAccess,onDone={ engine.cancel(); if(vault.exists)unlockSavedAccess() })
+                    }
+                    else if(IsLab && stage=="welcome") Box(Modifier.fillMaxSize().padding(horizontal=24.dp)) {
+                        LabWelcome(state,savedAccess=state.hasSavedAccess,authenticating=authenticating,onUnlock={unlockSavedAccess()},onManual={manual=true},
+                            onAccessGuide={showAccessGuide=true},heroPhase=labHeroPhase,opening=labOpening,errorText=labEntryError,
+                            onOpenSite=if(labHeroResult==HeroPhase.ERROR && labEntryError!=StmEngine.OFFLINE)::openStmAccess else null)
+                    } else Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal=24.dp).padding(top=if(stage=="balance")4.dp else 12.dp,bottom=if(stage in listOf("balance","blocked"))4.dp else 32.dp)
                         .pageEntrance(stage, state.captcha==null),verticalArrangement=Arrangement.spacedBy(if(stage in listOf("balance","blocked"))0.dp else 24.dp)) {
                         when(stage) {
-                            "welcome" -> if(IsLab) LabWelcome(state,savedAccess=state.hasSavedAccess,manual=manual,onManual={manual=true},
-                                document=document,onDocument={document=it.filter(Char::isDigit).take(8);labEntryError="";if(labHeroResult==HeroPhase.ERROR)labHeroResult=HeroPhase.IDLE},
-                                password=password,onPassword={password=it;labEntryError="";if(labHeroResult==HeroPhase.ERROR)labHeroResult=HeroPhase.IDLE},
-                                reveal=revealPassword,onReveal={revealPassword=!revealPassword},save=save,onSave={save=it},canSave=vault.available,
-                                authenticating=authenticating,onUnlock={unlockSavedAccess()},onSubmit={
-                                            labLoggingIn=true
-                                            // The document stays so a mistyped password only needs the password again.
-                                            val doc=document; val pass=password; password="";revealPassword=false
-                                            if(save) {
-                                                authenticating=true
-                                                vault.save(doc,pass) { ok -> authenticating=false;engine.savedAccess(vault.exists)
-                                                    if(!ok)engine.notice("No se guardó el acceso con huella. Entrás igual; podés guardarlo la próxima vez.")
-                                                    engine.connect(doc,pass,rememberForSession=ok) }
-                                            } else engine.connect(doc,pass)
-                                        },
-                                onAccessGuide={showAccessGuide=true},heroPhase=labHeroPhase,opening=labOpening,
-                                errorText=labEntryError,onOpenSite=if(labEntryError==StmEngine.OFFLINE)null else ::openStmAccess)
+                            "welcome" -> if(IsLab) Unit
                             else {
                                 if(state.sessionExpired) {
                                     Title("Tu sesión venció")
@@ -349,8 +403,8 @@ class MainActivity : FragmentActivity() {
                                 }
                                 TextButton(onClick={showAccessGuide=true}) {Text("¿Es tu primer ingreso a STM?")}
                             }
-                            "balance" -> if(IsLab) LabHomeContent(state,onPaymentReviewed={showPaymentReview=true},
-                                onActivity=engine::openActivity,onTicketGuide={showTicketGuide=true})
+                            "balance" -> if(IsLab) LabHomeContent(state,offline=remember(state.busy,state.message,state.consultedAt){engine.noInternet()},
+                                onTicketGuide={showTicketGuide=true})
                             else WalletHome(state,engine::changeCard,{showAmount=true},engine::refresh,
                                 onExpressCharge=onExpressCharge,
                                 onTicketGuide={showTicketGuide=true},expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel,
@@ -390,18 +444,7 @@ class MainActivity : FragmentActivity() {
                                 Text("Al volver del banco se actualizará el saldo.",color=Muted)
                                 Primary("Volver al saldo",action=engine::refresh)
                             }
-                            "blocked" -> {
-                                AppErrorScreen(state.message,state.diagnostic,payment=state.activePayment!=null,onOpenSite=::openStmAccess,
-                                    // Retry really retries: the saved fingerprint access signs in again, otherwise back to the sign-in.
-                                    onRetry=if(state.activePayment!=null)null else ({ engine.cancel(); if(vault.exists)unlockSavedAccess() }),
-                                    onExit={
-                                        if(state.activePayment!=null)engine.refresh() else {
-                                            val accessError=errorPresentation(state.message).code=="DATOS DE ACCESO"
-                                            engine.cancel()
-                                            if(accessError)manual=true
-                                        }
-                                    })
-                            }
+                            "blocked" -> if(!IsLab) blockedScreen()
                         }
                         // One stable host: transitions never duplicate or recreate the authenticated browser.
                         val cap=state.captcha
@@ -422,21 +465,55 @@ class MainActivity : FragmentActivity() {
                 }
             }
            }
-           if(labHome)LabHomeChrome(state,haze,blur=VisualEffects.enabled(context,effectsMode),onChangeCard=engine::changeCard,onSettings={showSettings=true},
+           // Lab: the cards open as a sheet over the balance, from the list already read (no STM round trip to show them).
+           if(labHome)LabHomeChrome(state,haze,blur=VisualEffects.enabled(context,effectsMode),onChangeCard={showCardsSheet=true},onSettings={showSettings=true},
                onCharge={showAmount=true},onExpressCharge=onExpressCharge,expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel)
-           if(labHome)LabAmountPanel(state,open=showAmount,onClose={showAmount=false},onChoose={amount->showAmount=false;engine.prepare(amount)})
+           // Lab sign-in: document and password rise in a panel over the entry; sending closes it so the card shows the progress.
+           if(IsLab && stage=="welcome")LabSignInSheet(open=manual,document=document,
+               onDocument={document=it.filter(Char::isDigit).take(8);labEntryError="";if(labHeroResult==HeroPhase.ERROR)labHeroResult=HeroPhase.IDLE},
+               password=password,onPassword={password=it;labEntryError="";if(labHeroResult==HeroPhase.ERROR)labHeroResult=HeroPhase.IDLE},
+               reveal=revealPassword,onReveal={revealPassword=!revealPassword},save=save,onSave={save=it},canSave=vault.available,
+               enabled=!authenticating&&!state.busy,onClose={manual=false},onSubmit={
+                   manual=false; labLoggingIn=true
+                   // The document stays so a mistyped password only needs the password again.
+                   val doc=document; val pass=password; password="";revealPassword=false
+                   if(save) {
+                       authenticating=true
+                       vault.save(doc,pass) { ok -> authenticating=false;engine.savedAccess(vault.exists)
+                           if(!ok)engine.notice("No se guardó el acceso con huella. Entrás igual; podés guardarlo la próxima vez.")
+                           engine.connect(doc,pass,rememberForSession=ok) }
+                   } else engine.connect(doc,pass)
+               })
+           // Lab: the moment a recharge is credited, over the home, until "Listo".
+           val credited=state.credited
+           if(labHome && credited!=null) Box(Modifier.fillMaxSize().background(LabColors.Base)) {
+               LabAmbient()
+               Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal=24.dp).padding(top=64.dp)) { LabRechargeDone(state,credited,engine.lastReceipt,engine::dismissCredited) }
+           }
+           // B7: the panel carries the payer; «Continuar con Prex» goes straight to Prex (no «Tu recarga» step).
+           if(labHome)LabAmountPanel(state,open=showAmount,onClose={showAmount=false},
+               payer=engine.payerProfiles.find{it.id==state.payerProfileId}?:engine.payerProfiles.singleOrNull(),
+               onPayer={ if(engine.payerProfiles.isEmpty()){editingPayer=null;showPayerEditor=true} else showPayerPicker=true },
+               onChoose={amount->showAmount=false;engine.prepareWithPrex(amount)})
           }
         }
         if(showAmount && !IsLab)AmountSheet(state,{showAmount=false}){amount->showAmount=false;engine.prepare(amount)}
-        if(showTicketGuide)TicketGuideSheet {showTicketGuide=false}
-        if(showWhatsNew)AlertDialog(onDismissRequest={showWhatsNew=false},title={Text("Qué hay de nuevo en ${BuildConfig.DISPLAY_VERSION}")},
+        if(showCardsSheet && IsLab)LabCardsSheet(state,onChoose={id->showCardsSheet=false;engine.switchCard(id)},onEdit={showCardsSheet=false;namingCard=it},onClose={showCardsSheet=false})
+        namingCard?.let { id -> LabCardNameSheet(id) { namingCard=null } }
+        if(showTicketGuide){ if(IsLab)LabTicketGuideSheet{showTicketGuide=false} else TicketGuideSheet{showTicketGuide=false} }
+        if(showWhatsNew && IsLab)LabNewsSheet(BuildConfig.DISPLAY_VERSION.substringAfter(' '),LabWhatsNewItems,installed=true,onPrimary={showWhatsNew=false},onLater={showWhatsNew=false})
+        if(showWhatsNew && !IsLab)AlertDialog(onDismissRequest={showWhatsNew=false},title={Text("Qué hay de nuevo en ${BuildConfig.DISPLAY_VERSION}")},
             text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) { LabWhatsNew.forEach { Text("· $it",style=MaterialTheme.typography.bodyMedium) } }},
             confirmButton={TextButton(onClick={showWhatsNew=false}){Text("Listo")}})
-        if(showAccessGuide)AlertDialog(onDismissRequest={showAccessGuide=false},title={Text("Primer ingreso a STM")},
+        // Lab: «Antes de entrar» is one sheet for the first open and for the link; the button goes straight to the document.
+        if(IsLab && state.stage=="welcome" && (showAccessGuide || firstAccessIntro && !state.hasSavedAccess))
+            LabAccessGuideSheet(onReady={showAccessGuide=false;closeFirstAccessIntro(false);manual=true},onFirstTime=::openStmAccess,
+                onClose={showAccessGuide=false;closeFirstAccessIntro(false)})
+        if(showAccessGuide && !IsLab)AlertDialog(onDismissRequest={showAccessGuide=false},title={Text("Primer ingreso a STM")},
             text={Column(Modifier.heightIn(max=350.dp).verticalScroll(rememberScrollState())) {StmAccessInstructions()}},
             confirmButton={TextButton(onClick=::openStmAccess){Text("Abrir STM")}},
             dismissButton={TextButton(onClick={showAccessGuide=false}){Text("Cerrar")}})
-        if(firstAccessIntro && state.stage=="welcome" && !state.hasSavedAccess && !showBetaIntro)AlertDialog(onDismissRequest={},
+        if(!IsLab && firstAccessIntro && state.stage=="welcome" && !state.hasSavedAccess && !showBetaIntro)AlertDialog(onDismissRequest={},
             title={Text("Antes de entrar")},
             text={Text("Boletera entra a STM con tu Usuario gub.uy, igual que la web Mi STM.\n\nSi nunca usaste Mi STM, la primera vez STM te pide autorizar el acceso en su web. Se hace una sola vez: abrís STM, entrás con tu usuario, aceptás y volvés acá.")},
             confirmButton={TextButton(onClick={closeFirstAccessIntro(false)}){Text("Ya usé Mi STM")}},
@@ -450,12 +527,19 @@ class MainActivity : FragmentActivity() {
             text={Text("Incluye funciones experimentales, como Carga Express, antes de llegar a la versión estable. Podés probarla desde Configuración y volver a la versión estable cuando quieras.")},
             confirmButton={TextButton(onClick={closeBetaIntro();updates.selectChannel(UpdateChannel.BETA);showSettings=true}){Text("Ver Boletera Beta")}},
             dismissButton={TextButton(onClick=::closeBetaIntro){Text("Ahora no")}})
-        if(showSettings)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",engine.helpDiagnostic,
+        if(showSettings && IsLab)LabSettingsScreen(updates,state.hasSavedAccess,canLogout=state.stage!="welcome",engine.helpDiagnostic,effectsMode,
+            onEffectsMode={effectsMode=it;VisualEffects.setMode(context,it)},onLogout={showSettings=false;engine.logout()},onForget={showSettings=false;forgetPhone()},
+            onTicketGuide={showSettings=false;showTicketGuide=true},onInstall=updates::requestReview,onClose={showSettings=false},
+            onDemo={showSettings=false;LabDemo.set(context,true)})
+        if(showSettings && !IsLab)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",engine.helpDiagnostic,
             onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall=updates::requestReview,onClose={showSettings=false},
             onTicketGuide={showSettings=false;showTicketGuide=true},
             effectsMode=if(IsLab)effectsMode else null,onEffectsMode={effectsMode=it;VisualEffects.setMode(context,it)})
 
-        if(updates.reviewRequested && updates.ready && !updates.busy) UpdateReviewDialog(updates.release,updates::acceptReview,updates::dismissReview)
+        if(updates.reviewRequested && updates.ready && !updates.busy && IsLab) updates.release.let { r ->
+            LabNewsSheet(r?.let { UpdatePolicy.display(it.version).substringAfter(' ') } ?: "La versión nueva",labNewsFrom(r?.notes.orEmpty()),installed=false,
+                onPrimary=updates::acceptReview,onLater=updates::dismissReview) }
+        else if(updates.reviewRequested && updates.ready && !updates.busy) UpdateReviewDialog(updates.release,updates::acceptReview,updates::dismissReview)
 
         if (showPayerPicker) PayerPicker(engine.payerProfiles,state.payerProfileId,
             onChoose={engine.choosePayer(it);showPayerPicker=false},
@@ -467,7 +551,7 @@ class MainActivity : FragmentActivity() {
         if (showForget) AlertDialog(onDismissRequest = { showForget = false }, title = { Text("¿Olvidar este acceso?") },
             text = { Text("Se eliminan las credenciales cifradas, las preferencias y la sesión local.") },
             confirmButton = { TextButton(onClick = {
-                if (engine.forgetChoices()) { helpPreferences.edit().clear().apply();vault.forget(); engine.savedAccess(false); engine.logout(); engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.") }
+                forgetPhone()
                 showForget = false
             }) { Text("Olvidar") } },
             dismissButton = { TextButton(onClick = { showForget = false }) { Text("Cancelar") } })
@@ -507,7 +591,9 @@ class MainActivity : FragmentActivity() {
     LaunchedEffect(payment.nativeStage) { showOriginal = false }
     val completion = payment.nativeStage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "returnBalance", "sessionExpired") || payment.returningToWallet && payment.nativeStage=="loading"
     LaunchedEffect(payment.nativeStage) { if(payment.nativeStage in listOf("returnBalance", "sessionExpired")) onClose() }
-    val native = (completion || payment.nativeStage in listOf("summary", "payer", "card", "loading")) && !showOriginal
+    // Outside Lab, a provider check on the confirmation is still done on the original page.
+    val native = (completion || payment.nativeStage in listOf("summary", "payer", "card", "loading")) && !showOriginal &&
+        !(payment.nativeStage=="finalConfirmation" && payment.challenge!=null)
     LaunchedEffect(native, payment.nativeStage, payment.expandedChallenge, payment.challenge != null) {
         if (native && payment.nativeStage in listOf("payer","card")) payment.positionVerification() else payment.restoreVerification()
     }
@@ -532,8 +618,8 @@ class MainActivity : FragmentActivity() {
                 }
             }
             if (payment.message.isNotBlank()) {
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp)) {
-                    AppErrorScreen(payment.message,payment=true,onExit=onClose)
+                Column(Modifier.weight(1f).then(if(IsLab)Modifier else Modifier.verticalScroll(rememberScrollState())).padding(24.dp)) {
+                    AppErrorScreen(payment.message,payment=true,paymentAmount=pending?.amount,onExit=onClose)
                 }
             } else {
                 BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {

@@ -4,6 +4,10 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,6 +46,8 @@ internal object LabColors {
     val OnPrimary = Color(0xFF08284F)
     val Teal = Color(0xFF9EE3E0)
     val OnTeal = Color(0xFF06312F)
+    /** A negative balance: Android's dark error tone, soft enough not to shout. */
+    val Rose = Color(0xFFF2B8B5)
     val Warn = Color(0xFFF3C77F)
     val OnWarn = Color(0xFF3B2500)
     val GlassTint = Color.White.copy(alpha = 0.075f)
@@ -49,6 +55,23 @@ internal object LabColors {
     /** What a glass panel looks like without blur: a see-through tint, not an opaque surface. */
     val FallbackTint = Color.White.copy(alpha = 0.10f)
 }
+
+/**
+ * The shared rules (outputs/home-2026/reglas.html), defined once: the card has two sizes, titles three, buttons two.
+ * The card's drawing scales with its box (80 × 64 card units), so a fixed box means the very same card on every screen.
+ */
+internal object LabSizes {
+    /** Screens that tell a state: sign-in, connecting, errors, results. */
+    val HeroMoment = DpSize(360.dp, 288.dp)
+    /** Above the payment steps, with the amount. */
+    val HeroHeader = DpSize(132.dp, 106.dp)
+}
+/** A moment's title (with the big card). */
+internal val Typography.labMoment: TextStyle get() = headlineLarge.copy(fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.5).sp)
+/** A sheet's title, or a list screen's. */
+internal val Typography.labSheet: TextStyle get() = headlineSmall.copy(fontSize = 26.sp, lineHeight = 32.sp)
+/** A form step's title (card, confirmation, verification). */
+internal val Typography.labStep: TextStyle get() = headlineSmall.copy(fontSize = 24.sp, lineHeight = 30.sp)
 
 /** One radius per angle: [lobes] bumps of relative [depth] (0 = circle). Shared shapes morph by animating [depth]. */
 internal fun polarPath(size: Size, lobes: Int, depth: Float, rotation: Float = 0f): Path {

@@ -13,6 +13,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable internal fun PaymentCompletionScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, onOriginal: () -> Unit, browser: @Composable () -> Unit) {
     val stage=payment.nativeStage
+    // Lab tells the end of a payment with the card; the confirmation step keeps the shared layout until the payment flow is redesigned.
+    if(IsLab && (stage!="finalConfirmation" || payment.completionSubmitted)) { LabPaymentResult(payment,pending,onOriginal,browser); return }
     if(stage in listOf("stmSuccess","returnBalance","sessionExpired") || payment.returningToWallet && stage=="loading" ||
         payment.expressJourney && (stage=="receipt" || stage=="finalConfirmation" && payment.completionSubmitted)) {
         Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
