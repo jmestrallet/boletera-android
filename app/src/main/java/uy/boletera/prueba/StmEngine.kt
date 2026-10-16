@@ -80,7 +80,7 @@ class StmEngine(private val context: Context) {
     internal val helpDiagnostic: String get() = listOf(state.diagnostic,activityShape,expressTiming.report()).filter {it.isNotBlank()}.joinToString("\n\n")
     private val activityShapeScript = """(()=>{const t=e=>(e.innerText||e.value||'').replace(/\s+/g,' ').trim().replace(/\d/g,'#').slice(0,60);
 const pick=(s,n)=>[...document.querySelectorAll(s)].map(t).filter(Boolean).slice(0,n);
-return JSON.stringify({ruta:location.pathname,titulo:document.title.replace(/\d/g,'#'),titulos:pick('h1,h2,h3,legend,.ui-panel-title',8),
+return JSON.stringify({sitio:location.host,ruta:location.pathname.replace(/\d/g,'#').slice(0,80),titulo:document.title.replace(/\d/g,'#'),titulos:pick('h1,h2,h3,legend,.ui-panel-title',8),
 columnas:pick('th',12),botones:pick('button,a.ui-commandlink,input[type=submit]',12),filas:document.querySelectorAll('tbody tr').length,
 avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     /** Records what STM showed, then fails; the owner can share it from Configuración → Información de ayuda. */
@@ -289,7 +289,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
 
     fun connect(doc: String, pass: String, rememberForSession: Boolean = false) {
         if (state.busy) return
-        if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
+        // Cédulas under one million have 7 digits (check digit included); newer ones have 8.
+        if (!Regex("\\d{7,8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu cédula de 7 u 8 dígitos y la contraseña."); return }
         if (noInternet()) { notice(OFFLINE); return }
         expressTiming.clear()
         clearSecrets()
@@ -691,6 +692,11 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         expressTiming.finish(ExpressTiming.End.ERROR)
         expressRequest = null
         if (BuildConfig.DEBUG) captureDebugShape()
+        // The masked shape of the page where it stopped (site, titles, buttons; digits hidden, never field values) goes
+        // into «Enviar reporte», so an unknown step (a Google or gub.uy screen) can be recognised later.
+        web.evaluateJavascript(activityShapeScript) { raw ->
+            activityShape = "Error · $message\n" + (try { org.json.JSONTokener(raw).nextValue().toString() } catch (_: Exception) { "" }).take(1500)
+        }
         active = false; paymentInFlight = false; handler.removeCallbacks(poll); clearSecrets(); host.crop = null; web.stopLoading()
         state = state.copy(stage = "blocked", busy = false, message = message, captcha = null)
     }

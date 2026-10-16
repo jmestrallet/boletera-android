@@ -88,7 +88,7 @@ import androidx.compose.ui.unit.sp
  * «Una verificación y seguimos» (faltantes.html): the provider's check, cut out of its page and shown inside a clean frame.
  * After «Pagar» there is no way out ([onCancel] null): solving it sends the confirmation already asked for.
  */
-@Composable internal fun LabVerification(amount: Long?, card: String?, afterPay: Boolean, onCancel: (() -> Unit)?, check: @Composable () -> Unit) {
+@Composable internal fun LabVerification(amount: Long?, card: String?, afterPay: Boolean, onCancel: (() -> Unit)?, onContinue: LabAction? = null, check: @Composable () -> Unit) {
     val type = MaterialTheme.typography
     Column(Modifier.fillMaxSize()) {
         LabPaymentLine(amount, card)
@@ -98,6 +98,7 @@ import androidx.compose.ui.unit.sp
         Box(Modifier.padding(top = 18.dp).fillMaxWidth().weight(1f, fill = false).clip(RoundedCornerShape(24.dp)).background(Color(0xFFF3F5F8)).padding(vertical = 22.dp, horizontal = 12.dp),
             contentAlignment = Alignment.Center) { check() }
         Spacer(Modifier.weight(1f))
+        if (onContinue != null) LabPrimary(onContinue.label, onContinue.enabled, onClick = onContinue.onClick, glyph = onContinue.glyph)
         Box(Modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.Center) { if (onCancel != null) LabTextLink("Cancelar", onCancel, quiet = true) }
         Spacer(Modifier.height(16.dp))
     }
@@ -167,9 +168,12 @@ import androidx.compose.ui.unit.sp
         payment.returningToWallet && stage == "loading"
     val waitStage = stage in listOf("loading", "summary", "payer") && !payment.returningToWallet
     // The provider's summary and payer steps carry what was already chosen: they go on by themselves (B7, B9). A check stops it.
-    LaunchedEffect(stage, payment.canContinue, payment.challenge, payment.payerValues) {
+    LaunchedEffect(stage, payment.canContinue, payment.challenge, payment.payerValues, payment.verificationApproved, payment.payerConflict) {
         if (stage == "summary" && payment.canContinue) payment.advance(stage)
-        if (stage == "payer" && payment.canContinue && payment.challenge == null && !payment.verificationRequired &&
+        // Once Prex accepts the check (the ticked box stays on screen, so «no check» is not the signal) it goes on by itself.
+        // The app never reads Google's answer; Prex's own flag says it, and its page is watched daily (.tools/watch-sites.mjs).
+        val checked = payment.challenge == null && !payment.verificationRequired || payment.verificationApproved
+        if (stage == "payer" && payment.canContinue && checked && !payment.payerConflict &&
             payment.payerValues.size == 5 && payment.payerValues.all { it.isNotBlank() }) payment.advance(stage)
     }
     LaunchedEffect(stage, payment.challenge != null) {
@@ -202,22 +206,41 @@ import androidx.compose.ui.unit.sp
                         PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.weight(1f).fillMaxWidth())
                     }
                     // Before paying, a page that stalls offers to keep waiting or go back (after «Pagar» it just keeps processing).
+                    // After «Pagar» a stall still has a way out: the balance on the home tells how it ended.
+                    payment.slowStep && paid -> {
+                        Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
+                        LabStatusScreen(HeroPhase.LOADING, "Prex está tardando", "Podés esperar o volver al inicio: ahí ves tu saldo.",
+                            primary = LabAction("Seguir esperando") { payment.keepWaiting() },
+                            secondary = LabAction("Volver al inicio", quiet = true, onClick = onClose))
+                    }
                     payment.slowStep && !paid -> {
                         Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
                         LabStatusScreen(HeroPhase.LOADING, "Prex está tardando", "La página de Prex responde más lento que de costumbre.",
                             primary = LabAction("Seguir esperando") { payment.keepWaiting() },
                             secondary = LabAction("Volver al inicio", quiet = true, onClick = onClose))
                     }
+                    // Prex already has other holder data: nothing is overwritten without asking (the shared screen did this too).
+                    stage == "payer" && payment.payerConflict -> {
+                        Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
+                        LabStatusScreen(HeroPhase.WARN, "Prex tiene otro titular", "Los datos que tiene Prex no coinciden con los de ${payerName ?: "tu titular"}.",
+                            primary = LabAction("Usar ${payerName ?: "mi titular"}") { payment.applyChosenPayer() },
+                            secondary = LabAction("Cancelar", quiet = true, onClick = onClose))
+                    }
+                    // Solving the check is enough: the app notices it and goes on (the provider's pages are watched daily for changes).
                     stage == "payer" && payment.challenge != null -> LabVerification(amount, card, afterPay = false, onCancel = onClose) { check() }
+                    // A check before the first «Pagar» is solved and then paid here; after «Pagar» the app confirms by itself.
+                    stage == "finalConfirmation" && payment.challenge != null && !paid -> LabVerification(amount, card, afterPay = false, onCancel = onClose,
+                        onContinue = LabAction("Pagar ${Amounts.format(amount)}", glyph = Glyph.Lock, enabled = payment.canContinue) { payment.advance(stage) }) { check() }
                     stage == "finalConfirmation" && payment.challenge != null -> LabVerification(amount, card, afterPay = true, onCancel = null) { check() }
                     stage == "card" -> Column(Modifier.fillMaxSize()) {
                         LabPaymentLine(amount, card)
                         NativeCardForm(payment.cardBusy, payment.canContinue, payment.cardError, payment.expandedChallenge, payment::submitCard,
                             { if (payment.prepareOriginalReview()) showOriginal = true }, focusCard = express || payment.expressPhase == "done",
                             verificationRequired = payment.verificationRequired && !payment.verificationApproved, onManualContinue = payment.manualContinueObserver,
-                            onVerificationShown = payment::cardVerificationShown, onAutomaticSubmit = payment::submitAutofilledCard) { check() }
+                            onVerificationShown = payment::cardVerificationShown, onAutomaticSubmit = payment::submitAutofilledCard,
+                            onOtherCard = { LabRetry.reopenAmount = true; onClose() }) { check() }
                     }
-                    stage == "finalConfirmation" && !payment.completionSubmitted && !express -> {
+                    stage == "finalConfirmation" && !payment.completionSubmitted -> {
                         Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
                         LabConfirmPayment(amount, card, payment.summaryRows, payerName, payment.canContinue, onPay = { payment.advance(stage) },
                             onDetail = if (payment.summaryRows.isNotEmpty()) ({ details = true }) else null)
@@ -253,7 +276,7 @@ import androidx.compose.ui.unit.sp
 @Composable internal fun LabCardFields(busy: Boolean, canContinue: Boolean, providerError: Boolean, express: Boolean, waitingCheck: Boolean,
     checkRequired: Boolean, number: @Composable (Modifier) -> Unit, expiry: @Composable (Modifier) -> Unit, code: @Composable (Modifier) -> Unit,
     verification: @Composable () -> Unit, verificationView: androidx.compose.foundation.relocation.BringIntoViewRequester,
-    onSaved: () -> Unit, onContinue: () -> Unit, onOriginal: () -> Unit) {
+    onSaved: () -> Unit, onContinue: () -> Unit, onOriginal: () -> Unit, onOtherCard: (() -> Unit)? = null) {
     val type = MaterialTheme.typography
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 18.dp)) {
@@ -298,7 +321,11 @@ import androidx.compose.ui.unit.sp
         }
         Box(Modifier.padding(top = 8.dp, bottom = 10.dp).labEnter(5, dy = 0.dp, dx = 28.dp, base = 50)) {
             // Prex's own answer to a refused card stays one tap away; it is the only way to see why.
-            if (providerError) LabPrimary("Ver qué respondió Prex", onClick = onOriginal)
+            // A refused card cannot be sent again from here yet (Lab 8): try another one from the amounts, or read Prex's answer.
+            if (providerError) Column {
+                LabPrimary("Probar con otra tarjeta", onClick = onOtherCard ?: onOriginal)
+                if (onOtherCard != null) LabTextLink("Ver qué respondió Prex", onOriginal, Modifier.align(Alignment.CenterHorizontally), quiet = true)
+            }
             else LabPrimary(if (busy) "Enviando…" else "Continuar", enabled = canContinue && !busy, onClick = onContinue)
         }
     }

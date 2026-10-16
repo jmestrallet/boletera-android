@@ -140,7 +140,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
                         verificationRequired = state.optBoolean("verificationRequired") || challenge != null
-                        verificationApproved = expressJourney && state.optBoolean("verificationApproved")
+                        verificationApproved = (expressJourney || IsLab) && state.optBoolean("verificationApproved")
                         timingObserver(when {
                             cardError || slowStep || message.isNotBlank() || expressPhase=="manual" -> ExpressTiming.Phase.REVIEW
                             completionSubmitted && !returningToWallet -> ExpressTiming.Phase.PREX

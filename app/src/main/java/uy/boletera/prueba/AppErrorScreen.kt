@@ -92,8 +92,11 @@ internal fun errorPresentation(message:String):ErrorPresentation {
 @Composable private fun LabErrorScreen(message:String,payment:Boolean,paymentAmount:Long?,onOpenSite:(()->Unit)?,onRetry:(()->Unit)?,onExit:()->Unit) {
     val info=remember(message){errorPresentation(message)}
     val (title,line)=labErrorCopy(info.code)
+    val context=androidx.compose.ui.platform.LocalContext.current
+    val report=LabAction("Enviar reporte",quiet=true){LabReport.share(context,"$title · $message")}
     if(payment) {
-        LabStatusScreen(HeroPhase.ERROR,title,line,primary=LabAction("Volver al inicio",onClick=onExit),secondary=null)
+        // A payment cut is not an STM error: say what to do (look at the balance) and never invite to pay again blindly.
+        LabStatusScreen(HeroPhase.ERROR,"El pago se interrumpió","Mirá tu saldo en el inicio antes de volver a cargar.",primary=LabAction("Volver al inicio",onClick=onExit),secondary=report)
         return
     }
     val site=if(onOpenSite!=null && (info.code=="STM CAÍDO" || info.code in siteFallbackCodes))LabAction("Probar en el sitio de STM ↗",onClick=onOpenSite) else null
@@ -102,5 +105,5 @@ internal fun errorPresentation(message:String):ErrorPresentation {
         onRetry!=null -> LabAction("Volver a intentar",onClick=onRetry)
         else -> LabAction("Volver al inicio",onClick=onExit)
     }
-    LabStatusScreen(HeroPhase.ERROR,title,line,primary=primary,secondary=null,link=site)
+    LabStatusScreen(HeroPhase.ERROR,title,line,primary=primary,secondary=report,link=site)
 }

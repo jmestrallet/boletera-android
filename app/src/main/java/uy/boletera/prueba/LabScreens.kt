@@ -142,7 +142,8 @@ private fun Modifier.intro(v: State<Float>) = graphicsLayer { alpha = v.value.co
  * at the same place at the bottom whatever happens. Document and password live in [LabSignInSheet].
  */
 @Composable internal fun LabWelcome(state: UiState, savedAccess: Boolean, authenticating: Boolean, onUnlock: () -> Unit, onManual: () -> Unit,
-    onAccessGuide: () -> Unit, heroPhase: HeroPhase = HeroPhase.IDLE, opening: Boolean = false, errorText: String = "", onOpenSite: (() -> Unit)? = null) {
+    onAccessGuide: () -> Unit, heroPhase: HeroPhase = HeroPhase.IDLE, opening: Boolean = false, errorText: String = "", onOpenSite: (() -> Unit)? = null,
+    onReport: (() -> Unit)? = null) {
     val type = MaterialTheme.typography
     val intro = introStates(5, opening)
     val working = heroPhase == HeroPhase.LOADING || heroPhase == HeroPhase.SUCCESS
@@ -172,7 +173,10 @@ private fun Modifier.intro(v: State<Float>) = graphicsLayer { alpha = v.value.co
         }
         // When STM failed, the official site is one quiet tap away: a link in the text, not another button. Its room
         // exists only then; the card above gives way, the buttons below stay put.
-        if (failed && onOpenSite != null) LabInlineLink("Probar en el sitio de STM ↗", onOpenSite, Modifier.padding(top = 4.dp))
+        if (failed && (onOpenSite != null || onReport != null)) Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            if (onOpenSite != null) LabInlineLink("Probar en el sitio de STM ↗", onOpenSite)
+            if (onReport != null) LabInlineLink("Enviar reporte", onReport)
+        }
         Spacer(Modifier.height(32.dp))
         Box(Modifier.intro(intro[2])) {
             if (savedAccess) LabPrimary(if (authenticating) "Esperando tu huella…" else if (working) "Entrando…" else if (failed) "Volver a intentar" else "Entrar con huella",
@@ -201,7 +205,7 @@ internal fun labEntryProblem(message: String): Pair<String, String> {
         "stm no está respondiendo" in text || "stm no respond" in text -> "STM no responde" to "Probá de nuevo en un momento."
         "cambiaron las huellas" in text -> "Cambiaron las huellas" to "Ingresá con contraseña para guardar la huella de nuevo."
         "no se desbloqueó" in text -> "No se confirmó la huella" to "Probá de nuevo o ingresá con contraseña."
-        "8 dígitos" in text -> "Revisá tus datos" to "Ingresá el documento de 8 dígitos y la contraseña."
+        "dígitos" in text -> "Revisá tus datos" to "Ingresá tu cédula (sin puntos ni guion) y la contraseña."
         "no se guardó el acceso" in text -> "Entrás sin huella" to "No se pudo guardar la huella; la próxima vez probá de nuevo."
         message.isNotBlank() && message.length <= 80 -> "No pudimos entrar" to message
         else -> "No pudimos entrar" to "Probá de nuevo en un momento."
@@ -235,7 +239,7 @@ internal fun labEntryProblem(message: String): Pair<String, String> {
                 OutlinedTextField(password, onPassword, label = { Text("Contraseña") }, singleLine = true, shape = RoundedCornerShape(16.dp),
                     visualTransformation = if (reveal) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (enabled && document.length == 8 && password.isNotBlank()) onSubmit() }),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (enabled && document.length in 7..8 && password.isNotBlank()) onSubmit() }),
                     trailingIcon = { IconButton(onClick = onReveal) { AppGlyph(if (reveal) Glyph.EyeOff else Glyph.Eye, label = if (reveal) "Ocultar contraseña" else "Mostrar contraseña", tint = LabColors.Muted) } },
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp).focusRequester(passwordFocus).semantics { contentType = ContentType.Password })
                 if (canSave) Row(Modifier.fillMaxWidth().padding(top = 16.dp).clip(RoundedCornerShape(16.dp))
@@ -247,8 +251,13 @@ internal fun labEntryProblem(message: String): Pair<String, String> {
                     }
                     Switch(checked = save, onCheckedChange = null)
                 }
-                Spacer(Modifier.height(22.dp))
-                LabPrimary("Ingresar", enabled && document.length == 8 && password.isNotBlank(), onSubmit, sheet = true)
+                // Many people never typed this password: Chrome or Google keeps it for the gub.uy site. It can be looked up there.
+                val context = androidx.compose.ui.platform.LocalContext.current
+                LabInlineLink("¿Google te guarda la contraseña? Verla ↗", {
+                    runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://passwords.google.com/?q=gub.uy"))) }
+                }, Modifier.padding(top = 10.dp))
+                Spacer(Modifier.height(18.dp))
+                LabPrimary("Ingresar", enabled && document.length in 7..8 && password.isNotBlank(), onSubmit, sheet = true)
             }
         }
     }

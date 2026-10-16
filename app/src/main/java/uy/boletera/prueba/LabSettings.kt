@@ -101,7 +101,7 @@ private val RowLine = Color.White.copy(alpha = .09f)
                     Divider()
                     val copy = {
                         context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(
-                            android.content.ClipData.newPlainText("Boletera · ayuda", "Boletera ${BuildConfig.DISPLAY_VERSION}\n$diagnostic"))
+                            android.content.ClipData.newPlainText("Boletera · ayuda", LabReport.text("Reporte desde Configuración")))
                         copied = true
                     }
                     if (onDemo != null) {
@@ -110,7 +110,7 @@ private val RowLine = Color.White.copy(alpha = .09f)
                         }
                         Divider()
                     }
-                    SettingRow(R.drawable.ic_content_copy, "Datos para soporte", "Para mandar si algo falla", onClick = copy) {
+                    SettingRow(R.drawable.ic_content_copy, "Enviar reporte", "Lo que pasó en STM, sin tus datos", onClick = { LabReport.share(context, "Reporte desde Configuración") }) {
                         SmallAction(if (copied) "Copiado ✓" else "Copiar", done = copied, onClick = copy)
                     }
                 }

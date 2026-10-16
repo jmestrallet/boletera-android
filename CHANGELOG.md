@@ -1,5 +1,18 @@
 # Cambios
 
+## 0.2.40 Lab 8 - Arreglos de Lab 7
+
+- El captcha de Prex sigue solo: al resolverlo, la app avanza sin que tengas que tocar nada.
+- Si el captcha aparece antes de pagar, el botón «Pagar» queda ahí mismo.
+- Carga Express ya no se queda en «Procesando» si no reconoce la tarjeta: te muestra «Pagar».
+- Si Prex tiene otro titular guardado, la app te avisa y te deja usar el tuyo, en vez de seguir sola.
+- «Enviar reporte» en los errores, en la entrada y en Configuración: manda lo que pasó, sin tus datos.
+- Ingreso: acepta cédulas de 7 dígitos y tiene un atajo para ver la contraseña que te guarda Google.
+- «Cancelar» mientras abre Prex vuelve a tu saldo sin cerrar la sesión.
+- Si Prex tarda después de pagar, podés volver al inicio y ver tu saldo.
+- Si Prex rechaza la tarjeta, «Probar con otra tarjeta».
+- Modo demo: dos boleteras para cambiar, y Carga Express espera que elijas la tarjeta guardada.
+
 ## 0.2.40 Lab 7 - Todo nuevo, y en movimiento
 
 - Lab entera con el diseño nuevo: entrada, inicio, montos, pago con Prex, resultados, avisos y Configuración, como en las maquetas.

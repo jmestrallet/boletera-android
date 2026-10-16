@@ -133,7 +133,9 @@ class LabScreensTest {
         } }
         android.os.SystemClock.sleep(1200)
         // Says what happened and nothing about charges; never offers the site in the middle of a payment.
-        compose.onNodeWithText("Se cortó la conexión").assertIsDisplayed()
+        compose.onNodeWithText("El pago se interrumpió").assertIsDisplayed()
+        compose.onNodeWithText("Mirá tu saldo en el inicio antes de volver a cargar.").assertIsDisplayed()
+        compose.onNodeWithText("Enviar reporte").assertIsDisplayed()
         compose.onNodeWithText("Revisá el pago").assertDoesNotExist()
         compose.onNodeWithText("Probar en el sitio de STM ↗").assertDoesNotExist()
         capture("lab-error-payment.png")
@@ -273,7 +275,7 @@ class LabScreensTest {
             }
         }
         compose.onNodeWithText("Tu huella sigue guardada").assertIsDisplayed()
-        compose.onNodeWithText("Datos para soporte").assertIsDisplayed()
+        compose.onNodeWithText("Enviar reporte").assertIsDisplayed()
         capture("lab-settings.png")
         compose.onNodeWithText("Olvidar este celular").performScrollTo().performClick()
         compose.onNodeWithText("¿Olvidar este celular?").assertIsDisplayed()

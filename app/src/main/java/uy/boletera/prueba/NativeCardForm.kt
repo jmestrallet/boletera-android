@@ -54,7 +54,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
 @Composable internal fun NativeCardForm(busy: Boolean, canContinue: Boolean, providerError: Boolean,
     expandedChallenge: Boolean, onSubmit: (String,String,String)->Unit, onOriginal: ()->Unit,
     focusCard: Boolean = false, verificationRequired: Boolean = false, onManualContinue: () -> Unit = {}, onVerificationShown: () -> Unit = {},
-    onAutomaticSubmit: ((String,String,String)->Unit)? = null,
+    onAutomaticSubmit: ((String,String,String)->Unit)? = null, onOtherCard: (() -> Unit)? = null,
     verification: @Composable ()->Unit = {}) {
     var pan by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
@@ -189,7 +189,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     if(IsLab) {
         LabCardFields(busy,canContinue,providerError,focusCard,pendingContinue,verificationRequired,numberField,expiryField,cvvField,verification,verificationView,
             onSaved={ pendingContinue=false;numberFocus.requestFocus();scope.launch { numberView.bringIntoView();cardAutofill.request();keyboard?.show() } },
-            onContinue={ if(!focusMissing())submit(manual=true) },onOriginal={ autofill?.cancel();onOriginal() })
+            onContinue={ if(!focusMissing())submit(manual=true) },onOriginal={ autofill?.cancel();onOriginal() },onOtherCard=onOtherCard)
         return
     }
     Column(Modifier.fillMaxSize()) {

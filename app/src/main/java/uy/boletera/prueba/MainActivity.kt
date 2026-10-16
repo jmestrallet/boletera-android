@@ -82,6 +82,7 @@ class MainActivity : FragmentActivity() {
         handleShortcut(intent); publishShortcuts()
         val preferences = getSharedPreferences("appearance", MODE_PRIVATE)
         if (IsLab) LabDemo.load(this)
+        LabReport.diagnostic = { if (::engine.isInitialized) engine.helpDiagnostic else "" }
         setContent {
             var appearance by remember { mutableStateOf(preferences.getString("theme", "system") ?: "system") }
             val haptics=remember {AppHaptics(this@MainActivity)}
@@ -213,7 +214,9 @@ class MainActivity : FragmentActivity() {
                 // Forgetting the phone is not a new install: the news already read stay read.
                 val seen=helpPreferences.getString("whats_new_seen",null)
                 helpPreferences.edit().clear().putString("whats_new_seen",seen).apply();vault.forget(); lastBalances.clear()
-                for (name in listOf("lab_card_names","lab_hints")) context.getSharedPreferences(name, android.content.Context.MODE_PRIVATE).edit().clear().apply(); engine.savedAccess(false); engine.logout(); engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.")
+                for (name in listOf("lab_card_names","lab_hints")) context.getSharedPreferences(name, android.content.Context.MODE_PRIVATE).edit().clear().apply(); engine.savedAccess(false); engine.logout()
+                // Lab says it with the clean entry itself; a notice there would paint the entry red as if signing in failed.
+                if(!IsLab) engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.")
             }
         }
         // Every balance STM reports becomes the «último saldo» shown while connecting next time.
@@ -290,6 +293,8 @@ class MainActivity : FragmentActivity() {
             if(IsLab && stage=="balance") { activity?.moveTaskToBack(true); return }
             // After an error with a live session, back is the way to the balance, not a sign-out.
             if(IsLab && state.stage=="blocked" && state.activePayment==null && engine.sessionVerified) { engine.refresh(); return }
+            // «Cancelar» while Prex opens goes back to the balance; it never signs out (A2).
+            if(IsLab && engine.sessionVerified && (state.stage=="openingPayment" || state.stage=="connecting" && state.amount!=null)) { engine.refresh(); return }
             // After a payment problem, back re-reads the balance like the on-screen button instead of signing out.
             if(state.stage in listOf("paymentBoundary", "externalPayment") || (state.stage=="blocked" && state.activePayment!=null)) engine.refresh() else engine.cancel()
         }
@@ -355,7 +360,8 @@ class MainActivity : FragmentActivity() {
                     else if(IsLab && stage=="welcome") Box(Modifier.fillMaxSize().padding(horizontal=24.dp)) {
                         LabWelcome(state,savedAccess=state.hasSavedAccess,authenticating=authenticating,onUnlock={unlockSavedAccess()},onManual={manual=true},
                             onAccessGuide={showAccessGuide=true},heroPhase=labHeroPhase,opening=labOpening,errorText=labEntryError,
-                            onOpenSite=if(labHeroResult==HeroPhase.ERROR && labEntryError!=StmEngine.OFFLINE)::openStmAccess else null)
+                            onOpenSite=if(labHeroResult==HeroPhase.ERROR && labEntryError!=StmEngine.OFFLINE)::openStmAccess else null,
+                            onReport=if(labEntryError.isNotBlank() && labEntryError!=StmEngine.OFFLINE)({LabReport.share(context,"No pude entrar · $labEntryError")}) else null)
                     } else Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal=24.dp).padding(top=if(stage=="balance")4.dp else 12.dp,bottom=if(stage in listOf("balance","blocked"))4.dp else 32.dp)
                         .pageEntrance(stage, state.captcha==null),verticalArrangement=Arrangement.spacedBy(if(stage in listOf("balance","blocked"))0.dp else 24.dp)) {
                         when(stage) {

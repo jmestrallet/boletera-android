@@ -42,13 +42,18 @@ internal object LabDemo {
     fun set(context: Context, value: Boolean) { on = value; prefs(context).edit().putBoolean("on", value).apply() }
 }
 
-private const val DemoCard = "00001234"
+/** Two made-up cards, so the card picker and the switch can be tried too. */
+private val DemoCards = listOf(CardInfo("00001234", true, "Activa"), CardInfo("00005678", true, "Activa"))
 private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
 
 @Composable internal fun LabDemoApp() {
     val context = LocalContext.current
     var stage by remember { mutableStateOf("welcome") }
-    var balance by remember { mutableLongStateOf(124_000L) }
+    var card by remember { mutableStateOf(DemoCards[0].id) }
+    val balances = remember { mutableStateMapOf(DemoCards[0].id to 124_000L, DemoCards[1].id to 38_500L) }
+    val balance = balances[card] ?: 0L
+    var showCards by remember { mutableStateOf(false) }
+    var naming by remember { mutableStateOf<String?>(null) }
     var amount by remember { mutableLongStateOf(26_000L) }
     var express by remember { mutableStateOf(false) }
     var showAmount by remember { mutableStateOf(false) }
@@ -57,7 +62,7 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
     var credited by remember { mutableStateOf<Long?>(null) }
     var checked by remember { mutableStateOf(false) }
     val now = remember(stage) { System.currentTimeMillis() }
-    val state = UiState(stage = if (stage == "home") "balance" else stage, cards = listOf(CardInfo(DemoCard, true, "Activa")), selectedCard = DemoCard,
+    val state = UiState(stage = if (stage == "home") "balance" else stage, cards = DemoCards, selectedCard = card,
         balance = balance, minimum = 26_000L, consultedAt = now, hasSavedAccess = true, credited = credited)
     fun pay(value: Long, quick: Boolean) { amount = value; express = quick; checked = false; showAmount = false; stage = "wait" }
     // The made-up timings are close to the real ones, so the waits feel like the real waits.
@@ -65,9 +70,9 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
         when (stage) {
             "connecting" -> { delay(1600); stage = "home" }
             "wait" -> { delay(1400); stage = "card" }
-            "card" -> if (express) { delay(1300); stage = if (LabDemo.askCheck) "check" else "processing" }
+            "switching" -> { delay(1200); stage = "home" }
             "processing" -> { delay(2300)
-                if (LabDemo.rejectNext) { LabDemo.rejectNext = false; stage = "rejected" } else { balance += amount; credited = amount; stage = "done" } }
+                if (LabDemo.rejectNext) { LabDemo.rejectNext = false; stage = "rejected" } else { balances[card] = balance + amount; credited = amount; stage = "done" } }
         }
     }
     BackHandler(enabled = stage !in setOf("welcome", "processing")) {
@@ -90,19 +95,21 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
                     when (stage) {
                         "welcome" -> LabWelcome(state, savedAccess = true, authenticating = false, onUnlock = { stage = "connecting" }, onManual = { stage = "connecting" },
                             onAccessGuide = {})
+                        "switching" -> LabConnecting("Cambiando de boletera", "Consultando el saldo de STM ···· ${card.takeLast(4)}.", null)
                         "connecting" -> LabConnecting("Conectando con STM", "Tu saldo aparece en un momento.", { stage = "welcome" },
                             last = LastBalance(balance, now - 3_600_000L))
                         "home" -> LabHomeContent(state, offline = false, onTicketGuide = { showGuide = true })
-                        "wait" -> LabPaymentWait(amount, DemoCard, express, onCancel = { stage = "home" })
+                        "wait" -> LabPaymentWait(amount, card, express, onCancel = { stage = "home" })
                         "card" -> Column(Modifier.fillMaxSize()) {
-                            LabPaymentLine(amount, DemoCard)
-                            LabDemoCardFields(express) { stage = if (LabDemo.askCheck) "check" else "confirm" }
+                            LabPaymentLine(amount, card)
+                            // Express waits for the saved card to be chosen, like Android's suggestion does, and then goes on by itself.
+                            LabDemoCardFields(express) { stage = if (LabDemo.askCheck) "check" else if (express) "processing" else "confirm" }
                         }
-                        "check" -> LabVerification(amount, DemoCard, afterPay = false, onCancel = { stage = "home" }) {
+                        "check" -> LabVerification(amount, card, afterPay = false, onCancel = { stage = "home" }) {
                             LabDemoCheck(checked) { checked = true }
                             LaunchedEffect(checked) { if (checked) { delay(700); LabDemo.askCheck = false; stage = if (express) "processing" else "confirm" } }
                         }
-                        "confirm" -> LabConfirmPayment(amount, DemoCard, listOf("Medio de pago" to "PREX **** 8842"), "Ana Pérez", canPay = true,
+                        "confirm" -> LabConfirmPayment(amount, card, listOf("Medio de pago" to "PREX **** 8842"), "Ana Pérez", canPay = true,
                             onPay = { stage = "processing" }, onDetail = null)
                         "processing" -> LabStatusScreen(HeroPhase.LOADING, "Procesando tu pago", "Prex está confirmando el pago de ${Amounts.format(amount)}.", null, null)
                         "done" -> LabRechargeDone(state, amount, listOf("Medio de pago" to "PREX **** 8842", "Importe" to Amounts.format(amount), "Número" to "DEMO-0001")) {
@@ -113,19 +120,29 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
                 }
             }
             if (stage == "home") {
-                LabHomeChrome(state, haze, blur = false, onChangeCard = {}, onSettings = { showSheet = true }, onCharge = { showAmount = true },
+                LabHomeChrome(state, haze, blur = false, onChangeCard = { showCards = true }, onSettings = { showSheet = true }, onCharge = { showAmount = true },
                     onExpressCharge = { pay(26_000L, quick = true) }, expressPreparing = false, expressProvider = "Prex")
                 LabAmountPanel(state, open = showAmount, onClose = { showAmount = false }, payer = DemoPayer, onPayer = {}, onChoose = { pay(it, quick = false) })
             }
-            // Always on screen: this is not the real thing.
-            Row(Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars).padding(top = 14.dp, end = if (stage in setOf("welcome", "home")) 76.dp else 16.dp).clip(RoundedCornerShape(14.dp))
-                .background(LabColors.Warn.copy(alpha = .18f)).border(1.dp, LabColors.Warn.copy(alpha = .4f), RoundedCornerShape(14.dp))
-                .clickable(role = Role.Button) { showSheet = true }.padding(horizontal = 12.dp, vertical = 5.dp)
-                .semantics(mergeDescendants = true) { contentDescription = "Modo demo, sin pagos reales. Tocá para opciones." }) {
-                Text("Modo demo", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = LabColors.Warn)
+            // Always on screen: this is not the real thing. It sits just left of the gear, centred on the same line (the
+            // home's bar is 66 dp with the gear at 12 dp from the edge; the other bars are 64 dp with it at 16 dp), so on
+            // a wide screen it stays next to the gear instead of floating in the middle. A 48 dp touch area, 30 dp to see.
+            val onHome = stage == "home"; val withGear = stage in setOf("welcome", "home")
+            Box(Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars)
+                .padding(top = if (onHome) 9.dp else 8.dp, end = if (onHome) 68.dp else if (withGear) 72.dp else 16.dp)
+                .height(48.dp).clip(RoundedCornerShape(15.dp)).clickable(role = Role.Button) { showSheet = true }
+                .semantics(mergeDescendants = true) { contentDescription = "Modo demo, sin pagos reales. Tocá para opciones." },
+                contentAlignment = Alignment.Center) {
+                Box(Modifier.height(30.dp).clip(RoundedCornerShape(15.dp)).background(LabColors.Warn.copy(alpha = .18f))
+                    .border(1.dp, LabColors.Warn.copy(alpha = .4f), RoundedCornerShape(15.dp)).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                    Text("Modo demo", style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 16.sp), color = LabColors.Warn)
+                }
             }
         }
         if (showGuide) LabTicketGuideSheet { showGuide = false }
+        if (showCards) LabCardsSheet(state, onChoose = { id -> showCards = false; if (id != card) { card = id; stage = "switching" } },
+            onEdit = { showCards = false; naming = it }, onClose = { showCards = false })
+        naming?.let { id -> LabCardNameSheet(id) { naming = null } }
         if (showSheet) LabSheet({ showSheet = false }) {
             Text("Modo demo", style = MaterialTheme.typography.labSheet, color = LabColors.On, modifier = Modifier.padding(start = 8.dp).semantics { heading() })
             Text("Todo es de mentira: no entra a STM, no abre Prex y no carga plata. Sirve para probar Carga Express, el pago y las animaciones.",
@@ -134,7 +151,7 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
             DemoSwitch("Pedir la verificación «No soy un robot»", LabDemo.askCheck) { LabDemo.askCheck = it }
             Spacer(Modifier.height(14.dp))
             LabPrimary("Salir del modo demo", onClick = { showSheet = false; LabDemo.set(context, false) }, sheet = true)
-            LabTextLink("Empezar de nuevo", { showSheet = false; credited = null; balance = 124_000L; stage = "welcome" }, Modifier.align(Alignment.CenterHorizontally), quiet = true)
+            LabTextLink("Empezar de nuevo", { showSheet = false; credited = null; balances[DemoCards[0].id] = 124_000L; balances[DemoCards[1].id] = 38_500L; card = DemoCards[0].id; stage = "welcome" }, Modifier.align(Alignment.CenterHorizontally), quiet = true)
         }
     }
 }
@@ -150,14 +167,29 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
 /** «Tu tarjeta» with a sample card already filled in and nothing to type: there is no place for a real card in the demo. */
 @Composable private fun LabDemoCardFields(express: Boolean, onContinue: () -> Unit) {
     val view = remember { BringIntoViewRequester() }
+    var picked by remember { mutableStateOf(!express) }
+    LaunchedEffect(picked) { if (picked && express) { delay(450); onContinue() } }
     @Composable fun field(label: String, value: String, modifier: Modifier) =
         Column(modifier.clip(RoundedCornerShape(16.dp)).border(1.dp, Color(0x57ECEEF6), RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 9.dp)) {
             Text(label, style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp), color = LabColors.Muted)
             Text(value, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.5.sp), color = LabColors.On)
         }
     LabCardFields(busy = false, canContinue = true, providerError = false, express = express, waitingCheck = false, checkRequired = false,
-        number = { field("Número de tarjeta", "4517 6600 1234 8842 · de muestra", it) }, expiry = { field("Vencimiento", "08/29", it) }, code = { field("Código", "•••", it) },
-        verification = {}, verificationView = view, onSaved = {}, onContinue = onContinue, onOriginal = {})
+        number = { m -> Column {
+            field("Número de tarjeta", if (picked) "4517 6600 1234 8842 · de muestra" else " ", m)
+            // Android's own suggestion of a saved card, as it shows under the number field.
+            if (!picked) Column(Modifier.padding(top = 6.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF232A36))) {
+                Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).clickable(role = Role.Button) { picked = true }.padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    AppGlyph(Glyph.Card, Modifier.size(22.dp), tint = LabColors.Primary)
+                    Column {
+                        Text("Prex ···· 8842", style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.5.sp), color = LabColors.On)
+                        Text("Vence 08/29 · tarjeta de muestra", style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = LabColors.Muted)
+                    }
+                }
+            }
+        } }, expiry = { field("Vencimiento", if (picked) "08/29" else " ", it) }, code = { field("Código", if (picked) "•••" else " ", it) },
+        verification = {}, verificationView = view, onSaved = { picked = true }, onContinue = { picked = true; if (!express) onContinue() }, onOriginal = {})
 }
 
 /** A stand-in for Google's check: a box to tick, in the same light frame. */
