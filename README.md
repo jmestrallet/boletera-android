@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/media/boletera-hero.svg" alt="Boletera · Tu STM, más simple" width="100%">
+  <img src="docs/media/boletera-banner.svg" alt="Boletera · Tu STM, más simple" width="100%">
 </p>
 
 <p align="center">
