@@ -37,4 +37,13 @@ class CardVaultTest {
             scenario.onActivity { vault.forget(); assertFalse(vault.exists); assertNull(vault.label) }
         }
     }
+    /** Leaves a sample card saved (for trying Express in the demo by hand); run only when asked. */
+    @Test fun keepSampleCardForDemo() {
+        if (androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("keepCard") != "1") return
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            val saved = CountDownLatch(1); var ok = false
+            scenario.onActivity { CardVault(it).save("4517660012348842", "08/29", "123") { r -> ok = r; saved.countDown() } }
+            assertTrue(saved.await(40, TimeUnit.SECONDS)); assertTrue(ok)
+        }
+    }
 }

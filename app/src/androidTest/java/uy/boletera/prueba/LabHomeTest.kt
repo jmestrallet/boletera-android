@@ -33,7 +33,7 @@ class LabHomeTest {
     private val ana = PayerProfile("p1", "Yo", "Ana", "Pérez", "12345678", "ana@example.com", "099123456")
     /** The home as MainActivity draws it: content in the blurred layer, chrome and panel on top. */
     @Composable private fun Home(state: UiState, offline: Boolean = false, express: (() -> Unit)? = {}, panel: Boolean = false, payer: PayerProfile? = ana,
-        onCharge: () -> Unit = {}, onChoose: (Long) -> Unit = {}, onPayer: () -> Unit = {}, onClose: () -> Unit = {}) {
+        onCharge: () -> Unit = {}, onChoose: (Long) -> Unit = {}, onPayer: () -> Unit = {}, onClose: () -> Unit = {}, ring: Boolean = true) {
         BoleteraTheme("dark") {
             val haze = remember { HazeState() }
             Box(Modifier.fillMaxSize()) {
@@ -45,7 +45,7 @@ class LabHomeTest {
                     }
                 }
                 LabHomeChrome(state, haze, blur = VisualEffects.capable(compose.activity), onChangeCard = {}, onSettings = {}, onCharge = onCharge,
-                    onExpressCharge = express, expressPreparing = false, expressProvider = "Prex")
+                    onExpressCharge = express, expressPreparing = false, expressProvider = "Prex", ring = ring)
                 LabAmountPanel(state, panel, onClose = onClose, payer = payer, onPayer = onPayer, onChoose = onChoose)
             }
         }
@@ -130,5 +130,13 @@ class LabHomeTest {
         compose.onNodeWithText("Boletos y tarifas").assertIsDisplayed()
         compose.onNodeWithText("Con este contamos tus viajes en el inicio").assertIsDisplayed()
         capture("lab-ticket-guide.png")
+    }
+    @Test fun recargarWithAndWithoutRing() {
+        var ring by mutableStateOf(true)
+        val state = UiState(stage = "balance", selectedCard = "DEMO1234", cards = twoCards, balance = 124000, minimum = 26000, consultedAt = System.currentTimeMillis())
+        compose.setContent { Home(state, ring = ring) }
+        capture("lab-home-ring.png")
+        ring = false
+        capture("lab-home-no-ring.png")
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Modo demo: the whole Lab journey with made-up data, to try Carga Express, the payment and the motion without money.
@@ -64,12 +65,21 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
     val now = remember(stage) { System.currentTimeMillis() }
     val state = UiState(stage = if (stage == "home") "balance" else stage, cards = DemoCards, selectedCard = card,
         balance = balance, minimum = 26_000L, consultedAt = now, hasSavedAccess = true, credited = credited)
+    var savedCard by remember { mutableStateOf(false) }
     fun pay(value: Long, quick: Boolean) { amount = value; express = quick; checked = false; showAmount = false; stage = "wait" }
+    val scope = rememberCoroutineScope()
+    // Like the real Express: with a card saved for it, the fingerprint comes once the bolt's light has run, and then
+    // nothing else is asked. The demo opens the card only to prove the fingerprint works; it never uses it.
+    fun express() {
+        val vault = LabExpressCard.vault
+        if (vault == null || !vault.exists) { savedCard = false; pay(26_000L, quick = true); return }
+        scope.launch { delay(950); vault.unlock { card -> if (card != null) { savedCard = true; pay(26_000L, quick = true) } } }
+    }
     // The made-up timings are close to the real ones, so the waits feel like the real waits.
     LaunchedEffect(stage) {
         when (stage) {
             "connecting" -> { delay(1600); stage = "home" }
-            "wait" -> { delay(1400); stage = "card" }
+            "wait" -> { delay(1400); stage = if (express && savedCard) "processing" else "card" }
             "switching" -> { delay(1200); stage = "home" }
             "processing" -> { delay(2300)
                 if (LabDemo.rejectNext) { LabDemo.rejectNext = false; stage = "rejected" } else { balances[card] = balance + amount; credited = amount; stage = "done" } }
@@ -121,7 +131,7 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
             }
             if (stage == "home") {
                 LabHomeChrome(state, haze, blur = false, onChangeCard = { showCards = true }, onSettings = { showSheet = true }, onCharge = { showAmount = true },
-                    onExpressCharge = { pay(26_000L, quick = true) }, expressPreparing = false, expressProvider = "Prex")
+                    onExpressCharge = { express() }, expressPreparing = false, expressProvider = "Prex")
                 LabAmountPanel(state, open = showAmount, onClose = { showAmount = false }, payer = DemoPayer, onPayer = {}, onChoose = { pay(it, quick = false) })
             }
             // Always on screen: this is not the real thing. It sits just left of the gear, centred on the same line (the

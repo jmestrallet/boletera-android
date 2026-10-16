@@ -1,5 +1,8 @@
 package uy.boletera.prueba
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+
 import android.os.Bundle
 import android.text.InputType
 import android.view.View
@@ -169,13 +172,35 @@ class MainActivity : FragmentActivity() {
             // fingerprint cancels the Express; without a saved card it goes on as before (Android's saved-card suggestion).
             val cards=LabExpressCard.vault
             if(IsLab && cards!=null && cards.exists) {
-                cards.unlock { card -> if(card!=null) { LabExpressCard.pending=card; engine.startExpress(); if(!engine.expressPreparing) LabExpressCard.pending=null } }
+                // The fingerprint comes once the bolt's light has run (it would dim the animation), and Express starts
+                // when the app is ready again after it; a few tries, since the prompt can pause the app for a moment.
+                lifecycleScope.launch {
+                    kotlinx.coroutines.delay(950)
+                    cards.unlock { card ->
+                        if(card==null) return@unlock
+                        lifecycleScope.launch {
+                            var why: String? = "sin intentar"
+                            for(attempt in 0 until 12) {
+                                why = engine.startExpressOrWhy()
+                                if(why==null || why=="ya hay una Carga Express en curso") break
+                                kotlinx.coroutines.delay(300)
+                            }
+                            if(why==null) {
+                                LabExpressCard.pending=card
+                                // Used at Prex's card step (a few seconds away); if Express never gets there, it is dropped.
+                                lifecycleScope.launch { kotlinx.coroutines.delay(90_000); if(LabExpressCard.pending===card) LabExpressCard.pending=null }
+                            }
+                            else {
+                                engine.expressNotStarted="Carga Express con tarjeta guardada no empezó: $why"
+                                engine.notice("No pudimos empezar la Carga Express ($why). Probá de nuevo.")
+                            }
+                        }
+                    }
+                }
                 return
             }
             engine.startExpress()
         }
-        // A card opened for an Express that never reached Prex is dropped as soon as the balance is back.
-        LaunchedEffect(state.stage, state.busy) { if(state.stage=="balance" && !state.busy) LabExpressCard.pending=null }
         if (state.stage == "embeddedPrex") {
             if(IsLab) BoleteraTheme("dark") { LabEmbeddedPrexScreen(engine.prexPayment, state.activePayment, state.selectedCard, engine::leavePrexPayment) }
             else EmbeddedPrexScreen(engine.prexPayment, state.activePayment, engine::leavePrexPayment)

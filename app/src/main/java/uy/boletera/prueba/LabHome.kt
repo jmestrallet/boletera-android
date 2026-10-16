@@ -122,7 +122,7 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
 /** Top bar, bottom bar and Express, drawn over the blurred home. */
 @Suppress("DEPRECATION")
 @Composable internal fun LabHomeChrome(state: UiState, haze: HazeState, blur: Boolean, onChangeCard: () -> Unit, onSettings: () -> Unit, onCharge: () -> Unit,
-    onExpressCharge: (() -> Unit)?, expressPreparing: Boolean, expressProvider: String) {
+    onExpressCharge: (() -> Unit)?, expressPreparing: Boolean, expressProvider: String, ring: Boolean = true) {
     val view = LocalView.current
     // The Lab home is always dark: keep the system bars dark while it is on screen, then restore the theme's.
     DisposableEffect(Unit) {
@@ -181,9 +181,11 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
                 // Lab (A3): a previous payment never leaves Recargar grey without a reason.
                 val enabled = !state.busy && state.minimum != null
                 val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                Box(Modifier.weight(1f).height(76.dp).labGlass(haze, RoundedCornerShape(38.dp), blur).padding(6.dp)) {
+                // [ring]: the glass ring around the pill (inicio.html), or the plain 64 dp pill like every other main button.
+                Box(Modifier.weight(1f).height(76.dp).then(if (ring) Modifier.labGlass(haze, RoundedCornerShape(38.dp), blur).padding(6.dp) else Modifier),
+                    contentAlignment = Alignment.Center) {
                     // It answers the finger: sinks a little and darkens while held, with Android's ripple from where it was touched.
-                    Row(Modifier.fillMaxSize().labPress(press).clip(RoundedCornerShape(32.dp)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
+                    Row(Modifier.fillMaxWidth().height(if (ring) 64.dp else 64.dp).labPress(press).clip(RoundedCornerShape(32.dp)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
                         .clickable(press, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled, role = Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onCharge() },
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                         Icon(painterResource(R.drawable.ic_add), contentDescription = null, tint = LabColors.OnPrimary, modifier = Modifier.size(22.dp))

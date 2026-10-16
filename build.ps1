@@ -26,7 +26,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Falló la compilación o sus comprobaciones.' }
     New-Item -ItemType Directory -Force outputs | Out-Null
     $output = if ($LegacyUpdateBridge) { 'outputs/boletera-prueba-0.2.31.apk' }
-        elseif ($Channel -eq 'lab') { 'outputs/boletera-lab-0.2.40-lab.12.apk' }
+        elseif ($Channel -eq 'lab') { 'outputs/boletera-lab-0.2.40-lab.13.apk' }
         elseif ($Channel -eq 'alpha') { 'outputs/boletera-alpha-0.2.40-alpha.5.apk' }
         elseif ($Channel -eq 'beta') { 'outputs/boletera-beta-0.2.40-beta.2.apk' }
         else { 'outputs/boletera-0.2.40.apk' }

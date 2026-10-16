@@ -77,7 +77,7 @@ class StmEngine(private val context: Context) {
     private val expressTiming = ExpressTiming(android.os.SystemClock::elapsedRealtime)
     /** Shape of the last STM page the activity journey could not read: digits masked, no values. */
     private var activityShape = ""
-    internal val helpDiagnostic: String get() = listOf(state.diagnostic,activityShape,expressTiming.report()).filter {it.isNotBlank()}.joinToString("\n\n")
+    internal val helpDiagnostic: String get() = listOf(state.diagnostic,activityShape,expressTiming.report(),expressNotStarted).filter {it.isNotBlank()}.joinToString("\n\n")
     private val activityShapeScript = """(()=>{const t=e=>(e.innerText||e.value||'').replace(/\s+/g,' ').trim().replace(/\d/g,'#').slice(0,60);
 const pick=(s,n)=>[...document.querySelectorAll(s)].map(t).filter(Boolean).slice(0,n);
 return JSON.stringify({sitio:location.host,ruta:location.pathname.replace(/\d/g,'#').slice(0,80),titulo:document.title.replace(/\d/g,'#'),titulos:pick('h1,h2,h3,legend,.ui-panel-title',8),
@@ -572,23 +572,33 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         state.selectedCard!=null && state.cards.any { it.id==state.selectedCard && it.active } &&
         Amounts.valid(state.minimum,state.minimum)
 
-    fun startExpress() {
-        val card=state.selectedCard ?: return
-        val amount=state.minimum ?: return
-        if(!accountVerified || state.busy || state.stage!="balance" || pageStage!="amount" || state.activePayment!=null || expressRequest!=null) return
-        if(!expressAvailable)return
-        val provider=expressProvider ?: return
-        if(provider!="1033")return
-        val payer=expressPayer() ?: return
-        if(state.cards.none { it.id==card && it.active })return
-        if(!Amounts.valid(amount,state.minimum))return
+    fun startExpress() { startExpressOrWhy() }
+    /** Starts Carga Express, or says (in plain words, for the report) why it cannot right now; null when it started. */
+    fun startExpressOrWhy(): String? {
+        val card=state.selectedCard ?: return "sin boletera elegida"
+        val amount=state.minimum ?: return "sin mínimo de recarga"
+        if(!accountVerified) return "sesión sin verificar"
+        if(state.busy) return "STM ocupado"
+        if(state.stage!="balance") return "pantalla ${state.stage}"
+        if(pageStage!="amount") return "STM en ${pageStage.ifBlank { "carga" }}"
+        if(state.activePayment!=null) return "hay un pago en curso"
+        if(expressRequest!=null) return "ya hay una Carga Express en curso"
+        if(!expressAvailable) return "Carga Express no disponible"
+        val provider=expressProvider ?: return "sin medio de pago elegido"
+        if(provider!="1033") return "el medio de pago no es Prex"
+        val payer=expressPayer() ?: return "sin titular"
+        if(state.cards.none { it.id==card && it.active }) return "boletera no operativa"
+        if(!Amounts.valid(amount,state.minimum)) return "importe inválido"
         expressRequest=ExpressChoice(card,provider,payer?.id)
         expressPayment=true
         expressTiming.start()
         state=state.copy(amount=amount)
         // The existing adapter checks the live minimum before submitting; authorization stays with the provider.
         act("amount",amount.toString())
+        return null
     }
+    /** Why the last Express with the saved card did not start, for «Enviar reporte». */
+    var expressNotStarted = ""
 
     fun continueCaptcha() {
         if (!active || state.captcha == null) return

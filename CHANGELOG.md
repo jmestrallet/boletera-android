@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.40 Lab 13 - Carga Express con tarjeta guardada
+
+- Carga Express con tarjeta guardada: arranca después de la huella (antes se quedaba en el inicio).
+- La huella aparece cuando termina la luz de Carga Express, para que se vea la animación.
+- Si Carga Express no puede empezar, la app dice por qué y queda anotado en «Enviar reporte».
+- Modo demo: si tenés una tarjeta guardada, Carga Express pide la huella y sigue sola, igual que la real (sin usar la tarjeta).
+
 ## 0.2.40 Lab 12 - Animaciones más finas
 
 - Animaciones más finas: la tarjeta ya no se mueve a saltitos ni parpadea al cambiar de pantalla, y no desaparece en «Conectando».
