@@ -1,5 +1,7 @@
 package uy.boletera.prueba
 
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.draw.drawBehind
@@ -69,9 +71,9 @@ import androidx.compose.ui.semantics.contentDescription
 @Composable internal fun LabTopBar(title: String? = null, onBack: (() -> Unit)? = null, onSettings: (() -> Unit)? = null, step: Int? = null) {
     Box(Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (onBack != null) LabCircle(onBack) { AppGlyph(Glyph.Back, Modifier.size(22.dp), tint = LabColors.On, label = "Volver") }
+            if (onBack != null) LabCircle({ LabLog.tap("Volver (flecha)"); onBack() }) { AppGlyph(Glyph.Back, Modifier.size(22.dp), tint = LabColors.On, label = "Volver") }
             Text(title.orEmpty(), style = MaterialTheme.typography.titleLarge, color = LabColors.On, modifier = Modifier.weight(1f))
-            if (onSettings != null) LabCircle(onSettings) { AppGlyph(Glyph.Settings, Modifier.size(22.dp), tint = LabColors.On, label = "Configuración") }
+            if (onSettings != null) LabCircle({ LabLog.tap("Configuración"); onSettings() }) { AppGlyph(Glyph.Settings, Modifier.size(22.dp), tint = LabColors.On, label = "Configuración") }
         }
         if (step != null) Row(Modifier.align(Alignment.Center).semantics(mergeDescendants = true) { contentDescription = "Paso ${step + 1} de 2" },
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -93,7 +95,7 @@ import androidx.compose.ui.semantics.contentDescription
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     // With large text a long label wraps to two lines and the button grows; it never cuts the words.
     Row(Modifier.fillMaxWidth().heightIn(min = height).labPress(interaction).clip(RoundedCornerShape(height / 2)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
-        .clickable(interaction, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() },
+        .clickable(interaction, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled) { LabLog.tap(label); haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() },
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         if (glyph != null) { AppGlyph(glyph, Modifier.size(22.dp), tint = LabColors.OnPrimary); Spacer(Modifier.width(10.dp)) }
         Text(label, style = MaterialTheme.typography.titleMedium.let { if (sheet) it.copy(fontSize = 17.sp) else it }, color = LabColors.OnPrimary,
@@ -107,7 +109,7 @@ import androidx.compose.ui.semantics.contentDescription
  */
 @Composable internal fun LabTextLink(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, quiet: Boolean = false) {
     val type = MaterialTheme.typography
-    Box(modifier.heightIn(min = 52.dp).clip(RoundedCornerShape(26.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+    Box(modifier.heightIn(min = 52.dp).clip(RoundedCornerShape(26.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button) { LabLog.tap(label); onClick() }
         .padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
         Text(label, color = if (quiet) LabColors.Faint else LabColors.Primary,
             style = if (quiet) type.bodyMedium.copy(fontSize = 14.sp) else type.titleSmall.copy(fontSize = 15.5.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium))
@@ -119,7 +121,7 @@ import androidx.compose.ui.semantics.contentDescription
     Text(label, style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.5.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
         color = LabColors.Primary, textAlign = TextAlign.Center,
         modifier = modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(12.dp))
-            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick).padding(horizontal = 10.dp, vertical = 6.dp))
+            .clickable(role = androidx.compose.ui.semantics.Role.Button) { LabLog.tap(label); onClick() }.padding(horizontal = 10.dp, vertical = 6.dp))
 }
 
 /** The app opening plays once per process: the card travels from the launcher icon into place. */
@@ -222,14 +224,21 @@ internal fun labEntryProblem(message: String): Pair<String, String> {
     val documentFocus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
     LaunchedEffect(open) { if (open) { kotlinx.coroutines.delay(120); runCatching { if (document.length < 8) documentFocus.requestFocus() else passwordFocus.requestFocus() } } }
+    val pull = rememberLabPull(onClose, settleOnClose = false)
+    LaunchedEffect(open) { if (open) pull.offset.snapTo(0f) }
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(open, enter = fadeIn(tween(200)), exit = fadeOut(tween(160))) {
-            Box(Modifier.fillMaxSize().background(Color(0x9E040609)).clickable(onClick = onClose))
+            Box(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - pull.offset.value.coerceAtLeast(0f) / pull.height).coerceIn(0f, 1f) }
+                .background(Color(0x9E040609)).clickable(onClick = onClose))
         }
         AnimatedVisibility(open, modifier = Modifier.align(Alignment.BottomCenter),
             enter = slideInVertically(spring(dampingRatio = .82f, stiffness = 380f)) { it } + fadeIn(tween(120)),
             exit = slideOutVertically(tween(220)) { it } + fadeOut(tween(180))) {
             Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime)).padding(8.dp)
+                // Pulled down it follows the finger and closes; pulled up it stretches (LabPull).
+                .onSizeChanged { pull.height = it.height.toFloat().coerceAtLeast(1f) }
+                .graphicsLayer { translationY = pull.offset.value }
+                .nestedScroll(pull.connection)
                 .clip(RoundedCornerShape(32.dp)).background(Color(0xFF151B27)).border(1.dp, LabColors.GlassLine, RoundedCornerShape(32.dp))
                 .verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, top = 10.dp, bottom = 24.dp)) {
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(bottom = 18.dp).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = .22f)))
@@ -370,6 +379,33 @@ internal class LabCardNames(context: android.content.Context) {
     onChoose: (Long) -> Unit, modifier: Modifier = Modifier, expressShown: Boolean = true) {
     val progress by animateFloatAsState(if (open) 1f else 0f, spring(dampingRatio = 0.8f, stiffness = 380f), label = "amount morph")
     if (progress < 0.01f && !open) return
+    val pull = rememberLabPull(onClose)
+    Box(modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = progress.coerceIn(0f, 1f) * (1f - pull.offset.value.coerceAtLeast(0f) / pull.height).coerceIn(0f, 1f) }
+            .background(Color(0x9E040609)).clickable(enabled = open, onClick = onClose))
+        // Rises with the keyboard so the typed amount stays visible.
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+            .padding(8.dp)
+            // Pulled down it follows the finger and closes back into the button; pulled up it stretches (LabPull).
+            .onSizeChanged { pull.height = it.height.toFloat().coerceAtLeast(1f) }
+            .graphicsLayer { translationY = pull.offset.value }
+            .nestedScroll(pull.connection)
+            // The panel is laid out at its final size from the first frame and shown through a window shaped like the
+            // Recargar pill (inside its ring, left of the bolt), which grows into the whole panel: the button becomes the
+            // panel. Its blue turns dark early; the content fades in once there is room for it.
+            .graphicsLayer { clip = true; shape = amountMorphShape(progress.coerceIn(0f, 1f), expressShown) }
+            .drawBehind { drawRect(lerpColor(LabColors.Primary, Color(0xFF151B27), (progress / .3f).coerceIn(0f, 1f))) }
+            .border(1.dp, LabColors.GlassLine.copy(alpha = LabColors.GlassLine.alpha * ((progress - .7f) / .3f).coerceIn(0f, 1f)), RoundedCornerShape(32.dp))
+            .animateContentSize()) {
+            Box(Modifier.graphicsLayer { alpha = ((progress - .35f) / .5f).coerceIn(0f, 1f) }) {
+                LabAmountChoices(state, open, payer, onPayer, onChoose)
+            }
+        }
+    }
+}
+
+/** What the amount panel holds: the amounts, «Otro importe», who pays and Continuar (kept apart from the panel's motion). */
+@Composable private fun LabAmountChoices(state: UiState, open: Boolean, payer: PayerProfile?, onPayer: () -> Unit, onChoose: (Long) -> Unit) {
     val type = MaterialTheme.typography
     val haptic = LocalHapticFeedback.current
     var custom by remember(open) { mutableStateOf(false) }
@@ -379,78 +415,62 @@ internal class LabCardNames(context: android.content.Context) {
     val valid = Amounts.valid(amount, state.minimum)
     val customFocus = remember { FocusRequester() }
     LaunchedEffect(custom) { if (custom) { kotlinx.coroutines.delay(60); runCatching { customFocus.requestFocus() } } }
-    Box(modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = progress.coerceIn(0f, 1f) }.background(Color(0x9E040609)).clickable(enabled = open, onClick = onClose))
-        // Rises with the keyboard so the typed amount stays visible.
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
-            .padding(8.dp)
-            // The panel is laid out at its final size from the first frame and shown through a window shaped like the
-            // Recargar pill (inside its ring, left of the bolt), which grows into the whole panel: the button becomes the
-            // panel. Its blue turns dark early; the content fades in once there is room for it.
-            .graphicsLayer { clip = true; shape = amountMorphShape(progress.coerceIn(0f, 1f), expressShown) }
-            .drawBehind { drawRect(lerpColor(LabColors.Primary, Color(0xFF151B27), (progress / .3f).coerceIn(0f, 1f))) }
-            .border(1.dp, LabColors.GlassLine.copy(alpha = LabColors.GlassLine.alpha * ((progress - .7f) / .3f).coerceIn(0f, 1f)), RoundedCornerShape(32.dp))
-            .animateContentSize()) {
-            Box(Modifier.graphicsLayer { alpha = ((progress - .35f) / .5f).coerceIn(0f, 1f) }) {
-                Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp)) {
-                    Box(Modifier.align(Alignment.CenterHorizontally).padding(bottom = 18.dp).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = .22f)))
-                    Text("¿Cuánto cargás?", style = type.labSheet, color = LabColors.On, modifier = Modifier.padding(start = 8.dp, bottom = 18.dp).semantics { heading() })
-                    val choices = (listOfNotNull(state.minimum) + listOf(50000L, 100000L).filter { it > (state.minimum ?: Long.MAX_VALUE) }).distinct().take(3)
-                    choices.forEachIndexed { i, value ->
-                        val active = !custom && chosen == value
-                        LabAmountRow(value, state.balance, active, if (i == 0) "Mínimo" else null, Modifier.labEnter(i, base = 80)) {
-                            if (!active) { custom = false; chosen = value; haptic.performHapticFeedback(HapticFeedbackType.SegmentTick) }
-                        }
-                    }
-                    if (custom) {
-                        // The typed amount becomes the chosen one and is painted the same; under the minimum it stays unpainted and says why.
-                        val typed = Amounts.parse(text)
-                        Row(Modifier.fillMaxWidth().height(66.dp).clip(RoundedCornerShape(20.dp))
-                            .background(if (valid) LabColors.Primary else Color.Transparent)
-                            .border(if (valid) 0.dp else 2.dp, if (valid) Color.Transparent else LabColors.Primary, RoundedCornerShape(20.dp))
-                            .padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                            val ink = if (valid) LabColors.OnPrimary else LabColors.On
-                            Text("$", style = type.bodyMedium.copy(fontSize = 15.sp), color = ink.copy(alpha = .7f), modifier = Modifier.padding(end = 3.dp).offset(y = (-6).dp))
-                            androidx.compose.foundation.text.BasicTextField(text, { text = it.filter { c -> c.isDigit() }.take(6) }, singleLine = true,
-                                textStyle = type.titleLarge.copy(fontSize = 24.sp, fontWeight = FontWeight.Medium, color = ink),
-                                cursorBrush = SolidColor(ink),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f).focusRequester(customFocus).semantics { contentDescription = "Otro importe en pesos" })
-                            val after = typed?.let { a -> state.balance?.let { it + a } }
-                            if (after != null) Column(horizontalAlignment = Alignment.End) {
-                                Text("Quedás con", style = type.bodySmall.copy(fontSize = 12.5.sp), color = ink.copy(alpha = .7f))
-                                Text(Amounts.format(after), style = type.bodyMedium.copy(fontSize = 15.sp), color = ink)
-                            }
-                        }
-                        if (text.isNotEmpty() && !valid) Text("El mínimo es ${Amounts.format(state.minimum)}", style = type.bodySmall.copy(fontSize = 13.sp),
-                            color = LabErrorText, modifier = Modifier.padding(start = 8.dp, top = 6.dp))
-                    } else Row(Modifier.fillMaxWidth().height(66.dp).clip(RoundedCornerShape(20.dp)).border(1.5.dp, LabColors.GlassLine, RoundedCornerShape(20.dp))
-                        .clickable(role = Role.Button) { custom = true }.padding(horizontal = 20.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Icon(painterResource(R.drawable.ic_edit), contentDescription = null, tint = LabColors.Primary, modifier = Modifier.size(22.dp))
-                        Text("Otro importe", style = type.titleMedium.copy(fontSize = 16.sp), color = LabColors.On)
-                    }
-                    // What you pay with: Prex and the payer, tapped only to change. Without a payer it asks for one.
-                    Row(Modifier.padding(top = 10.dp).fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp))
-                        .clickable(role = Role.Button, onClick = onPayer).padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(LabColors.Primary.copy(alpha = .16f)), contentAlignment = Alignment.Center) {
-                            AppGlyph(Glyph.Card, Modifier.size(20.dp), tint = LabColors.Primary)
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Text(buildAnnotatedString { append("Pagás con "); withStyle(SpanStyle(color = LabColors.On, fontWeight = FontWeight.Medium)) { append("Prex") } },
-                                style = type.bodyMedium.copy(fontSize = 14.5.sp), color = LabColors.Muted)
-                            if (payer != null) Text("Titular: ${payer.givenName} ${payer.familyName}".trim(), style = type.bodyMedium.copy(fontSize = 14.5.sp), color = LabColors.Muted)
-                            else Text("Agregar titular", style = type.bodyMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = LabColors.Primary)
-                        }
-                        AppGlyph(Glyph.Chevron, Modifier.size(22.dp), tint = LabColors.Muted)
-                    }
-                    Spacer(Modifier.height(14.dp))
-                    if (payer != null) LabPrimary("Continuar con Prex", valid && !state.busy, onClick = { amount?.let(onChoose) }, sheet = true)
-                    else LabPrimary("Agregar titular y continuar", valid && !state.busy, onClick = onPayer, sheet = true)
-                }
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp)) {
+        Box(Modifier.align(Alignment.CenterHorizontally).padding(bottom = 18.dp).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = .22f)))
+        Text("¿Cuánto cargás?", style = type.labSheet, color = LabColors.On, modifier = Modifier.padding(start = 8.dp, bottom = 18.dp).semantics { heading() })
+        val choices = (listOfNotNull(state.minimum) + listOf(50000L, 100000L).filter { it > (state.minimum ?: Long.MAX_VALUE) }).distinct().take(3)
+        choices.forEachIndexed { i, value ->
+            val active = !custom && chosen == value
+            LabAmountRow(value, state.balance, active, if (i == 0) "Mínimo" else null, Modifier.labEnter(i, base = 80)) {
+                LabLog.tap("monto ${Amounts.format(value)}"); if (!active) { custom = false; chosen = value; haptic.performHapticFeedback(HapticFeedbackType.SegmentTick) }
             }
         }
+        if (custom) {
+            // The typed amount becomes the chosen one and is painted the same; under the minimum it stays unpainted and says why.
+            val typed = Amounts.parse(text)
+            Row(Modifier.fillMaxWidth().height(66.dp).clip(RoundedCornerShape(20.dp))
+                .background(if (valid) LabColors.Primary else Color.Transparent)
+                .border(if (valid) 0.dp else 2.dp, if (valid) Color.Transparent else LabColors.Primary, RoundedCornerShape(20.dp))
+                .padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                val ink = if (valid) LabColors.OnPrimary else LabColors.On
+                Text("$", style = type.bodyMedium.copy(fontSize = 15.sp), color = ink.copy(alpha = .7f), modifier = Modifier.padding(end = 3.dp).offset(y = (-6).dp))
+                androidx.compose.foundation.text.BasicTextField(text, { text = it.filter { c -> c.isDigit() }.take(6) }, singleLine = true,
+                    textStyle = type.titleLarge.copy(fontSize = 24.sp, fontWeight = FontWeight.Medium, color = ink),
+                    cursorBrush = SolidColor(ink),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f).focusRequester(customFocus).semantics { contentDescription = "Otro importe en pesos" })
+                val after = typed?.let { a -> state.balance?.let { it + a } }
+                if (after != null) Column(horizontalAlignment = Alignment.End) {
+                    Text("Quedás con", style = type.bodySmall.copy(fontSize = 12.5.sp), color = ink.copy(alpha = .7f))
+                    Text(Amounts.format(after), style = type.bodyMedium.copy(fontSize = 15.sp), color = ink)
+                }
+            }
+            if (text.isNotEmpty() && !valid) Text("El mínimo es ${Amounts.format(state.minimum)}", style = type.bodySmall.copy(fontSize = 13.sp),
+                color = LabErrorText, modifier = Modifier.padding(start = 8.dp, top = 6.dp))
+        } else Row(Modifier.fillMaxWidth().height(66.dp).clip(RoundedCornerShape(20.dp)).border(1.5.dp, LabColors.GlassLine, RoundedCornerShape(20.dp))
+            .clickable(role = Role.Button) { LabLog.tap("Otro importe"); custom = true }.padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(painterResource(R.drawable.ic_edit), contentDescription = null, tint = LabColors.Primary, modifier = Modifier.size(22.dp))
+            Text("Otro importe", style = type.titleMedium.copy(fontSize = 16.sp), color = LabColors.On)
+        }
+        // What you pay with: Prex and the payer, tapped only to change. Without a payer it asks for one.
+        Row(Modifier.padding(top = 10.dp).fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp))
+            .clickable(role = Role.Button, onClick = onPayer).padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(LabColors.Primary.copy(alpha = .16f)), contentAlignment = Alignment.Center) {
+                AppGlyph(Glyph.Card, Modifier.size(20.dp), tint = LabColors.Primary)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(buildAnnotatedString { append("Pagás con "); withStyle(SpanStyle(color = LabColors.On, fontWeight = FontWeight.Medium)) { append("Prex") } },
+                    style = type.bodyMedium.copy(fontSize = 14.5.sp), color = LabColors.Muted)
+                if (payer != null) Text("Titular: ${payer.givenName} ${payer.familyName}".trim(), style = type.bodyMedium.copy(fontSize = 14.5.sp), color = LabColors.Muted)
+                else Text("Agregar titular", style = type.bodyMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = LabColors.Primary)
+            }
+            AppGlyph(Glyph.Chevron, Modifier.size(22.dp), tint = LabColors.Muted)
+        }
+        Spacer(Modifier.height(14.dp))
+        if (payer != null) LabPrimary("Continuar con Prex", valid && !state.busy, onClick = { amount?.let(onChoose) }, sheet = true)
+        else LabPrimary("Agregar titular y continuar", valid && !state.busy, onClick = onPayer, sheet = true)
     }
 }
 

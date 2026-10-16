@@ -207,7 +207,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
     fun dismissCredited() { state = state.copy(credited = null); lastReceipt = emptyList() }
     fun dismissNotice(message: String) { if (state.message == message) state = state.copy(message = "") }
-    fun notice(message: String) { state = state.copy(message = message, busy = false) }
+    fun notice(message: String) { LabLog.add("aviso", message); state = state.copy(message = message, busy = false) }
 
     private fun restorePaymentRecord() {
         journalUnavailable=false
@@ -687,6 +687,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     private fun stmDown(detail: String) = "STM no está respondiendo ($detail). La página oficial parece caída o con problemas."
 
     private fun fail(message: String) {
+        LabLog.add("STM", "falla: $message")
         if(activityOpened) {
             active=false;handler.removeCallbacks(poll)
             // Say which step failed; an unread page is not an empty history.
@@ -733,6 +734,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         if (!active || !foreground || destroyed || !NavigationPolicy.allowed(web.url ?: "")) return
         if (lastAction == action && state.busy) return
         lastAction = action; actionStarted = System.currentTimeMillis()
+        LabLog.add("STM", "acción $action")
         state = state.copy(busy = true, message = "")
         val generation = navigationGeneration
         val request = sessionRequest
@@ -827,7 +829,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         }
         val changed = stage != pageStage
         if(activityOpened && stage !in setOf("start","identity","document","password","signedOut","sessionExpired")) {
-            if(changed) {lastAction="";actionStarted=System.currentTimeMillis()}
+            if(changed) {lastAction="";actionStarted=System.currentTimeMillis(); LabLog.add("STM", "actividad: página $stage")}
             pageStage=stage
             when(stage) {
                 "loading","handoff" -> state=state.copy(stage="activity",busy=true)
@@ -856,7 +858,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         val shape = if (stage == "cards" || stage == "cardsLoading")
             " · tabla=${if (data.optBoolean("tablePresent")) 1 else 0}, filas=${data.optInt("rowCount").coerceIn(0, 999)}, visibles=${data.optInt("visibleRowCount").coerceIn(0, 999)}, leídas=${(data.optJSONArray("cards")?.length() ?: 0).coerceIn(0, 999)}" else ""
         state = state.copy(diagnostic = stageTrail.joinToString(" → ") + shape)
-        if (changed) { lastAction = ""; state = state.copy(busy = false); actionStarted = System.currentTimeMillis() }
+        if (changed) { lastAction = ""; state = state.copy(busy = false); actionStarted = System.currentTimeMillis(); LabLog.add("STM", "página $stage") }
         pageStage = stage
         val c = data.optJSONObject("captcha")
         val rect = c?.let { CaptchaRect(it.optDouble("x").toFloat(), it.optDouble("y").toFloat(), it.optDouble("width").toFloat(), it.optDouble("height").toFloat()) }

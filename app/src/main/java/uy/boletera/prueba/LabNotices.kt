@@ -24,10 +24,10 @@ internal data class LabNews(@DrawableRes val icon: Int, val title: String, val l
 
 /** What Lab 7 brings, shown once after updating. Up to four; the full detail stays on GitHub. */
 internal val LabWhatsNewItems = listOf(
-    LabNews(R.drawable.ic_check, "Botones con más vida", "Se hunden de a poco mientras los apretás y rebotan al soltar."),
-    LabNews(R.drawable.ic_transit_card, "Hojas elásticas", "Tirá «Tus boleteras» para arriba: se estira y vuelve sola."),
-    LabNews(R.drawable.ic_bolt, "Express con tarjeta guardada", "Mantené el rayo, poné la huella y listo."),
-    LabNews(R.drawable.ic_lock, "Solo con tu huella", "Cifrada en el chip del celular; se borra si cambian las huellas."),
+    LabNews(R.drawable.ic_bolt, "Express arreglado", "Arranca al instante y la huella llega al final de la luz."),
+    LabNews(R.drawable.ic_credit_card, "Nunca se traba", "Si la tarjeta guardada no abre, seguís con la tarjeta a mano."),
+    LabNews(R.drawable.ic_transit_card, "Paneles que se arrastran", "Tirá para abajo para cerrar; para arriba se estiran."),
+    LabNews(R.drawable.ic_history, "Registro de uso", "«Enviar reporte» manda lo que pasó en las últimas 24 h, sin tus datos."),
 )
 
 /** The release notes as news: «Título — línea» (or «Título: línea») becomes a phrase and its line, with an icon by topic. */

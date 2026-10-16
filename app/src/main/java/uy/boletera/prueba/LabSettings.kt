@@ -120,8 +120,14 @@ private val RowLine = Color.White.copy(alpha = .09f)
                         }
                         Divider()
                     }
-                    SettingRow(R.drawable.ic_content_copy, "Enviar reporte", "Lo que pasó en STM, sin tus datos", onClick = { LabReport.send(context, "Reporte desde Configuración") }) {
+                    // Always here, also when nothing failed on screen: it sends the last 24 hours of what happened in the app.
+                    SettingRow(R.drawable.ic_content_copy, "Enviar reporte", "Lo que hiciste y pasó en las últimas 24 h, sin tus datos", onClick = { LabReport.send(context, "Reporte desde Configuración") }) {
                         SmallAction(if (copied) "Copiado ✓" else "Copiar", done = copied, onClick = copy)
+                    }
+                    Divider()
+                    var erased by remember { mutableStateOf(false) }
+                    SettingRow(R.drawable.ic_history, "Borrar registro", "Lo anotado en este celular para los reportes") {
+                        SmallAction(if (erased) "Borrado ✓" else "Borrar", done = erased) { LabLog.clear(); erased = true }
                     }
                 }
                 GroupTitle("Versión")
@@ -186,7 +192,7 @@ private val RowLine = Color.White.copy(alpha = .09f)
     danger: Boolean = false, painted: Boolean = false, bottom: androidx.compose.ui.unit.Dp = 10.dp, trailing: (@Composable () -> Unit)? = null) {
     val type = MaterialTheme.typography
     val on = if (painted) LabColors.OnPrimary else if (danger) Err else LabColors.On
-    Row(modifier.fillMaxWidth().heightIn(min = 64.dp).then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+    Row(modifier.fillMaxWidth().heightIn(min = 64.dp).then(if (onClick != null) Modifier.clickable(role = Role.Button) { LabLog.tap("ajustes: $title"); onClick() } else Modifier)
         .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = bottom),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(Modifier.size(36.dp).clip(RoundedCornerShape(18.dp)).background(when { painted -> LabColors.OnPrimary.copy(alpha = .12f); danger -> Err.copy(alpha = .12f); else -> Color.White.copy(alpha = .07f) }),
@@ -204,7 +210,7 @@ private val RowLine = Color.White.copy(alpha = .09f)
 /** A small button with a background (Copiar, Buscar, Instalar) that still answers in 48 dp. */
 @Composable private fun SmallAction(label: String, done: Boolean = false, painted: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     val color = when { done -> Color(0xFF9FE3B8); painted -> LabColors.OnPrimary; else -> LabColors.Primary }
-    Box(Modifier.height(48.dp).clip(RoundedCornerShape(24.dp)).clickable(enabled = enabled, role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.height(48.dp).clip(RoundedCornerShape(24.dp)).clickable(enabled = enabled, role = Role.Button) { LabLog.tap("ajustes: $label"); onClick() }, contentAlignment = Alignment.Center) {
         Box(Modifier.height(40.dp).widthIn(min = 76.dp).clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = if (painted) .14f else .12f)).padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center) {
             Text(label, style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp), color = color.copy(alpha = if (enabled) 1f else .5f), maxLines = 1)

@@ -1,5 +1,6 @@
 package uy.boletera.prueba
 
+import kotlinx.coroutines.flow.first
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -54,6 +55,9 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
     val balances = remember { mutableStateMapOf(DemoCards[0].id to 124_000L, DemoCards[1].id to 38_500L) }
     val balance = balances[card] ?: 0L
     var showCards by remember { mutableStateOf(false) }
+    // «Ingresar con contraseña» opens the real sheet with sample data already in it: nothing can be typed, nothing is sent.
+    var signIn by remember { mutableStateOf(false) }
+    var reveal by remember { mutableStateOf(false) }
     var naming by remember { mutableStateOf<String?>(null) }
     var amount by remember { mutableLongStateOf(26_000L) }
     var express by remember { mutableStateOf(false) }
@@ -66,20 +70,33 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
     val state = UiState(stage = if (stage == "home") "balance" else stage, cards = DemoCards, selectedCard = card,
         balance = balance, minimum = 26_000L, consultedAt = now, hasSavedAccess = true, credited = credited)
     var savedCard by remember { mutableStateOf(false) }
+    // The fingerprint of the saved card is still open: the wait goes on until it answers.
+    var opening by remember { mutableStateOf(false) }
     fun pay(value: Long, quick: Boolean) { amount = value; express = quick; checked = false; showAmount = false; stage = "wait" }
     val scope = rememberCoroutineScope()
-    // Like the real Express: with a card saved for it, the fingerprint comes once the bolt's light has run, and then
-    // nothing else is asked. The demo opens the card only to prove the fingerprint works; it never uses it.
+    // Like the real Express: it starts at once, and with a card saved for it the fingerprint comes once the bolt's light
+    // has run; nothing else is asked. If the card does not open, the card step says why. The demo opens the card only
+    // to prove the fingerprint works; it never uses it.
     fun express() {
         val vault = LabExpressCard.vault
-        if (vault == null || !vault.exists) { savedCard = false; pay(26_000L, quick = true); return }
-        scope.launch { delay(950); vault.unlock { card -> if (card != null) { savedCard = true; pay(26_000L, quick = true) } } }
+        savedCard = false; LabExpressCard.problem = null
+        pay(26_000L, quick = true)
+        if (vault == null || !vault.exists) return
+        opening = true
+        scope.launch {
+            delay(1150)
+            vault.unlock { card ->
+                opening = false; savedCard = card != null
+                if (card == null && vault.lastProblem.isNotBlank()) LabExpressCard.problem = vault.lastProblem
+            }
+        }
     }
+    LaunchedEffect(stage) { LabLog.add("demo", "pantalla $stage") }
     // The made-up timings are close to the real ones, so the waits feel like the real waits.
     LaunchedEffect(stage) {
         when (stage) {
             "connecting" -> { delay(1600); stage = "home" }
-            "wait" -> { delay(1400); stage = if (express && savedCard) "processing" else "card" }
+            "wait" -> { delay(1400); snapshotFlow { opening }.first { !it }; stage = if (express && savedCard) "processing" else "card" }
             "switching" -> { delay(1200); stage = "home" }
             "processing" -> { delay(2300)
                 if (LabDemo.rejectNext) { LabDemo.rejectNext = false; stage = "rejected" } else { balances[card] = balance + amount; credited = amount; stage = "done" } }
@@ -89,6 +106,7 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
         when (stage) { "home" -> stage = "welcome"; "done" -> { credited = null; stage = "home" }; else -> stage = "home" }
     }
     BackHandler(enabled = showAmount) { showAmount = false }
+    BackHandler(enabled = signIn) { signIn = false }
     val haze = remember { HazeState() }
     BoleteraTheme("dark") {
         Box(Modifier.fillMaxSize().background(LabColors.Base)) {
@@ -103,7 +121,7 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
                 }
                 Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp)) {
                     when (stage) {
-                        "welcome" -> LabWelcome(state, savedAccess = true, authenticating = false, onUnlock = { stage = "connecting" }, onManual = { stage = "connecting" },
+                        "welcome" -> LabWelcome(state, savedAccess = true, authenticating = false, onUnlock = { stage = "connecting" }, onManual = { signIn = true },
                             onAccessGuide = {})
                         "switching" -> LabConnecting("Cambiando de boletera", "Consultando el saldo de STM ···· ${card.takeLast(4)}.", null)
                         "connecting" -> LabConnecting("Conectando con STM", "Tu saldo aparece en un momento.", { stage = "welcome" },
@@ -112,6 +130,7 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
                         "wait" -> LabPaymentWait(amount, card, express, onCancel = { stage = "home" })
                         "card" -> Column(Modifier.fillMaxSize()) {
                             LabPaymentLine(amount, card)
+                            LabSavedCardProblem(LabExpressCard.problem)
                             // Express waits for the saved card to be chosen, like Android's suggestion does, and then goes on by itself.
                             LabDemoCardFields(express) { stage = if (LabDemo.askCheck) "check" else if (express) "processing" else "confirm" }
                         }
@@ -134,13 +153,16 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
                     onExpressCharge = { express() }, expressPreparing = false, expressProvider = "Prex")
                 LabAmountPanel(state, open = showAmount, onClose = { showAmount = false }, payer = DemoPayer, onPayer = {}, onChoose = { pay(it, quick = false) })
             }
+            if (stage == "welcome") LabSignInSheet(open = signIn, document = "12345678", onDocument = {}, password = "muestra-demo", onPassword = {},
+                reveal = reveal, onReveal = { reveal = !reveal }, save = false, onSave = {}, canSave = false, enabled = true,
+                onClose = { signIn = false }, onSubmit = { signIn = false; stage = "connecting" })
             // Always on screen: this is not the real thing. It sits just left of the gear, centred on the same line (the
             // home's bar is 66 dp with the gear at 12 dp from the edge; the other bars are 64 dp with it at 16 dp), so on
             // a wide screen it stays next to the gear instead of floating in the middle. A 48 dp touch area, 30 dp to see.
             val onHome = stage == "home"; val withGear = stage in setOf("welcome", "home")
             Box(Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars)
                 .padding(top = if (onHome) 9.dp else 8.dp, end = if (onHome) 68.dp else if (withGear) 72.dp else 16.dp)
-                .height(48.dp).clip(RoundedCornerShape(15.dp)).clickable(role = Role.Button) { showSheet = true }
+                .height(48.dp).clip(RoundedCornerShape(15.dp)).clickable(role = Role.Button) { LabLog.tap("pastilla Modo demo"); showSheet = true }
                 .semantics(mergeDescendants = true) { contentDescription = "Modo demo, sin pagos reales. Tocá para opciones." },
                 contentAlignment = Alignment.Center) {
                 Box(Modifier.height(30.dp).clip(RoundedCornerShape(15.dp)).background(LabColors.Warn.copy(alpha = .18f))
@@ -161,6 +183,7 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
             DemoSwitch("Pedir la verificación «No soy un robot»", LabDemo.askCheck) { LabDemo.askCheck = it }
             Spacer(Modifier.height(14.dp))
             LabPrimary("Salir del modo demo", onClick = { showSheet = false; LabDemo.set(context, false) }, sheet = true)
+            LabTextLink("Enviar reporte", { LabReport.send(context, "Reporte desde el modo demo") }, Modifier.align(Alignment.CenterHorizontally), quiet = true)
             LabTextLink("Empezar de nuevo", { showSheet = false; credited = null; balances[DemoCards[0].id] = 124_000L; balances[DemoCards[1].id] = 38_500L; card = DemoCards[0].id; stage = "welcome" }, Modifier.align(Alignment.CenterHorizontally), quiet = true)
         }
     }

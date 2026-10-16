@@ -32,6 +32,8 @@ internal class CardVault(private val activity: FragmentActivity) {
     private val prefs = activity.getSharedPreferences("card_vault", Context.MODE_PRIVATE)
     private val alias = "boletera.card.v1"
     private var prompt: BiometricPrompt? = null
+    /** Why the last [unlock] gave no card, in plain words; empty when the person cancelled it. */
+    var lastProblem = ""; private set
     /** «···· 8842» (only the last four digits are ever kept in clear), or null with no card saved. Observable. */
     var label by mutableStateOf(prefs.getString("label", null)); private set
     val exists get() = prefs.contains("ciphertext") && prefs.contains("iv")
@@ -57,10 +59,20 @@ internal class CardVault(private val activity: FragmentActivity) {
     }
 
     private fun authorize(cipher: Cipher, title: String, subtitle: String, result: (Cipher?) -> Unit) {
-        if (!available) { result(null); return }
+        if (!available) { lastProblem = "la huella no está disponible (código ${BiometricManager.from(activity).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)})"; result(null); return }
         prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(authentication: BiometricPrompt.AuthenticationResult) { prompt = null; result(authentication.cryptoObject?.cipher) }
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { prompt = null; result(null) }
+            override fun onAuthenticationSucceeded(authentication: BiometricPrompt.AuthenticationResult) {
+                prompt = null
+                val authorized = authentication.cryptoObject?.cipher
+                if (authorized == null) lastProblem = "Android aceptó la huella pero no devolvió la llave (tipo ${authentication.authenticationType})"
+                result(authorized)
+            }
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                prompt = null
+                lastProblem = if (errorCode in setOf(BiometricPrompt.ERROR_USER_CANCELED, BiometricPrompt.ERROR_NEGATIVE_BUTTON, BiometricPrompt.ERROR_CANCELED)) ""
+                    else "huella: $errString (código $errorCode)"
+                result(null)
+            }
         })
         val info = BiometricPrompt.PromptInfo.Builder().setTitle(title).setSubtitle(subtitle)
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG).setNegativeButtonText("Cancelar").build()
@@ -91,22 +103,28 @@ internal class CardVault(private val activity: FragmentActivity) {
     }
 
     fun unlock(result: (SavedCard?) -> Unit) {
+        lastProblem = ""
         try {
             val iv = Base64.decode(prefs.getString("iv", null), Base64.NO_WRAP)
             val encrypted = Base64.decode(prefs.getString("ciphertext", null), Base64.NO_WRAP)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             try { cipher.init(Cipher.DECRYPT_MODE, key(false), GCMParameterSpec(128, iv)) }
-            catch (_: android.security.keystore.KeyPermanentlyInvalidatedException) { forget(); result(null); return }
+            catch (_: android.security.keystore.KeyPermanentlyInvalidatedException) {
+                forget(); lastProblem = "cambiaron las huellas del celular y Android borró la tarjeta guardada"; result(null); return
+            }
             authorize(cipher, "Carga Express", "Confirmá con tu huella para pagar con tu tarjeta guardada") { authorized ->
                 if (authorized == null) result(null)
                 else try {
                     val bytes = authorized.doFinal(encrypted)
                     try { val d = JSONObject(String(bytes, Charsets.UTF_8)); result(SavedCard(d.getString("pan"), d.getString("expiry"), d.getString("cvv"))) }
                     finally { bytes.fill(0) }
-                } catch (_: Exception) { result(null) }
+                } catch (e: Exception) { lastProblem = "no se pudo abrir: ${problemOf(e)}"; result(null) }
             }
-        } catch (_: Exception) { result(null) }
+        } catch (e: Exception) { lastProblem = "no se pudo preparar: ${problemOf(e)}"; result(null) }
     }
+    /** The error's kind and Android's words, never any card data (there is none in these exceptions). */
+    private fun problemOf(e: Exception) = "${e.javaClass.simpleName}${e.message?.take(140)?.let { ": $it" }.orEmpty()}" +
+        (e.cause?.let { " / ${it.javaClass.simpleName}${it.message?.take(100)?.let { m -> ": $m" }.orEmpty()}" }.orEmpty())
 
     fun forget() {
         prompt?.cancelAuthentication()
@@ -119,5 +137,9 @@ internal class CardVault(private val activity: FragmentActivity) {
 /** The vault for the screens, and the card opened for the Express in course (cleared as soon as it is sent). */
 internal object LabExpressCard {
     var vault: CardVault? = null
-    var pending: SavedCard? = null
+    var pending by mutableStateOf<SavedCard?>(null)
+    /** The fingerprint for the Express in course is still open: Prex's card step waits for it. */
+    var opening by mutableStateOf(false)
+    /** Why the saved card did not open this time (shown at the card step, kept for «Enviar reporte»); null when it did or was cancelled. */
+    var problem by mutableStateOf<String?>(null)
 }

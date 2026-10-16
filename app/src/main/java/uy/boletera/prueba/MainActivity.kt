@@ -86,7 +86,31 @@ class MainActivity : FragmentActivity() {
         handleShortcut(intent); publishShortcuts()
         val preferences = getSharedPreferences("appearance", MODE_PRIVATE)
         if (IsLab) LabDemo.load(this)
+        if (IsLab) {
+            LabLog.init(this)
+            // A crash leaves its first lines in the record before Android closes the app.
+            val previous = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+                LabLog.add("CIERRE", "${error.javaClass.simpleName}: ${error.message.orEmpty().take(200)} @ " +
+                    error.stackTrace.take(6).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
+                Thread.sleep(300)
+                previous?.uncaughtException(thread, error)
+            }
+        }
         LabReport.diagnostic = { if (::engine.isInitialized) engine.helpDiagnostic else "" }
+        if (IsLab) lifecycleScope.launch {
+            // What STM and Prex are doing, as it changes (screen names and flags only, never page text or data).
+            androidx.compose.runtime.snapshotFlow {
+                val p = engine.prexPayment
+                "app=${engine.state.stage}${if (engine.state.busy) " (ocupado)" else ""} · prex=${p.nativeStage}" +
+                    (if (p.challenge != null) " · captcha" else "") + (if (p.verificationApproved) " · captcha aprobado" else "") +
+                    (if (p.cardBusy) " · tarjeta enviándose" else "") + (if (p.cardError) " · tarjeta con error" else "") +
+                    (if (p.slowStep) " · Prex lento" else "") + (if (p.staleAfterResume) " · recargando al volver" else "") +
+                    (if (p.message.isNotBlank()) " · error: ${p.message}" else "") +
+                    (if (engine.expressPreparing) " · Express preparando" else "") +
+                    (if (LabExpressCard.opening) " · esperando huella" else "") + (LabExpressCard.problem?.let { " · tarjeta guardada: $it" } ?: "")
+            }.collect { LabLog.add("estado", it) }
+        }
         setContent {
             var appearance by remember { mutableStateOf(preferences.getString("theme", "system") ?: "system") }
             val haptics=remember {AppHaptics(this@MainActivity)}
@@ -99,8 +123,27 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
-    override fun onStop() { super.onStop(); if (::engine.isInitialized) engine.pause() }
-    override fun onStart() { super.onStart(); if (::engine.isInitialized) engine.resume() }
+    override fun onStop() { super.onStop(); LabLog.add("app", "a segundo plano"); if (::engine.isInitialized) engine.pause() }
+    override fun onStart() { super.onStart(); LabLog.add("app", "en pantalla"); if (::engine.isInitialized) engine.resume() }
+    // Lab: where the finger went (as % of the screen), how long and, if it moved, to where. The keyboard is another
+    // window: its keys never reach the app, so typed digits can never be here.
+    private var downAt = 0L; private var downX = 0f; private var downY = 0f
+    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (IsLab) {
+            val w = window.decorView.width.coerceAtLeast(1); val h = window.decorView.height.coerceAtLeast(1)
+            fun at(x: Float, y: Float) = "${(x * 100 / w).toInt()}%,${(y * 100 / h).toInt()}%"
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> { downAt = event.eventTime; downX = event.x; downY = event.y }
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    val ms = event.eventTime - downAt
+                    val moved = kotlin.math.hypot(event.x - downX, event.y - downY) > 24 * resources.displayMetrics.density
+                    val cancel = if (event.actionMasked == android.view.MotionEvent.ACTION_CANCEL) " (cancelado)" else ""
+                    LabLog.add("dedo", if (moved) "arrastró ${at(downX, downY)} → ${at(event.x, event.y)} en $ms ms$cancel" else "tocó ${at(event.x, event.y)} · $ms ms$cancel")
+                }
+            }
+        }
+        return super.dispatchTouchEvent(event)
+    }
     override fun onDestroy() { if (::vault.isInitialized) vault.cancel(); if (::engine.isInitialized) engine.destroy(); super.onDestroy() }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -172,29 +215,33 @@ class MainActivity : FragmentActivity() {
             // fingerprint cancels the Express; without a saved card it goes on as before (Android's saved-card suggestion).
             val cards=LabExpressCard.vault
             if(IsLab && cards!=null && cards.exists) {
-                // The fingerprint comes once the bolt's light has run (it would dim the animation), and Express starts
-                // when the app is ready again after it; a few tries, since the prompt can pause the app for a moment.
+                // Express starts right away, as without a card (the light lands on its waiting card); the fingerprint
+                // comes once the light is done and Prex's card step waits for it. If the card does not open, that step
+                // shows the card form with the reason, so Express never stalls.
+                LabExpressCard.pending=null; LabExpressCard.problem=null
+                val why=engine.startExpressOrWhy()
+                if(why!=null) {
+                    engine.expressNotStarted="Carga Express con tarjeta guardada no empezó: $why"
+                    engine.notice("No pudimos empezar la Carga Express ($why). Probá de nuevo.")
+                    return
+                }
+                LabExpressCard.opening=true
                 lifecycleScope.launch {
-                    kotlinx.coroutines.delay(950)
+                    kotlinx.coroutines.delay(1150)
+                    LabLog.add("huella", "pedida para la tarjeta guardada")
                     cards.unlock { card ->
-                        if(card==null) return@unlock
-                        lifecycleScope.launch {
-                            var why: String? = "sin intentar"
-                            for(attempt in 0 until 12) {
-                                why = engine.startExpressOrWhy()
-                                if(why==null || why=="ya hay una Carga Express en curso") break
-                                kotlinx.coroutines.delay(300)
-                            }
-                            if(why==null) {
-                                LabExpressCard.pending=card
-                                // Used at Prex's card step (a few seconds away); if Express never gets there, it is dropped.
-                                lifecycleScope.launch { kotlinx.coroutines.delay(90_000); if(LabExpressCard.pending===card) LabExpressCard.pending=null }
-                            }
-                            else {
-                                engine.expressNotStarted="Carga Express con tarjeta guardada no empezó: $why"
-                                engine.notice("No pudimos empezar la Carga Express ($why). Probá de nuevo.")
-                            }
+                        LabExpressCard.opening=false
+                        LabLog.add("huella", if(card!=null) "tarjeta abierta" else cards.lastProblem.ifBlank { "cancelada" })
+                        if(card==null) {
+                            val problem=cards.lastProblem
+                            if(problem.isNotBlank()) { LabExpressCard.problem=problem; engine.expressNotStarted="Tarjeta guardada no se abrió: $problem" }
+                            return@unlock
                         }
+                        // Express may have been cancelled meanwhile: then the card is not kept.
+                        if(!engine.expressPreparing && engine.state.stage!="embeddedPrex") return@unlock
+                        LabExpressCard.pending=card
+                        // Used at Prex's card step (a few seconds away); if Express never gets there, it is dropped.
+                        lifecycleScope.launch { kotlinx.coroutines.delay(90_000); if(LabExpressCard.pending===card) LabExpressCard.pending=null }
                     }
                 }
                 return

@@ -349,3 +349,53 @@ internal fun Modifier.labStretchUp(fill: Color = Color.Transparent): Modifier = 
         if (pull.value > 0f) drawRect(fill, Offset(0f, size.height - 1f), Size(size.width, pull.value + 1f))
     }
 }
+
+/**
+ * Pull to close for the panels the app draws itself (the amount panel, which is the Recargar button grown, and the
+ * sign-in sheet), through Compose's own nested scroll, the way Google's sheets do it: pulled down it follows the
+ * finger and closes past a third of its height or with a quick flick, otherwise it springs back; pulled up it
+ * stretches with more and more resistance and springs back. Scrolling content inside still scrolls first.
+ */
+@Stable internal class LabPull(private val scope: kotlinx.coroutines.CoroutineScope, private val close: () -> Unit, private val limit: Float,
+    /** Whether it goes back up when closing (the amount panel shrinks into the button), or keeps falling (a sheet sliding away). */
+    private val settleOnClose: Boolean) {
+    /** How far it is pulled: positive down (px), negative stretched up. */
+    val offset = Animatable(0f)
+    /** The panel's height, measured by it. */
+    var height = 1f
+    private var up = 0f
+    private fun stretch(reach: Float) = limit * (1f - 1f / (reach / limit * .6f + 1f))
+    private fun snap(value: Float) { scope.launch { offset.snapTo(value) } }
+    val connection = object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): Offset {
+            if (source != androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput) return Offset.Zero
+            val y = available.y; val now = offset.value
+            // Going back the other way first undoes the pull, before the content scrolls.
+            if (now > 0f && y < 0f) { val used = maxOf(y, -now); snap(now + used); return Offset(0f, used) }
+            if (now < 0f && y > 0f) { up = (up - y).coerceAtLeast(0f); snap(-stretch(up)); return Offset(0f, y) }
+            return Offset.Zero
+        }
+        override fun onPostScroll(consumed: Offset, available: Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): Offset {
+            if (source != androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput) return Offset.Zero
+            val y = available.y
+            if (y > 0f) { snap(offset.value + y); return Offset(0f, y) }
+            if (y < 0f) { up += -y; snap(-stretch(up)); return Offset(0f, y) }
+            return Offset.Zero
+        }
+        override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+            up = 0f
+            val now = offset.value
+            if (now == 0f) return androidx.compose.ui.unit.Velocity.Zero
+            if (now > 0f && (now > height / 3f || available.y > 1400f)) { close(); if (!settleOnClose) return available }
+            scope.launch { offset.animateTo(0f, spring(dampingRatio = if (now < 0f) .55f else .8f, stiffness = if (now < 0f) 420f else 380f), initialVelocity = available.y) }
+            return available
+        }
+    }
+}
+
+@Composable internal fun rememberLabPull(onClose: () -> Unit, settleOnClose: Boolean = true): LabPull {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val close by rememberUpdatedState(onClose)
+    val limit = with(androidx.compose.ui.platform.LocalDensity.current) { 48.dp.toPx() }
+    return remember(scope, limit) { LabPull(scope, { close() }, limit, settleOnClose) }
+}

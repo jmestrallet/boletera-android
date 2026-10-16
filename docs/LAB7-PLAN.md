@@ -75,6 +75,7 @@ En Configuración, un interruptor «Modo demo» para probar todo sin plata ni ST
 
 ## Para después de Lab 7
 - **Lo primero en Lab 8 (pedido del dueño):** cuando Prex rechaza la tarjeta, poder corregirla y reenviarla ahí mismo con «Continuar», como en la maqueta (faltantes.html r3). Hoy la app no reenvía mientras la página de Prex marca el error y ofrece «Ver qué respondió Prex». Toca la lógica del pago (`EmbeddedPrexPayment.submitCard` y el guardia `providerError` de `NativeCardForm`): probarlo con un pago real.
+- **Próxima versión (pedido del dueño, 16/10):** en Configuración, la sección «Versión» (buscar e instalar actualizaciones) sube a segundo lugar, justo abajo de la cuenta: es lo que más usa y hoy está al fondo.
 - Recarga para otra persona con la «Recarga rápida» de STM (datos temporales).
 - Actividad, cuando el dueño tenga nivel 2 (probable: segundo factor de gub.uy).
 - eBROU.

@@ -155,7 +155,7 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
             val pill = RoundedCornerShape(24.dp)
             val chipPress = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             Row(Modifier.height(48.dp).then(if (canChoose) Modifier.labPress(chipPress) else Modifier).labGlass(haze, pill, blur)
-                .then(if (canChoose) Modifier.clickable(chipPress, indication = androidx.compose.material3.ripple(), enabled = !state.busy, role = Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onChangeCard() } else Modifier)
+                .then(if (canChoose) Modifier.clickable(chipPress, indication = androidx.compose.material3.ripple(), enabled = !state.busy, role = Role.Button) { LabLog.tap("elegir boletera"); haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onChangeCard() } else Modifier)
                 .padding(start = 10.dp, end = if (canChoose) 12.dp else 16.dp)
                 .semantics(mergeDescendants = true) {
                     contentDescription = "STM terminada en ${state.selectedCard?.takeLast(4).orEmpty()}" + if (canChoose) ", cambiar boletera" else ""
@@ -167,7 +167,7 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
             }
             Spacer(Modifier.weight(1f))
             val gearPress = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            Box(Modifier.size(48.dp).labPress(gearPress).labGlass(haze, RoundedCornerShape(24.dp), blur).clickable(gearPress, indication = androidx.compose.material3.ripple(), onClick = onSettings), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(48.dp).labPress(gearPress).labGlass(haze, RoundedCornerShape(24.dp), blur).clickable(gearPress, indication = androidx.compose.material3.ripple()) { LabLog.tap("Configuración"); onSettings() }, contentAlignment = Alignment.Center) {
                 AppGlyph(Glyph.Settings, Modifier.size(22.dp), tint = LabColors.On, label = "Configuración")
             }
         }
@@ -188,7 +188,7 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
                     contentAlignment = Alignment.Center) {
                     // It answers the finger: sinks a little and darkens while held, with Android's ripple from where it was touched.
                     Row(Modifier.fillMaxWidth().height(if (ring) 64.dp else 64.dp).labPress(press).clip(RoundedCornerShape(32.dp)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
-                        .clickable(press, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled, role = Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onCharge() },
+                        .clickable(press, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled, role = Role.Button) { LabLog.tap("Recargar"); haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onCharge() },
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                         Icon(painterResource(R.drawable.ic_add), contentDescription = null, tint = LabColors.OnPrimary, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.width(8.dp))
@@ -225,7 +225,7 @@ private val ExpressTicks = longArrayOf(0, 380, 640, 820, 950, 1040, 1105, 1150)
     var shot by remember { mutableFloatStateOf(-1f) } // seconds since firing, -1 when not fired
     val enabledNow by rememberUpdatedState(enabled)
     val preparingNow by rememberUpdatedState(preparing)
-    LaunchedEffect(pressed) { onPressing(pressed && enabled && !preparing) }
+    LaunchedEffect(pressed) { onPressing(pressed && enabled && !preparing); if (pressed) LabLog.add("rayo", if (enabled && !preparing) "apretado" else "apretado sin efecto (enabled=$enabled, preparando=$preparing)") }
     // One clock drives the charge, the spin, the tremor and the shot, so they stay in step with the tics.
     LaunchedEffect(Unit) {
         var last = -1L; var pressStart = -1L; var released = -1L; var from = 0f; var kickAt = -1L; var nextTick = 0
@@ -274,7 +274,7 @@ private val ExpressTicks = longArrayOf(0, 380, 640, 820, 950, 1040, 1105, 1150)
     val halo = if (shot >= 0f) .75f * white * (1 - ((shot - .28f) / .28f).coerceIn(0f, 1f)) else if (still) 0f else .42f * charge * charge
     val configuration = LocalViewConfiguration.current
     val hold = remember(configuration) { object : ViewConfiguration by configuration { override val longPressTimeoutMillis = maxOf(EXPRESS_HOLD_MILLIS, configuration.longPressTimeoutMillis) } }
-    fun start() { if (enabled && !preparing && !fired) { fired = true; haptic.performHapticFeedback(HapticFeedbackType.Confirm); LabExpressLight.fire(); onStart() } }
+    fun start() { if (enabled && !preparing && !fired) { LabLog.tap("rayo: Carga Express disparada"); fired = true; haptic.performHapticFeedback(HapticFeedbackType.Confirm); LabExpressLight.fire(); onStart() } }
     CompositionLocalProvider(LocalViewConfiguration provides hold) {
         Box(Modifier.size(76.dp).onGloballyPositioned { LabExpressLight.from = it.boundsInRoot().center }.graphicsLayer { scaleX = press; scaleY = press; translationX = tremorX.dp.toPx(); translationY = tremorY.dp.toPx() }
             .combinedClickable(interactionSource = interaction, indication = null, enabled = enabled && !preparing, onClick = {},

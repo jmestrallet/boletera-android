@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.40 Lab 15 - Carga Express arreglada y registro de uso
+
+- Carga Express con tarjeta guardada arranca al instante: la luz da toda la vuelta, cae en la tarjeta y recién ahí pide la huella.
+- Si la tarjeta guardada no se abre o cancelás la huella, sigue al paso de la tarjeta (ya no se queda trabado) y dice el motivo.
+- El panel de montos y la hoja de contraseña se arrastran: para abajo se cierran (el panel vuelve a ser el botón Recargar), para arriba se estiran y vuelven.
+- Registro de uso: Lab anota pantallas, toques y respuestas de STM y Prex de las últimas 24 h, sin documento, contraseña ni datos de tarjeta. «Enviar reporte» en Configuración lo manda aunque no haya fallado nada; «Borrar registro» lo borra.
+- Modo demo: «Ingresar con contraseña» abre la hoja con datos de muestra, y el modo demo también tiene «Enviar reporte».
+
 ## 0.2.40 Lab 14 - Botones con más vida
 
 - Botones con más vida: al mantenerlos apretados se van hundiendo de a poco, cada vez más lento, y al soltar rebotan.

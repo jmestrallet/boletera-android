@@ -192,10 +192,12 @@ import androidx.compose.ui.unit.sp
     LaunchedEffect(stage) { if (stage in listOf("returnBalance", "sessionExpired")) onClose() }
     val amount = pending?.amount
     val express = payment.expressJourney
-    // Decided once per payment: the saved card is used, or (if Prex refuses it) the normal card step takes over.
-    val usingSaved = remember { LabExpressCard.pending != null }
+    // The saved card: while its fingerprint is open the card step waits; once sent, it waits for Prex. If it did not
+    // open (or Prex refuses it) the normal card step takes over.
+    var sentSaved by remember { mutableStateOf(false) }
+    val usingSaved = LabExpressCard.opening || LabExpressCard.pending != null || sentSaved
     // The opened card never outlives this payment.
-    DisposableEffect(Unit) { onDispose { LabExpressCard.pending = null } }
+    DisposableEffect(Unit) { onDispose { LabExpressCard.pending = null; LabExpressCard.problem = null } }
     val payerName = payment.chosenPayer?.let { "${it.givenName} ${it.familyName}".trim() }
     // From «Pagar» on, nothing leaves the payment until the result (A4).
     val paid = stage == "finalConfirmation" && (payment.completionSubmitted || payment.captchaRetry) ||
@@ -274,9 +276,9 @@ import androidx.compose.ui.unit.sp
                     // Express with the saved card: nothing to choose, it is sent as soon as Prex is ready.
                     stage == "card" && express && usingSaved && !payment.cardError -> {
                         Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
-                        LaunchedEffect(payment.canContinue, payment.cardBusy) {
+                        LaunchedEffect(payment.canContinue, payment.cardBusy, LabExpressCard.pending) {
                             val saved = LabExpressCard.pending
-                            if (saved != null && payment.canContinue && !payment.cardBusy) { LabExpressCard.pending = null; payment.submitSavedCard(saved.pan, saved.expiry, saved.cvv) }
+                            if (saved != null && payment.canContinue && !payment.cardBusy) { sentSaved = true; LabExpressCard.pending = null; payment.submitSavedCard(saved.pan, saved.expiry, saved.cvv) }
                         }
                         LabPaymentWait(amount, card, express = true, onCancel = null)
                     }
@@ -284,6 +286,7 @@ import androidx.compose.ui.unit.sp
                         // Only where the card is on screen: no screenshots or recording (the rest of the payment can be captured to report a problem).
                         SecureScreen()
                         LabPaymentLine(amount, card)
+                        LabSavedCardProblem(LabExpressCard.problem)
                         NativeCardForm(payment.cardBusy, payment.canContinue, payment.cardError, payment.expandedChallenge, payment::submitCard,
                             { if (payment.prepareOriginalReview()) showOriginal = true }, focusCard = express || payment.expressPhase == "done",
                             verificationRequired = payment.verificationRequired && !payment.verificationApproved, onManualContinue = payment.manualContinueObserver,
@@ -394,5 +397,14 @@ import androidx.compose.ui.unit.sp
             }
             else LabPrimary(if (busy) "Enviando…" else "Continuar", enabled = canContinue && !busy, onClick = onContinue)
         }
+    }
+}
+
+/** The saved card did not open: the card is typed this time, and the reason (Android's words) stays for «Enviar reporte». */
+@Composable internal fun LabSavedCardProblem(problem: String?) {
+    if (problem.isNullOrBlank()) return
+    Column(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(Color(0x1FF2B8B5)).padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text("No pudimos abrir tu tarjeta guardada", style = MaterialTheme.typography.titleSmall, color = LabColors.On)
+        Text("Ingresala esta vez. Motivo: $problem", style = MaterialTheme.typography.bodySmall, color = LabColors.Muted, modifier = Modifier.padding(top = 2.dp))
     }
 }
