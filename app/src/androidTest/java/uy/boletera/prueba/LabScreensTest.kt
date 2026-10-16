@@ -314,4 +314,19 @@ class LabScreensTest {
         compose.onNodeWithText("Novedades").assertIsDisplayed()
         capture("lab-news.png")
     }
+    @Test fun pictureCheckGetsTheWholeHeight() {
+        compose.setContent {
+            Frame(back = true) {
+                // Google's picture grid on a phone: about 400 × 580 CSS px, taller than wide.
+                LabVerification(26000, "ABCD4A4A", afterPay = false, onCancel = {}, expanded = true) {
+                    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                        val scale = minOf(maxWidth.value / 400f, maxHeight.value / 580f)
+                        Box(Modifier.size((400 * scale).dp, (580 * scale).dp).background(androidx.compose.ui.graphics.Color.White))
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("Elegí las imágenes").assertIsDisplayed()
+        capture("lab-pay-picture-check.png")
+    }
 }

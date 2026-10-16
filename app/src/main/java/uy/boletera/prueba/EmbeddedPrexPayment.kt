@@ -100,6 +100,12 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     private var observedOutcome = ""
     private var suspended = false
     private var suspendedAt = 0L
+    /**
+     * True from coming back to the app until the page answers again: Google may have expired and be redrawing the check,
+     * so the old crop would show an empty white box. Lab shows «Cargando la verificación…» meanwhile.
+     */
+    var staleAfterResume by mutableStateOf(false)
+        private set
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var cardCheckboxReady=false
     private val checkboxTap by lazy {CheckboxTapper(web) {stage ->
@@ -118,6 +124,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     val decoded = org.json.JSONTokener(raw).nextValue() as? String
                     if (decoded != null) {
                         val state = org.json.JSONObject(decoded)
+                        staleAfterResume = false
                         nativeStage = state.optString("stage", "loading")
                         if(nativeStage!="card")cardCheckboxReady=false
                         if(nativeStage=="original") {
@@ -440,6 +447,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     }
     fun resume() {
         if(suspended) {progressSince+=clock()-suspendedAt;failureSince+=clock()-suspendedAt}
+        // Back from the background: redraw the page now and wait for its answer before showing the check again.
+        if(suspended && challenge!=null) { staleAfterResume=true; web.invalidate(); web.requestLayout() }
         suspended=false
         if(!destroyed)web.evaluateJavascript("window.BoleteraExpress?.suspend(${!visible})",null)
         if(visible && originalLink!=null) {handler.removeCallbacks(profileStatus);handler.post(profileStatus)}

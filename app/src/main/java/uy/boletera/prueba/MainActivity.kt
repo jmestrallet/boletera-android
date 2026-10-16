@@ -726,7 +726,7 @@ class MainActivity : FragmentActivity() {
 }
 
 /** Keep the real page laid out while native content owns display and accessibility. */
-@Composable internal fun ExpandedPaymentChallenge(payment: EmbeddedPrexPayment, browserWidth: Int, browserHeight: Int, modifier: Modifier) {
+@Composable internal fun ExpandedPaymentChallenge(payment: EmbeddedPrexPayment, browserWidth: Int, browserHeight: Int, modifier: Modifier, corner: androidx.compose.ui.unit.Dp = 4.dp) {
     val keyboard=androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) {keyboard?.hide()}
     BoxWithConstraints(modifier,contentAlignment=Alignment.Center) {
@@ -734,11 +734,12 @@ class MainActivity : FragmentActivity() {
         val cssScale=if(payment.cssViewportWidth>0f)browserWidth/payment.cssViewportWidth/LocalDensity.current.density else 1f
         val scale=if(cap==null)1f else minOf(cssScale,maxWidth.value/cap.width,maxHeight.value/cap.height)
         PaymentBrowserView(payment,cap==null,cap,browserWidth,browserHeight,
-            if(cap==null)Modifier.size(1.dp) else Modifier.width((cap.width*scale).dp).height((cap.height*scale).dp))
+            if(cap==null)Modifier.size(1.dp) else Modifier.width((cap.width*scale).dp).height((cap.height*scale).dp),corner)
     }
 }
 
-@Composable internal fun PaymentBrowserView(payment: EmbeddedPrexPayment, hidden: Boolean, crop: CaptchaRect?, browserWidth: Int, browserHeight: Int, modifier: Modifier) {
+@Composable internal fun PaymentBrowserView(payment: EmbeddedPrexPayment, hidden: Boolean, crop: CaptchaRect?, browserWidth: Int, browserHeight: Int, modifier: Modifier,
+    corner: androidx.compose.ui.unit.Dp = 4.dp) {
     AndroidView(factory = {
         (payment.web.parent as? android.view.ViewGroup)?.removeView(payment.web)
         PaymentPageHost(it, payment.web)
@@ -751,7 +752,7 @@ class MainActivity : FragmentActivity() {
         it.viewportHeight = maxOf(browserHeight,if(crop!=null)kotlin.math.ceil((crop.height+32f)*cssScale).toInt() else browserHeight)
         it.cssViewportWidth = payment.cssViewportWidth
         it.nativeHidden = hidden; it.crop = crop
-    }, modifier = modifier.clip(RoundedCornerShape(4.dp)))
+    }, modifier = modifier.clip(RoundedCornerShape(corner)))
 }
 
 internal class PaymentPageHost(context: android.content.Context, private val browser: android.webkit.WebView) : android.view.ViewGroup(context) {

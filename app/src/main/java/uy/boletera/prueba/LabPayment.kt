@@ -89,16 +89,28 @@ import androidx.compose.ui.unit.sp
  * «Una verificación y seguimos» (faltantes.html): the provider's check, cut out of its page and shown inside a clean frame.
  * After «Pagar» there is no way out ([onCancel] null): solving it sends the confirmation already asked for.
  */
-@Composable internal fun LabVerification(amount: Long?, card: String?, afterPay: Boolean, onCancel: (() -> Unit)?, onContinue: LabAction? = null, check: @Composable () -> Unit) {
+@Composable internal fun LabVerification(amount: Long?, card: String?, afterPay: Boolean, onCancel: (() -> Unit)?, onContinue: LabAction? = null,
+    expanded: Boolean = false, check: @Composable () -> Unit) {
     val type = MaterialTheme.typography
     Column(Modifier.fillMaxSize()) {
         LabPaymentLine(amount, card)
-        Text("Una verificación y seguimos", style = type.labStep, color = LabColors.On, modifier = Modifier.padding(start = 4.dp, top = 20.dp).semantics { heading() })
-        Text(if (afterPay) "Marcá la casilla. Después el pago se confirma solo." else "Marcá la casilla y seguimos.", style = type.bodyMedium.copy(fontSize = 15.sp, lineHeight = 22.sp),
-            color = LabColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
-        Box(Modifier.padding(top = 18.dp).fillMaxWidth().weight(1f, fill = false).clip(RoundedCornerShape(24.dp)).background(Color(0xFFF3F5F8)).padding(vertical = 22.dp, horizontal = 12.dp),
-            contentAlignment = Alignment.Center) { check() }
-        Spacer(Modifier.weight(1f))
+        Text(if (expanded) "Elegí las imágenes" else "Una verificación y seguimos", style = type.labStep, color = LabColors.On,
+            modifier = Modifier.padding(start = 4.dp, top = 20.dp).semantics { heading() })
+        Text(when {
+            expanded && afterPay -> "Tocá las que te pide y «Verificar». Después el pago se confirma solo."
+            expanded -> "Tocá las que te pide y «Verificar». Después seguimos solos."
+            afterPay -> "Marcá la casilla. Después el pago se confirma solo."
+            else -> "Marcá la casilla y seguimos."
+        }, style = type.bodyMedium.copy(fontSize = 15.sp, lineHeight = 22.sp), color = LabColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
+        if (expanded) {
+            // Google's picture grid is taller than wide: it gets all the free height, centred, with no frame of its own around it.
+            Box(Modifier.padding(top = 16.dp, bottom = 8.dp).fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { check() }
+        } else {
+            // The «I'm not a robot» box is wide and low: it sits in a light frame, as in faltantes.html.
+            Box(Modifier.padding(top = 18.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Color(0xFFF3F5F8)).padding(vertical = 22.dp, horizontal = 12.dp),
+                contentAlignment = Alignment.Center) { check() }
+            Spacer(Modifier.weight(1f))
+        }
         if (onContinue != null) LabPrimary(onContinue.label, onContinue.enabled, onClick = onContinue.onClick, glyph = onContinue.glyph)
         Box(Modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.Center) { if (onCancel != null) LabTextLink("Cancelar", onCancel, quiet = true) }
         Spacer(Modifier.height(16.dp))
@@ -139,7 +151,7 @@ import androidx.compose.ui.unit.sp
     }
 }
 
-/** No screenshots, screen recording or recent-apps thumbnail while a payment (and its card) is on screen. */
+/** No screenshots, screen recording or recent-apps thumbnail while the card's data is on screen. */
 @Composable internal fun SecureScreen() {
     val view = LocalView.current
     DisposableEffect(view) {
@@ -163,7 +175,6 @@ import androidx.compose.ui.unit.sp
  */
 @Composable internal fun LabEmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, card: String?, onClose: () -> Unit) {
     KeepScreenOn()
-    SecureScreen()
     var showOriginal by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
     val stage = payment.nativeStage
@@ -208,7 +219,12 @@ import androidx.compose.ui.unit.sp
                 val cssToDp = if (payment.cssViewportWidth > 0f) browserWidth / payment.cssViewportWidth / density else 1f
                 @Composable fun check() {
                     val cap = payment.challenge
-                    if (payment.expandedChallenge) ExpandedPaymentChallenge(payment, browserWidth, browserHeight, Modifier.fillMaxWidth().heightIn(min = 320.dp))
+                    // Coming back to the app: until the page answers, a loader instead of the old (maybe empty) crop.
+                    if (payment.staleAfterResume) Row(Modifier.padding(vertical = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), color = LabColors.Primary, strokeWidth = 2.5.dp)
+                        Text("Cargando la verificación…", style = MaterialTheme.typography.bodyLarge, color = if (payment.expandedChallenge) LabColors.Muted else Color(0xFF3C4350))
+                    }
+                    else if (payment.expandedChallenge) ExpandedPaymentChallenge(payment, browserWidth, browserHeight, Modifier.fillMaxSize(), corner = 14.dp)
                     else {
                         val scale = if (cap == null) 1f else minOf(cssToDp, (maxWidth.value - 48f) / cap.width, (browserHeight / density - 200f).coerceAtLeast(120f) / cap.height)
                         PaymentBrowserView(payment, cap == null, cap, browserWidth, browserHeight,
@@ -243,11 +259,11 @@ import androidx.compose.ui.unit.sp
                             secondary = LabAction("Cancelar", quiet = true, onClick = onClose))
                     }
                     // Solving the check is enough: the app notices it and goes on (the provider's pages are watched daily for changes).
-                    stage == "payer" && payment.challenge != null -> LabVerification(amount, card, afterPay = false, onCancel = onClose) { check() }
+                    stage == "payer" && payment.challenge != null -> LabVerification(amount, card, afterPay = false, onCancel = onClose, expanded = payment.expandedChallenge) { check() }
                     // A check before the first «Pagar» is solved and then paid here; after «Pagar» the app confirms by itself.
-                    stage == "finalConfirmation" && payment.challenge != null && !paid -> LabVerification(amount, card, afterPay = false, onCancel = onClose,
+                    stage == "finalConfirmation" && payment.challenge != null && !paid -> LabVerification(amount, card, afterPay = false, onCancel = onClose, expanded = payment.expandedChallenge,
                         onContinue = LabAction("Pagar ${Amounts.format(amount)}", glyph = Glyph.Lock, enabled = payment.canContinue) { payment.advance(stage) }) { check() }
-                    stage == "finalConfirmation" && payment.challenge != null -> LabVerification(amount, card, afterPay = true, onCancel = null) { check() }
+                    stage == "finalConfirmation" && payment.challenge != null -> LabVerification(amount, card, afterPay = true, onCancel = null, expanded = payment.expandedChallenge) { check() }
                     // Express with the saved card: nothing to choose, it is sent as soon as Prex is ready.
                     stage == "card" && express && usingSaved && !payment.cardError -> {
                         Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
@@ -258,6 +274,8 @@ import androidx.compose.ui.unit.sp
                         LabPaymentWait(amount, card, express = true, onCancel = null)
                     }
                     stage == "card" -> Column(Modifier.fillMaxSize()) {
+                        // Only where the card is on screen: no screenshots or recording (the rest of the payment can be captured to report a problem).
+                        SecureScreen()
                         LabPaymentLine(amount, card)
                         NativeCardForm(payment.cardBusy, payment.canContinue, payment.cardError, payment.expandedChallenge, payment::submitCard,
                             { if (payment.prepareOriginalReview()) showOriginal = true }, focusCard = express || payment.expressPhase == "done",

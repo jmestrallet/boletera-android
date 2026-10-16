@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.40 Lab 11 - Captcha a pantalla completa
+
+- Captcha de imágenes: la grilla ocupa todo el alto libre, centrada y sin el recuadro gris; el texto dice «Elegí las imágenes».
+- Al volver a la app durante el captcha, aparece «Cargando la verificación…» en vez de un recuadro en blanco.
+- Las capturas de pantalla solo se bloquean donde se ve la tarjeta; el resto del pago se puede capturar para reportar problemas.
+
 ## 0.2.40 Lab 10 - Reportes directos
 
 - «Enviar reporte» ahora llega directo, sin elegir con qué mandarlo: en los errores, en la entrada cuando falla el ingreso y en Configuración. Dice «Reporte enviado».
