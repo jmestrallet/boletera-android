@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.2.40 Lab 14 - Botones con más vida
+
+- Botones con más vida: al mantenerlos apretados se van hundiendo de a poco, cada vez más lento, y al soltar rebotan.
+- Las hojas que suben desde abajo (como «Tus boleteras») se estiran con resistencia si las tirás para arriba y vuelven solas al soltar.
+
 ## 0.2.40 Lab 13 - Carga Express con tarjeta guardada
 
 - Carga Express con tarjeta guardada: arranca después de la huella (antes se quedaba en el inicio).

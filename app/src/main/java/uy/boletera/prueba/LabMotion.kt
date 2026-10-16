@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -20,6 +21,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -287,9 +292,60 @@ private fun Float.roundToLong() = kotlin.math.round(this.toDouble()).toLong()
 private fun Modifier.androidxClip() = this.then(Modifier.clipToBounds())
 
 /** A button that answers the finger: it sinks a little while held and springs back when let go. */
-internal fun Modifier.labPress(interaction: androidx.compose.foundation.interaction.InteractionSource): Modifier = composed {
+internal fun Modifier.labPress(interaction: androidx.compose.foundation.interaction.InteractionSource, round: Boolean = true): Modifier = composed {
     val pressed by interaction.collectIsPressedAsState()
-    val s by androidx.compose.animation.core.animateFloatAsState(if (pressed) .96f else 1f,
-        spring(dampingRatio = if (pressed) 1f else .55f, stiffness = if (pressed) 1400f else 700f), label = "press")
-    graphicsLayer { scaleX = s; scaleY = s }
+    val still = rememberLabStill()
+    // How deep the finger has pushed it: quick at first, then slower and slower while held (it never quite stops, so
+    // it keeps feeling pressed); on release it springs back past its size and settles.
+    val depth = remember { Animatable(0f) }
+    LaunchedEffect(pressed) {
+        if (still) { depth.snapTo(if (pressed) .4f else 0f); return@LaunchedEffect }
+        if (pressed) depth.animateTo(1f, tween(1400, easing = CubicBezierEasing(.1f, .8f, .2f, 1f)))
+        else depth.animateTo(0f, spring(dampingRatio = .42f, stiffness = 380f))
+    }
+    graphicsLayer { val s = 1f - .08f * depth.value; scaleX = s; scaleY = s }
+        .drawWithContent {
+            drawContent()
+            // It also darkens a little, as if it went in.
+            val a = (.16f * depth.value).coerceIn(0f, .16f)
+            if (a > 0f) drawRoundRect(Color.Black.copy(alpha = a), cornerRadius = CornerRadius(if (round) size.height / 2 else 0f))
+        }
+}
+
+/**
+ * A sheet pulled up past its top stretches with more and more resistance and springs back on release, like Android's
+ * own stretch at the end of a list. Pulling down is left to the sheet (it closes as always).
+ */
+internal fun Modifier.labStretchUp(fill: Color = Color.Transparent): Modifier = composed {
+    val pull = remember { Animatable(0f) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    this.pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var travel = 0f; var stretching = false
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+                travel += change.position.y - change.previousPosition.y
+                if (!stretching) {
+                    if (travel < -viewConfiguration.touchSlop) stretching = true
+                    else if (travel > viewConfiguration.touchSlop) break
+                }
+                if (stretching) {
+                    // More pull, less stretch: it approaches a limit and never reaches it.
+                    val reach = (-travel).coerceAtLeast(0f); val limit = 48.dp.toPx()
+                    val stretched = limit * (1f - 1f / (reach / limit * .6f + 1f))
+                    scope.launch { pull.snapTo(stretched) }
+                    change.consume()
+                }
+            }
+            if (stretching) scope.launch { pull.animateTo(0f, spring(dampingRatio = .55f, stiffness = 420f)) }
+        }
+    }.graphicsLayer {
+        // It rises without deforming the text; the strip it uncovers below is painted in its own colour (no gap).
+        translationY = -pull.value
+    }.drawBehind {
+        if (pull.value > 0f) drawRect(fill, Offset(0f, size.height - 1f), Size(size.width, pull.value + 1f))
+    }
 }

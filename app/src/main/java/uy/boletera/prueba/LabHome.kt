@@ -153,8 +153,9 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
     Box(Modifier.fillMaxSize().safeDrawingPadding()) {
         Row(Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             val pill = RoundedCornerShape(24.dp)
-            Row(Modifier.height(48.dp).labGlass(haze, pill, blur)
-                .then(if (canChoose) Modifier.clickable(enabled = !state.busy, role = Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onChangeCard() } else Modifier)
+            val chipPress = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            Row(Modifier.height(48.dp).then(if (canChoose) Modifier.labPress(chipPress) else Modifier).labGlass(haze, pill, blur)
+                .then(if (canChoose) Modifier.clickable(chipPress, indication = androidx.compose.material3.ripple(), enabled = !state.busy, role = Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onChangeCard() } else Modifier)
                 .padding(start = 10.dp, end = if (canChoose) 12.dp else 16.dp)
                 .semantics(mergeDescendants = true) {
                     contentDescription = "STM terminada en ${state.selectedCard?.takeLast(4).orEmpty()}" + if (canChoose) ", cambiar boletera" else ""
@@ -165,7 +166,8 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
                 if (canChoose) Icon(painterResource(R.drawable.ic_expand_more), contentDescription = null, tint = LabColors.Muted, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.weight(1f))
-            Box(Modifier.size(48.dp).labGlass(haze, RoundedCornerShape(24.dp), blur).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
+            val gearPress = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            Box(Modifier.size(48.dp).labPress(gearPress).labGlass(haze, RoundedCornerShape(24.dp), blur).clickable(gearPress, indication = androidx.compose.material3.ripple(), onClick = onSettings), contentAlignment = Alignment.Center) {
                 AppGlyph(Glyph.Settings, Modifier.size(22.dp), tint = LabColors.On, label = "Configuración")
             }
         }

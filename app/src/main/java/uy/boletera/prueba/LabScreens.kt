@@ -81,8 +81,9 @@ import androidx.compose.ui.semantics.contentDescription
 }
 
 @Composable internal fun LabCircle(onClick: () -> Unit, content: @Composable () -> Unit) {
-    Box(Modifier.size(48.dp).clip(RoundedCornerShape(24.dp)).background(LabColors.GlassTint).border(1.dp, LabColors.GlassLine, RoundedCornerShape(24.dp))
-        .clickable(onClick = onClick), contentAlignment = Alignment.Center) { content() }
+    val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Box(Modifier.size(48.dp).labPress(press).clip(RoundedCornerShape(24.dp)).background(LabColors.GlassTint).border(1.dp, LabColors.GlassLine, RoundedCornerShape(24.dp))
+        .clickable(press, indication = androidx.compose.material3.ripple(), onClick = onClick), contentAlignment = Alignment.Center) { content() }
 }
 
 /** The one main action: 64 dp on a screen, 60 dp inside a sheet ([sheet]). */
@@ -311,10 +312,16 @@ internal class LabCardNames(context: android.content.Context) {
 /** A Lab sheet: dark, rounded, with its handle; it never climbs over the status bar. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun LabSheet(onClose: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Color(0xFF151B27),
-        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-        dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 18.dp).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = .22f))) }) {
-        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), content = content)
+    // The sheet's surface is drawn here (not by Material) so it can stretch when pulled up; Material still closes it
+    // when pulled down.
+    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Color.Transparent,
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp), tonalElevation = 0.dp, dragHandle = null,
+        contentWindowInsets = { WindowInsets(0) }) {
+        Column(Modifier.fillMaxWidth().labStretchUp(Color(0xFF151B27)).clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)).background(Color(0xFF151B27))
+            .navigationBarsPadding()) {
+            Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp, bottom = 18.dp).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = .22f)))
+            Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), content = content)
+        }
     }
 }
 
