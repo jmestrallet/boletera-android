@@ -32,6 +32,8 @@
     const n=Number(whole)*100+Number(decimal.padEnd(2,'0'));return Number.isSafeInteger(n)?n:null;
   }
   let expected=null, finalSent=false, returnSent=false, captchaRetry=false;
+  // A «Confirmar» pressed while the check was already on screen went out with it: it is never pressed again.
+  let finalSentWithCheck=false;
   const value = (data,key) => {const found=data.filter(r=>normal(r[0])===key);return found.length===1?found[0][1]:null;};
   function snapshot() {
     const final=single('stepper-pago finalizar-pago'), receipt=single('resultado-pago');
@@ -55,7 +57,7 @@
       const check=frames.find(e=>/\/bframe/.test(e.src))||frames.find(e=>/\/anchor/.test(e.src));
       if(check) {
         // The refused first try left the button free again: allow exactly one more, once the check is solved.
-        if(finalSent&&!captchaRetry){finalSent=false;captchaRetry=true;}
+        if(finalSent&&!captchaRetry&&!finalSentWithCheck){finalSent=false;captchaRetry=true;}
         const solved=[...root.querySelectorAll('textarea[name="g-recaptcha-response"]')].some(e=>!!e.value);
         const r=check.getBoundingClientRect();
         return {stage:'finalConfirmation',rows:data,verificationRequired:true,captchaRetry,
@@ -79,7 +81,7 @@
     const root=single(stage==='finalConfirmation'?'stepper-pago finalizar-pago':'resultado-pago');
     const button=root&&action(root,stage==='finalConfirmation'?'confirmar':'volver a la pagina inicial');
     if(!ready(button))return false;
-    if(stage==='finalConfirmation')finalSent=true;else returnSent=true;
+    if(stage==='finalConfirmation'){finalSent=true;finalSentWithCheck=!!state.verificationRequired;}else returnSent=true;
     button.click();return true;
   }};
 })();

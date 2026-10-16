@@ -38,7 +38,7 @@ internal object LabLog {
     /** One line: [where] (pantalla, toque, STM, Prex, huella…) and what happened. */
     @Synchronized fun add(where: String, what: String) {
         val target = file ?: return
-        val line = "${time.format(Date())}  $where · ${mask(what).replace('\n', ' ').take(400)}"
+        val line = "${time.format(Date())}  $where · ${mask(what).replace('\n', ' ').take(if (where == "forma") 1500 else 400)}"
         writer.execute {
             runCatching {
                 target.appendText(line + "\n")

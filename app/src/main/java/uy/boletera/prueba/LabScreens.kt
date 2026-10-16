@@ -89,13 +89,14 @@ import androidx.compose.ui.semantics.contentDescription
 }
 
 /** The one main action: 64 dp on a screen, 60 dp inside a sheet ([sheet]). */
-@Composable internal fun LabPrimary(label: String, enabled: Boolean = true, onClick: () -> Unit, glyph: Glyph? = null, sheet: Boolean = false) {
+@Composable internal fun LabPrimary(label: String, enabled: Boolean = true, onClick: () -> Unit, glyph: Glyph? = null, sheet: Boolean = false,
+    logLabel: String = label) {
     val haptic = LocalHapticFeedback.current
     val height = if (sheet) 60.dp else 64.dp
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     // With large text a long label wraps to two lines and the button grows; it never cuts the words.
     Row(Modifier.fillMaxWidth().heightIn(min = height).labPress(interaction).clip(RoundedCornerShape(height / 2)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
-        .clickable(interaction, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled) { LabLog.tap(label); haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() },
+        .clickable(interaction, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled) { LabLog.tap(logLabel); haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() },
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         if (glyph != null) { AppGlyph(glyph, Modifier.size(22.dp), tint = LabColors.OnPrimary); Spacer(Modifier.width(10.dp)) }
         Text(label, style = MaterialTheme.typography.titleMedium.let { if (sheet) it.copy(fontSize = 17.sp) else it }, color = LabColors.OnPrimary,
@@ -107,9 +108,9 @@ import androidx.compose.ui.semantics.contentDescription
  * A text-only action under the main button. Blue is another way forward («Ingresar con contraseña»); [quiet] grey is
  * leaving, not going on, or something technical («Cancelar», «Volver al inicio», «Ver detalle del pago»).
  */
-@Composable internal fun LabTextLink(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, quiet: Boolean = false) {
+@Composable internal fun LabTextLink(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, quiet: Boolean = false, logLabel: String = label) {
     val type = MaterialTheme.typography
-    Box(modifier.heightIn(min = 52.dp).clip(RoundedCornerShape(26.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button) { LabLog.tap(label); onClick() }
+    Box(modifier.heightIn(min = 52.dp).clip(RoundedCornerShape(26.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button) { LabLog.tap(logLabel); onClick() }
         .padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
         Text(label, color = if (quiet) LabColors.Faint else LabColors.Primary,
             style = if (quiet) type.bodyMedium.copy(fontSize = 14.sp) else type.titleSmall.copy(fontSize = 15.5.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium))

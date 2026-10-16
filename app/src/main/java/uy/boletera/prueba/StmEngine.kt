@@ -645,7 +645,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         }
         WebStorage.getInstance().deleteAllData()
         web.clearHistory(); web.clearCache(true)
-        state = state.copy(message = "Sesión local eliminada. El acceso cifrado se conserva hasta que elijas olvidarlo.")
+        // Lab's entry would read any message as a failed sign-in («No pudimos entrar»): there, closing the session just returns to it.
+        state = state.copy(message = if (IsLab) "" else "Sesión local eliminada. El acceso cifrado se conserva hasta que elijas olvidarlo.")
     }
 
     fun pause() {

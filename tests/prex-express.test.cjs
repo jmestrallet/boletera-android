@@ -104,3 +104,51 @@ test('pending validation remains bounded and never overrides errors or suspensio
   }finally{dom.window.close();}
  }
 });
+
+// The whole Express journey on a closer copy of Prex's page: a stepper whose later steps are built hidden, the
+// document type as an Angular dropdown that ignores its first press, and the check shown only after «Continuar»
+// on the payer step (Lab 15–16 reports, 16/10). The loop below plays Android's polling.
+test('full journey: hidden steps, a dropdown that ignores its first press and a check shown after Continuar',async()=>{
+ const dom=new JSDOM(`<stepper-pago>
+  <section class="mat-horizontal-stepper-content" aria-expanded="true"><confirmar-pago><form><div><b>Moneda:</b><p>UYU</p></div><div><b>Total:</b><p>564,00</p></div><button type="button" id="s">Continuar</button></form></confirmar-pago></section>
+  <section class="mat-horizontal-stepper-content" aria-expanded="false"><alta-cliente><form class="ng-valid"><mat-select role="combobox" formcontrolname="tipoDocumentoControl"><div class="mat-select-trigger"><span class="mat-select-placeholder">Tipo Documento</span></div></mat-select>${['nombreControl','apellidoControl','documentoControl','emailControl','celularControl'].map(n=>`<input formcontrolname="${n}">`).join('')}<button type="button" id="p">Continuar</button></form></alta-cliente></section>
+  <section class="mat-horizontal-stepper-content" aria-expanded="false"><alta-tarjeta><input formcontrolname="nroTarjetaControl"><input formcontrolname="expiracionControl"><input formcontrolname="cvvControl"><button type="button">Continuar</button></alta-tarjeta></section>
+ </stepper-pago>`,{url:'https://pasarelaspe.sistarbanc.com.uy/v2/confirmarPago',runScripts:'outside-only'});
+ const w=dom.window,d=w.document;
+ // Only the open step has layout.
+ w.HTMLElement.prototype.getClientRects=function(){return this.closest('.mat-horizontal-stepper-content[aria-expanded="false"]')?[]:[{width:100,height:30}];};
+ for(const name of ['prex-native','prex-card','prex-payer','prex-express'])w.eval(fs.readFileSync(`app/src/main/assets/${name}.js`,'utf8'));
+ try {
+  const sections=d.querySelectorAll('section'),show=i=>sections.forEach((s,k)=>s.setAttribute('aria-expanded',String(k===i)));
+  const select=d.querySelector('mat-select');let presses=0,opened=0,payerSends=0,captcha=false,accepted=false;
+  // The dropdown ignores its first press, then opens its panel outside the form, like Angular's overlay.
+  select.querySelector('.mat-select-trigger').onclick=()=>{
+   presses++;if(presses===1)return;opened++;
+   setTimeout(()=>{select.setAttribute('aria-controls','doc-panel');select.setAttribute('aria-expanded','true');
+    const panel=d.createElement('div');panel.id='doc-panel';panel.setAttribute('role','listbox');
+    const ci=d.createElement('mat-option');ci.setAttribute('role','option');ci.textContent='Cédula de Identidad';
+    ci.onclick=()=>{select.querySelector('.mat-select-trigger').innerHTML='<span class="mat-select-value-text">Cédula de Identidad</span>';select.setAttribute('aria-expanded','false');panel.remove();};
+    panel.append(ci);d.body.append(panel);},0);
+  };
+  d.getElementById('s').onclick=()=>show(1);
+  // Prex answers the first payer «Continuar» with its check; once accepted, it moves on to the card.
+  d.getElementById('p').onclick=()=>{
+   payerSends++;
+   if(!accepted){ if(!captcha){captcha=true;d.querySelector('alta-cliente form').insertAdjacentHTML('beforeend','<angular-recaptcha></angular-recaptcha>');} return; }
+   show(2);
+  };
+  w.BoleteraProviderVerification={accepted:()=>accepted};
+  w.BoleteraPayer.use(person);assert.equal(w.BoleteraExpress.start(56400,person),true);
+  const poll=async(ms)=>{for(let t=0;t<ms;t+=100){w.BoleteraExpress.tick();w.BoleteraNative.snapshot();w.BoleteraPayer.status();await new Promise(r=>setTimeout(r,100));}};
+  await poll(4000);
+  // The payer got filled even though the first press on the dropdown did nothing, and the check stopped Express.
+  assert.ok(presses>=2,'presses the dropdown again');assert.equal(opened,1);
+  assert.equal(w.BoleteraPayer.status(),'filled');
+  assert.deepEqual([...d.querySelectorAll('alta-cliente input')].map(e=>e.value.length>0),[true,true,true,true,true]);
+  assert.equal(captcha,true);assert.equal(w.BoleteraNative.snapshot().stage,'payer');
+  const sendsBefore=payerSends;
+  // The person solves the check: Express continues by itself, once, and stops at the card step.
+  accepted=true;await poll(1500);
+  assert.equal(w.BoleteraNative.snapshot().stage,'card');assert.equal(payerSends,sendsBefore+1);
+ }finally{w.close();}
+});

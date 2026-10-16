@@ -39,6 +39,9 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         private set
     var cardBusy by mutableStateOf(false)
         private set
+    /** Why the payer is not filled yet (Lab's record), e.g. «la lista de tipos no abrió». */
+    var payerWhy by mutableStateOf("")
+        private set
     var cardError by mutableStateOf(false)
         private set
     var expressPhase by mutableStateOf("off")
@@ -190,9 +193,11 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     }
                 } catch (_: Exception) { nativeStage = "loading" }
             }
-            web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer ? window.BoleteraPayer.status() : 'waiting'; } else { 'waiting'; }") { raw ->
+            web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer ? window.BoleteraPayer.status() + '|' + (window.BoleteraPayer.why ? window.BoleteraPayer.why() : '') : 'waiting|sin módulo del titular'; } else { 'waiting|fuera de Prex'; }") { raw ->
                 if (!destroyed && visible && !suspended && version == navigationVersion) {
-                    val status = try { org.json.JSONTokener(raw).nextValue() as? String } catch (_: Exception) { null }
+                    val answer = try { org.json.JSONTokener(raw).nextValue() as? String } catch (_: Exception) { null }
+                    val status = answer?.substringBefore('|')
+                    payerWhy = answer?.substringAfter('|', "").orEmpty().take(80)
                     payerConflict = status == "conflict"
                     payerNotice = when (status) {
                         "conflict" -> "Prex muestra datos distintos de los que elegiste. Podés conservarlos o usar los que seleccionaste."
@@ -346,6 +351,13 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.applyChosenProfile(); }", null)
     }
 
+    /** Lab's record: the page's shape (fields shown, filled or empty, never their values) when a step stays still. */
+    fun pageShape(result: (String) -> Unit) {
+        if (destroyed) return
+        web.evaluateJavascript("(()=>{try{return window.BoleteraNative&&window.BoleteraNative.shape?window.BoleteraNative.shape():'sin módulo de Prex'}catch(e){return 'error: '+e.message}})()") { raw ->
+            result(runCatching { org.json.JSONTokener(raw).nextValue() as? String }.getOrNull().orEmpty())
+        }
+    }
     fun advance() = advance(nativeStage)
     fun advance(expectedStage: String) = advance(expectedStage,automatic=false)
     private fun advance(expectedStage: String, automatic: Boolean) {
@@ -369,7 +381,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
             // Only a definite false proves no action was executed. Silence never unlocks a payment.
             if(!destroyed && version==navigationVersion && raw=="false") {
                 completionSubmitted=false;returningToWallet=false
-                if(expected=="finalConfirmation") {finalSubmitted=false;authorizationNotSent()}
+                if(expected=="finalConfirmation" && !retried) {finalSubmitted=false;authorizationNotSent()}
                 stopExpress()
                 message="La página cambió antes de continuar. Revisá esta solicitud; no se ejecutó ese paso."
             }
@@ -386,6 +398,18 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
      * Express with the card saved for it (CardVault): that card is the one expected, so the final confirmation goes on
      * by itself only if the provider shows the same last four digits; otherwise it stops at «Pagar».
      */
+    /** The saved card was not taken by Prex's form (a check first, an expired card…): the card form takes over. */
+    var savedCardRefused by mutableStateOf(false)
+        private set
+    /**
+     * Plan B before paying: Prex's own page, for the person to finish the summary or the payer. Nothing can be paid on
+     * these steps, so no review record is written (that record would block the next «Pagar»); the next step comes
+     * back to the app's screen. False once the payment step is reached.
+     */
+    fun showPageBeforePaying(): Boolean {
+        if(destroyed || finalSubmitted || nativeStage !in setOf("summary","payer")) return false
+        stopExpress(); return true
+    }
     fun submitSavedCard(pan: String, expiry: String, cvv: String) {
         if(!expressJourney)return
         expectedCardIdentity=identifyCard(pan); expectedCardSuffix=pan.takeLast(4)
@@ -401,7 +425,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         val version=navigationVersion
         // Literal escaping only; never log this command or retain its arguments in engine state.
         web.evaluateJavascript("window.BoleteraCard && window.BoleteraCard.submit(${org.json.JSONObject.quote(pan)},${org.json.JSONObject.quote(expiry)},${org.json.JSONObject.quote(cvv)},$automatic)") { raw ->
-            if(!destroyed && version==navigationVersion && raw!="true") { cardBusy=false;cardError=true }
+            if(!destroyed && version==navigationVersion && raw!="true") { cardBusy=false;cardError=true; if(automatic) savedCardRefused=true }
         }
     }
 

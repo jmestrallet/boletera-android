@@ -218,6 +218,8 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     var automaticNotice by mutableStateOf(false); private set
     /** Lab: a version found on opening, offered in a sheet (critical ones every time, normal ones until skipped). */
     var prompt by mutableStateOf(false); private set
+    /** The last download from the prompt failed; [message] says why. */
+    var downloadFailed by mutableStateOf(false); private set
     private val preferences=application.getSharedPreferences("updates",Context.MODE_PRIVATE)
     val installedChannel=UpdateChannel.from(BuildConfig.DISTRIBUTION_CHANNEL)
     var channel by mutableStateOf(installedChannel); private set
@@ -259,7 +261,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                     else -> if(error is java.io.IOException)"No se pudo completar la actualización. Revisá la conexión y volvé a intentar."
                         else "No se pudo preparar la actualización. Buscá actualizaciones y volvé a intentar."
                 }
-                publish { message = detail }
+                publish { message = detail; downloadFailed = true }
             } finally { publish { busy = false } }
         }
     }
@@ -281,6 +283,8 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     /** Lab looks on every opening (at most every 5 minutes); the other apps every 6 hours. */
     val automaticInterval = if(installedChannel==UpdateChannel.LAB) 5*60*1000L else 6*60*60*1000L
     fun checkAutomatic() {
+        // While the sheet is open its version stays put; a re-check would wipe it from under the person.
+        if(prompt)return
         if(automaticCheckDue())checkRelease(true)
     }
     fun dismissAutomaticNotice() { automaticNotice=false }
@@ -309,6 +313,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                 if(channel!=requested)return@publish
                 release = found
                 automaticNotice = automatic && found!=null && installedChannel!=UpdateChannel.LAB
+                if(automatic && found==null)prompt=false
                 if(automatic && found!=null && installedChannel==UpdateChannel.LAB &&
                     (found.critical || preferences.getString("skipped.${requested.key}",null)!=found.version)) prompt=true
                 message = if(separateLab) {
@@ -345,7 +350,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         }
     }
     /** «Actualizar» in the sheet: it stays open with the download's progress, then the usual review and install follow. */
-    fun acceptPrompt() { if(!busy && release!=null) download() }
+    fun acceptPrompt() { if(!busy && release!=null) { downloadFailed=false; download() } }
     /** «Ahora no» skips this version (a newer one asks again); a critical one asks again on the next opening. */
     fun skipPrompt() {
         prompt=false
@@ -368,6 +373,8 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         reviewRequested = false; installRequested = true
     }
     fun onForeground(context: Context) {
+        // A critical version already downloaded but not installed asks again on every opening.
+        if(installedChannel==UpdateChannel.LAB && ready && release?.critical==true && !reviewRequested && !installRequested && !awaitingInstallPermission) reviewRequested=true
         checkAutomatic()
         if (!awaitingInstallPermission) return
         awaitingInstallPermission = false

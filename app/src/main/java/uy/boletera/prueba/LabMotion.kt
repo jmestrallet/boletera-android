@@ -83,6 +83,9 @@ internal object LabCardFlight {
     var now = 0f
     /** Only the window that draws the flying copy turns flights on (screens shown alone, as in tests, keep their card). */
     var enabled = false
+    /** A full screen (Configuración) is on top: no trip starts, and one in course lands at once, out of sight. */
+    var covered = false
+        set(value) { field = value; if (value) flight = null }
     const val LENGTH = .62f
 
     fun progress(f: Flight) = if (f.start < 0f) 0f else (now - f.start).coerceAtLeast(0f)
@@ -112,7 +115,7 @@ internal object LabCardFlight {
     }
     private fun fly(from: Rect, fromSpot: CardSpot, to: Slot) {
         // The same place (a change of state where the card stays): no trip at all.
-        if (!enabled || hypot(from.center.x - to.rect.center.x, from.center.y - to.rect.center.y) < 2f && fromSpot == to.spot) return
+        if (!enabled || covered || hypot(from.center.x - to.rect.center.x, from.center.y - to.rect.center.y) < 2f && fromSpot == to.spot) return
         val badge = badgeSource?.takeIf { SystemClock.uptimeMillis() - it.second < 900 }?.first
         badgeSource = null
         // The clock starts at the first frame that actually draws it: building the next screen can take a few frames on

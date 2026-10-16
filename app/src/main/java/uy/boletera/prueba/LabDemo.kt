@@ -85,6 +85,8 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
         opening = true
         scope.launch {
             delay(1150)
+            // Cancelled during the light: no fingerprint over the home.
+            if (stage == "home" || stage == "welcome") { opening = false; return@launch }
             vault.unlock { card ->
                 opening = false; savedCard = card != null
                 if (card == null && vault.lastProblem.isNotBlank()) LabExpressCard.problem = vault.lastProblem

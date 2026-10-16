@@ -189,13 +189,40 @@ import androidx.compose.ui.unit.sp
     var details by remember { mutableStateOf(false) }
     val stage = payment.nativeStage
     LaunchedEffect(stage) { showOriginal = false }
+    // Plan B: if the payer could not be filled (and the check, if any, is already accepted), Prex's own page is shown so
+    // the person completes it and goes on; the app never leaves them in front of a check that leads nowhere.
+    val payerStuck = stage == "payer" && !payment.payerConflict && payment.payerValues.size == 5 && payment.payerValues.any { it.isBlank() } &&
+        (payment.challenge == null && !payment.verificationRequired || payment.verificationApproved)
+    LaunchedEffect(payerStuck) {
+        if (!payerStuck) return@LaunchedEffect
+        // Long enough for the payer module's own retries of the document-type list (4 × 1.2 s).
+        kotlinx.coroutines.delay(7000)
+        payment.pageShape { LabLog.add("forma", "titular sin completar · $it") }
+        LabLog.add("Prex", "titular sin completar (${payment.payerWhy}): se muestra la página de Prex")
+        if (payment.showPageBeforePaying()) showOriginal = true
+    }
+    // Watchdog for every step before the card: one that stays still with nothing for the person to do leaves the
+    // page's shape in the record at 6 s and, at 10 s, Prex's own page is shown so the person can go on.
+    val waitingForPerson = payment.challenge != null && !payment.verificationApproved || stage in setOf("card", "original") ||
+        payment.message.isNotBlank() || payment.slowStep || payment.payerConflict || showOriginal
+    LaunchedEffect(stage, waitingForPerson, payment.canContinue, payment.completionSubmitted, payment.payerValues, payment.expressPhase) {
+        // A «Continuar» already sent is Prex's to answer: its own 30 s limit (slowStep) covers it, never this one.
+        if (waitingForPerson || payment.completionSubmitted || stage !in setOf("summary", "payer", "loading") || payment.returningToWallet) return@LaunchedEffect
+        kotlinx.coroutines.delay(6000)
+        payment.pageShape { LabLog.add("forma", "$stage quieto 6 s · $it") }
+        if (stage == "loading") return@LaunchedEffect   // a stalled load already offers «Seguir esperando» (slowStep)
+        kotlinx.coroutines.delay(4000)
+        LabLog.add("Prex", "$stage quieto 10 s: se muestra la página de Prex")
+        if (payment.showPageBeforePaying()) showOriginal = true
+    }
     LaunchedEffect(stage) { if (stage in listOf("returnBalance", "sessionExpired")) onClose() }
     val amount = pending?.amount
     val express = payment.expressJourney
     // The saved card: while its fingerprint is open the card step waits; once sent, it waits for Prex. If it did not
     // open (or Prex refuses it) the normal card step takes over.
     var sentSaved by remember { mutableStateOf(false) }
-    val usingSaved = LabExpressCard.opening || LabExpressCard.pending != null || sentSaved
+    val usingSaved = (LabExpressCard.opening || LabExpressCard.pending != null || sentSaved) && !payment.savedCardRefused &&
+        !(stage == "card" && payment.verificationRequired && !payment.verificationApproved)
     // The opened card never outlives this payment.
     DisposableEffect(Unit) { onDispose { LabExpressCard.pending = null; LabExpressCard.problem = null } }
     val payerName = payment.chosenPayer?.let { "${it.givenName} ${it.familyName}".trim() }
@@ -271,7 +298,7 @@ import androidx.compose.ui.unit.sp
                     stage == "payer" && payment.payerConflict -> {
                         Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
                         LabStatusScreen(HeroPhase.WARN, "Prex tiene otro titular", "Los datos que tiene Prex no coinciden con los de ${payerName ?: "tu titular"}.",
-                            primary = LabAction("Usar ${payerName ?: "mi titular"}") { payment.applyChosenPayer() },
+                            primary = LabAction("Usar ${payerName ?: "mi titular"}", logLabel = "Usar el titular elegido") { payment.applyChosenPayer() },
                             secondary = LabAction("Cancelar", quiet = true, onClick = onClose))
                     }
                     // Solving the check is enough: the app notices it and goes on (the provider's pages are watched daily for changes).

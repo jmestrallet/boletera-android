@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.2.40 Lab 17 - Express completa el titular y nunca queda sin salida
+
+- Carga Express completa los datos del titular aunque el tipo de documento de Prex tarde en responder (antes quedaban vacíos y se trababa).
+- Si un paso antes de pagar queda quieto, aparece la página de Prex para seguir a mano; nunca una pantalla sin salida.
+- Más seguro al pagar: si el captcha ya estaba resuelto, «Confirmar» se aprieta una sola vez.
+- Cerrar sesión ya no muestra «No pudimos entrar»; la tarjeta ya no vuela encima de Configuración.
+- Avisos de actualización: si la descarga falla, lo dice y deja reintentar.
+- El registro guarda la forma de la página de Prex cuando algo se traba (sin ningún dato tuyo) y ya no anota nombres.
+
 ## 0.2.40 Lab 16 - Express sin trabarse en el captcha y avisos de actualización
 
 - Carga Express ya no se traba después del captcha: si Prex pide «No soy un robot» al seguir con el titular, al marcarlo la recarga continúa sola.

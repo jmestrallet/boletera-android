@@ -42,10 +42,13 @@ private val RowLine = Color.White.copy(alpha = .09f)
     effectsMode: EffectsMode, onEffectsMode: (EffectsMode) -> Unit, onLogout: () -> Unit, onForget: () -> Unit,
     onTicketGuide: () -> Unit, onInstall: () -> Unit, onClose: () -> Unit, onDemo: (() -> Unit)? = null) {
     val context = LocalContext.current
+    // The card's flight is drawn above every screen; while this one is open it must not cross it.
+    DisposableEffect(Unit) { LabCardFlight.covered = true; onDispose { LabCardFlight.covered = false } }
     val type = MaterialTheme.typography
     val vibration = remember(context) { AppHaptics(context) }
     var vibrationOn by remember { mutableStateOf(vibration.enabled) }
     var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1800); copied = false } }
     var forgetting by remember { mutableStateOf(false) }
     var searched by remember { mutableStateOf(false) }
     LaunchedEffect(copied) { if (copied) { delay(1800); copied = false } }
@@ -126,6 +129,8 @@ private val RowLine = Color.White.copy(alpha = .09f)
                     }
                     Divider()
                     var erased by remember { mutableStateOf(false) }
+                    // «Borrado ✓» confirms for a moment, then the button is ready again.
+                    LaunchedEffect(erased) { if (erased) { kotlinx.coroutines.delay(1800); erased = false } }
                     SettingRow(R.drawable.ic_history, "Borrar registro", "Lo anotado en este celular para los reportes") {
                         SmallAction(if (erased) "Borrado ✓" else "Borrar", done = erased) { LabLog.clear(); erased = true }
                     }

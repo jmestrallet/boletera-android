@@ -96,3 +96,17 @@ test('a rejection with the provider toast is still read as a rejection',()=>{
  const dom=page(receipt('La transacción fue rechazada')+'<div class="mat-snack-bar-container">Existen datos incorrectos</div>');
  try {assert.equal(dom.window.BoleteraNative.snapshot().stage,'paymentRejected');}finally{dom.window.close();}
 });
+
+test('a «Confirmar» pressed with the check already solved on screen is never pressed again (agent review, 16/10)',()=>{
+ const dom=page(confirmation());try {const d=dom.window.document,api=dom.window.BoleteraNative;let clicks=0;
+ d.querySelector('button').onclick=()=>clicks++;
+ // The check is on screen and solved before the first «Pagar».
+ d.querySelector('form').insertAdjacentHTML('beforeend','<iframe src="https://www.google.com/recaptcha/api2/anchor?k=x"></iframe><textarea name="g-recaptcha-response" style="display:none"></textarea>');
+ sized(d.querySelector('iframe'),304,78);d.querySelector('textarea').value='solved';
+ assert.equal(api.snapshot().canContinue,true);
+ assert.equal(api.advance('finalConfirmation'),true);assert.equal(clicks,1);
+ // Prex is still working with the check on screen: that is not a refusal, nothing re-arms.
+ const state=api.snapshot();assert.equal(state.captchaRetry,false);assert.equal(state.submitted,true);assert.equal(state.canContinue,false);
+ assert.equal(api.advance('finalConfirmation'),false);assert.equal(api.advance('finalConfirmation',true),false);assert.equal(clicks,1);
+ }finally{dom.window.close();}
+});

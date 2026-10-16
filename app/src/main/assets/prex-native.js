@@ -49,8 +49,29 @@
       verificationRequired, verificationApproved:verificationRequired && window.BoleteraProviderVerification?.accepted(root)===true,
       challenge: measurable ? {x:r.x,y:r.y,width:r.width,height:r.height} : null, viewportWidth:innerWidth, expanded:!!measurable && expanded};
   }
+  // The page's shape for Lab's record when a step stays still: which steps, forms and fields exist, whether they are
+  // shown and filled (+) or empty (∅). Never a value: no text from inputs, selects or the check.
+  function shape() {
+    const steps = [...document.querySelectorAll('.mat-horizontal-stepper-content')].map(s => s.getAttribute('aria-expanded') === 'true' ? 'A' : 'o').join('') || '-';
+    const forms = [...document.querySelectorAll('form')].map(f => {
+      const fields = [...f.querySelectorAll('[formcontrolname]')].map(e => {
+        const name = (e.getAttribute('formcontrolname') || '').replace(/Control$/, '').slice(0, 20);
+        const filled = e.tagName === 'MAT-SELECT' ? !!e.querySelector('.mat-select-value-text,.mat-mdc-select-value-text') : !!e.value;
+        const open = e.tagName === 'MAT-SELECT' && e.getAttribute('aria-expanded') === 'true' ? '·abierto' : '';
+        return `${name}:${e.tagName.toLowerCase()}${visible(e) ? '' : '·oculto'}${open}${filled ? '+' : '∅'}${e.disabled ? '·bloqueado' : ''}`;
+      });
+      const valid = f.classList.contains('ng-valid') ? 'válido' : f.classList.contains('ng-invalid') ? 'inválido' : '?';
+      const next = button(f) ? (ready(button(f)) ? 'continuar listo' : 'continuar bloqueado') : 'sin continuar';
+      return `[${valid}, ${next}${visible(f) ? '' : ', oculto'}] ${fields.join(',')}`;
+    });
+    const lists = [...document.querySelectorAll('[role="listbox"]')].length;
+    const checks = [...document.querySelectorAll('angular-recaptcha,re-captcha')].length;
+    const dialogs = [...document.querySelectorAll('[role="dialog"],[role="alertdialog"],.swal2-popup,mat-dialog-container')].filter(visible).length;
+    return `pasos ${steps} · ${forms.length} formularios: ${forms.join(' | ')} · listas ${lists} · captcha ${checks} · diálogos ${dialogs} · enviado ${sentStep || '-'}`;
+  }
   window.BoleteraNative = {
     snapshot,
+    shape,
     showVerification() {
       const frames = challengeFrames();
       window.BoleteraVerification?.present(frames.find(e => /\/anchor/.test(e.src)));

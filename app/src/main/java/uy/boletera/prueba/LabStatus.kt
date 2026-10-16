@@ -24,7 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** A label and what it does; a [quiet] secondary reads grey (leaving or technical), otherwise blue (another way forward). */
-internal class LabAction(val label: String, val glyph: Glyph? = null, val enabled: Boolean = true, val quiet: Boolean = false, val onClick: () -> Unit)
+internal class LabAction(val label: String, val glyph: Glyph? = null, val enabled: Boolean = true, val quiet: Boolean = false,
+    /** What Lab's record writes for this button: a fixed text when [label] carries a person's name. */
+    val logLabel: String = label, val onClick: () -> Unit)
 
 /**
  * The shared shape of every Lab "moment" (errors, payment results): the card tells the state with its badge, a short
@@ -49,8 +51,8 @@ internal class LabAction(val label: String, val glyph: Glyph? = null, val enable
             if (link != null) LabInlineLink(link.label, link.onClick, Modifier.padding(top = 4.dp).labEnter(2, dy = 8.dp, base = 40))
         }
         Spacer(Modifier.height(20.dp))
-        Box(Modifier.height(64.dp).fillMaxWidth().labEnter(2, base = 40)) { if (primary != null) LabPrimary(primary.label, primary.enabled, onClick = primary.onClick, glyph = primary.glyph) }
-        Box(Modifier.height(52.dp).labEnter(3, base = 40), contentAlignment = Alignment.Center) { if (secondary != null) LabTextLink(secondary.label, secondary.onClick, quiet = secondary.quiet) }
+        Box(Modifier.height(64.dp).fillMaxWidth().labEnter(2, base = 40)) { if (primary != null) LabPrimary(primary.label, primary.enabled, onClick = primary.onClick, glyph = primary.glyph, logLabel = primary.logLabel) }
+        Box(Modifier.height(52.dp).labEnter(3, base = 40), contentAlignment = Alignment.Center) { if (secondary != null) LabTextLink(secondary.label, secondary.onClick, quiet = secondary.quiet, logLabel = secondary.logLabel) }
         Spacer(Modifier.height(16.dp))
     }
 }

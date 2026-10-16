@@ -24,10 +24,10 @@ internal data class LabNews(@DrawableRes val icon: Int, val title: String, val l
 
 /** What Lab 7 brings, shown once after updating. Up to four; the full detail stays on GitHub. */
 internal val LabWhatsNewItems = listOf(
-    LabNews(R.drawable.ic_bolt, "Express sin trabarse", "Marcás «No soy un robot» y la recarga sigue sola."),
-    LabNews(R.drawable.ic_fingerprint, "Huella sin distracciones", "Detrás solo se ve la espera de Carga Express."),
-    LabNews(R.drawable.ic_download, "Avisos de actualización", "Te avisa al abrir; las necesarias, bien claro."),
-    LabNews(R.drawable.ic_history, "Registro más detallado", "Para encontrar más rápido dónde se traba."),
+    LabNews(R.drawable.ic_bolt, "Express completa el titular", "Aunque Prex tarde en responder."),
+    LabNews(R.drawable.ic_check, "Nunca sin salida", "Si algo se traba, seguís en la página de Prex."),
+    LabNews(R.drawable.ic_lock, "Un solo «Confirmar»", "El pago se manda una sola vez."),
+    LabNews(R.drawable.ic_history, "Registro más útil", "Guarda dónde se trabó, sin tus datos."),
 )
 
 /** The release notes as news: «Título — línea» (or «Título: línea») becomes a phrase and its line, with an icon by topic. */
@@ -73,7 +73,8 @@ internal fun labNewsFrom(notes: List<String>): List<LabNews> = notes.take(4).map
  * critical one (STM or Prex changed how their pages talk to the app) says plainly that without it the app will not
  * work, and asks again on every opening.
  */
-@Composable internal fun LabUpdatePrompt(release: UpdateRelease, progress: Int?, busy: Boolean, onUpdate: () -> Unit, onLater: () -> Unit) {
+@Composable internal fun LabUpdatePrompt(release: UpdateRelease, progress: Int?, busy: Boolean, onUpdate: () -> Unit, onLater: () -> Unit,
+    problem: String? = null) {
     val version = UpdatePolicy.display(release.version).substringAfter(' ')
     val type = MaterialTheme.typography
     LabSheet(onLater) {
@@ -86,7 +87,9 @@ internal fun labNewsFrom(notes: List<String>): List<LabNews> = notes.take(4).map
         val items = labNewsFrom(release.notes)
         if (items.isNotEmpty()) LabNewsList(items, Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(start = 8.dp, end = 8.dp, top = 20.dp, bottom = 22.dp))
         else Spacer(Modifier.height(22.dp))
-        LabPrimary(when { progress != null -> "Descargando… $progress %"; release.critical -> "Actualizar ahora"; else -> "Actualizar" },
+        if (problem != null && progress == null) Text(problem, style = type.bodyMedium.copy(fontSize = 14.sp), color = LabColors.Warn,
+            modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 14.dp))
+        LabPrimary(when { progress != null -> "Descargando… $progress %"; problem != null -> "Probar de nuevo"; release.critical -> "Actualizar ahora"; else -> "Actualizar" },
             enabled = !busy, onClick = onUpdate, sheet = true)
         LabTextLink(if (release.critical) "Seguir sin actualizar" else "Ahora no", onLater, Modifier.align(Alignment.CenterHorizontally), quiet = true)
     }

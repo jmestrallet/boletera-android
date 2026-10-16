@@ -28,10 +28,10 @@ android {
         applicationId = if (isLab) "uy.boletera.lab" else "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = if (legacyUpdateBridge) 49 else if (isLab) 76 else 61
+        versionCode = if (legacyUpdateBridge) 49 else if (isLab) 77 else 61
         versionName = when {
             legacyUpdateBridge -> "0.2.31-prueba"
-            isLab -> "0.2.40-lab.16"
+            isLab -> "0.2.40-lab.17"
             isAlpha -> "0.2.40-alpha.5"
             isBeta -> "0.2.40-beta.2"
             else -> "0.2.40"
@@ -41,10 +41,10 @@ android {
         // committed) and is read at build time; without it «Enviar reporte» falls back to the share sheet.
         val reportToken = rootProject.file(".tools/reports-token.txt").takeIf { it.exists() }?.readText()?.trim().orEmpty()
             .filter { it.isLetterOrDigit() || it == '_' }
-        buildConfigField("String", "REPORT_TOKEN", "\"$reportToken\"")
+        buildConfigField("String", "REPORT_TOKEN", "\"${if (isLab) reportToken else ""}\"")
         buildConfigField("String", "DISPLAY_VERSION", when {
             legacyUpdateBridge -> "\"0.2.31\""
-            isLab -> "\"0.2.40 Lab 16\""
+            isLab -> "\"0.2.40 Lab 17\""
             isAlpha -> "\"0.2.40 Alpha 5\""
             isBeta -> "\"0.2.40 Beta 2\""
             else -> "\"0.2.40\""

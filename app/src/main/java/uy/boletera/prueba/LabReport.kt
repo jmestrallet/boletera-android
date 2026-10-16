@@ -72,13 +72,14 @@ internal object LabReport {
         if (now - lastSent < 20_000) { Toast.makeText(app, "El reporte ya se envió.", Toast.LENGTH_SHORT).show(); return }
         lastSent = now
         LabLog.add("reporte", "enviado: $what")
-        val log = LabLog.read()
-        val lines = log.count { it == '\n' }
-        val body = text(what) + if (log.isNotBlank()) "\n\nRegistro de uso: últimas 24 h, $lines líneas (en los comentarios, del más viejo al más nuevo)." else ""
         val title = "${what.take(70).ifBlank { "Reporte" }} · ${BuildConfig.DISPLAY_VERSION} · ${Build.MODEL}"
         val main = Handler(Looper.getMainLooper())
         Toast.makeText(app, "Enviando reporte…", Toast.LENGTH_SHORT).show()
+        var partial = false
         Thread {
+            val log = LabLog.read()
+            val lines = log.count { it == '\n' }
+            val body = text(what) + if (log.isNotBlank()) "\n\nRegistro de uso: últimas 24 h, $lines líneas (en los comentarios, del más viejo al más nuevo)." else ""
             val ok = runCatching {
                 val issue = post("https://api.github.com/repos/$REPO/issues", token,
                     JSONObject().put("title", title).put("body", body).put("labels", JSONArray().put("reporte")))
@@ -86,13 +87,14 @@ internal object LabReport {
                 // The record goes as comments: GitHub takes up to 65 536 characters per message.
                 val number = JSONObject(issue).optInt("number")
                 if (number > 0) chunks(log, 60_000).forEachIndexed { i, part ->
-                    post("https://api.github.com/repos/$REPO/issues/$number/comments", token,
-                        JSONObject().put("body", "Registro ${i + 1}\n```\n$part\n```"))
+                    val sent = runCatching { post("https://api.github.com/repos/$REPO/issues/$number/comments", token,
+                        JSONObject().put("body", "Registro ${i + 1}\n```\n$part\n```")) }.getOrNull()
+                    if (sent == null) partial = true
                 }
                 true
             }.getOrDefault(false)
             main.post {
-                if (ok) Toast.makeText(app, "Reporte enviado. ¡Gracias!", Toast.LENGTH_LONG).show()
+                if (ok) Toast.makeText(app, if (partial) "Reporte enviado, pero sin todo el registro. Probá de nuevo en un rato." else "Reporte enviado. ¡Gracias!", Toast.LENGTH_LONG).show()
                 else { lastSent = 0; share(context, what) }
             }
         }.start()

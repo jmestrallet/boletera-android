@@ -3,10 +3,15 @@
   if (window.BoleteraPayer) return;
   let profile = null;
   let state = 'waiting';
+  // Why the payer is not filled yet, in plain words for Lab's record (never a value from the form or the profile).
+  let reason = 'sin datos del titular';
   let forcePending = false;
   const attempted = new WeakSet();
   const typeAttempts = new WeakSet();
   let pendingType = null;
+  // The dropdown may not open on the first press (Angular attaches its handler a moment later): press it again, a few times.
+  let pendingSince = 0, typeRetries = 0;
+  const RETRY_MS = 1200, MAX_RETRIES = 4;
   const normalize = value => value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   function typeCode(text) {
     const label = normalize(text);
@@ -23,26 +28,27 @@
     // The stepper creates later forms while they are still hidden. Opening a
     // hidden Material select does not work; wait until its step is displayed.
     if (!type.getClientRects().length || getComputedStyle(type).visibility === 'hidden' ||
-        type.closest('[aria-hidden="true"], .mat-horizontal-stepper-content[aria-expanded="false"]')) return false;
+        type.closest('[aria-hidden="true"], .mat-horizontal-stepper-content[aria-expanded="false"]')) { reason = 'tipo de documento todavía oculto'; return false; }
     if (typeAttempts.has(type) && !force && pendingType !== type) return true;
     const selected = selectedType(type);
-    if (selected && selected !== desired && !force) { state = 'conflict'; return false; }
+    if (selected && selected !== desired && !force) { state = 'conflict'; reason = 'Prex tiene otro tipo de documento'; return false; }
     if (selected === desired) { typeAttempts.add(type); pendingType = null; return true; }
-    if (type.disabled || type.getAttribute('aria-disabled') === 'true') return false;
+    if (type.disabled || type.getAttribute('aria-disabled') === 'true') { reason = 'tipo de documento bloqueado'; return false; }
     if (type.tagName === 'SELECT') {
       const options = [...type.options].filter(option => (option.value === desired || typeCode(option.textContent) === desired) && !option.disabled);
-      if (options.length !== 1) return false;
+      if (options.length !== 1) { reason = `tipo de documento: ${options.length} opciones válidas`; return false; }
       typeAttempts.add(type);
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(type, options[0].value);
       type.dispatchEvent(new Event('input', {bubbles:true}));
       type.dispatchEvent(new Event('change', {bubbles:true}));
       return true;
     }
-    if (type.tagName !== 'MAT-SELECT') return false;
+    if (type.tagName !== 'MAT-SELECT') { reason = 'tipo de documento desconocido: ' + type.tagName.toLowerCase(); return false; }
     if (pendingType !== type) {
       const trigger = type.querySelector('.mat-select-trigger, .mat-mdc-select-trigger');
-      if (!trigger) return false;
+      if (!trigger) { reason = 'tipo de documento sin botón'; return false; }
       pendingType = type;
+      pendingSince = Date.now(); typeRetries = 0;
       typeAttempts.add(type);
       // Use the original select and its options so Angular receives the selection.
       // A form can appear before Angular attaches its click handlers. Wait until
@@ -52,14 +58,26 @@
         if (type.getAttribute('aria-expanded') !== 'true') trigger.click();
         fill();
       }, 0);
+      reason = 'abriendo el tipo de documento';
       return false;
     }
     const ownedIds = (type.getAttribute('aria-controls') || type.getAttribute('aria-owns') || '').split(/\s+/).filter(Boolean);
     const panels = ownedIds.map(id => document.getElementById(id)).filter(panel => panel?.getAttribute('role') === 'listbox');
-    if (panels.length !== 1) return false;
+    if (panels.length !== 1) {
+      if (panels.length === 0 && Date.now() - pendingSince >= RETRY_MS && typeRetries < MAX_RETRIES) {
+        const trigger = type.querySelector('.mat-select-trigger, .mat-mdc-select-trigger');
+        if (trigger && type.getAttribute('aria-expanded') !== 'true') {
+          typeRetries++; pendingSince = Date.now();
+          trigger.click();
+          setTimeout(() => { if (pendingType === type && type.isConnected) fill(); }, 0);
+        }
+      }
+      reason = `la lista de tipos no abrió (${panels.length}, intentos ${typeRetries + 1})`;
+      return false;
+    }
     const options = [...panels[0].querySelectorAll('mat-option[role="option"]')].filter(option =>
       option.getAttribute('aria-disabled') !== 'true' && typeCode(option.textContent) === desired);
-    if (options.length !== 1) return false;
+    if (options.length !== 1) { reason = `lista de tipos: ${options.length} opciones de cédula`; return false; }
     // Clear before the click; option events may synchronously update the document.
     pendingType = null;
     options[0].click();
@@ -72,14 +90,14 @@
   }
   function fill(force = false) {
     force = force || forcePending;
-    if (!profile || !window.document?.body) return;
+    if (!profile || !window.document?.body) { reason = 'sin datos del titular'; return; }
     const forms = [...document.querySelectorAll('form')].filter(form => controls(form, split) || controls(form, combined));
-    if (forms.length !== 1) { state = 'waiting'; return; }
+    if (forms.length !== 1) { state = 'waiting'; reason = `formularios del titular: ${forms.length}`; return; }
     const form = forms[0];
     const type = form.querySelector('[formcontrolname="tipoDocumentoControl"]');
     const desiredType = profile.documentType || 'CI';
-    if (!['CI', 'PAS'].includes(desiredType)) { state = 'waiting'; return; }
-    if (type && !typeAttempts.has(type) && selectedType(type) && selectedType(type) !== desiredType && !force) { state = 'conflict'; return; }
+    if (!['CI', 'PAS'].includes(desiredType)) { state = 'waiting'; reason = 'tipo de documento guardado desconocido'; return; }
+    if (type && !typeAttempts.has(type) && selectedType(type) && selectedType(type) !== desiredType && !force) { state = 'conflict'; reason = 'Prex tiene otro tipo de documento'; return; }
     const values = controls(form, split) ? {
       nombreControl: profile.givenName, apellidoControl: profile.familyName,
       documentoControl: profile.document, emailControl: profile.email, celularControl: profile.phone
@@ -90,7 +108,7 @@
     if (!force && Object.entries(values).some(([name, value]) => {
       const input = form.querySelector(`input[formcontrolname="${name}"]`);
       return !attempted.has(input) && input.value && normalize(input.value) !== normalize(value);
-    })) { state = 'conflict'; return; }
+    })) { state = 'conflict'; reason = 'Prex ya tiene otros datos'; return; }
     if (!chooseDocumentType(type, desiredType, force)) { if (state !== 'conflict') state = 'waiting'; return; }
     for (const [name, value] of Object.entries(values)) {
       const input = form.querySelector(`input[formcontrolname="${name}"]`);
@@ -102,6 +120,7 @@
       input.dispatchEvent(new Event('change', {bubbles:true}));
     }
     state = 'filled';
+    reason = 'completo';
     forcePending = false;
   }
   window.BoleteraPayer = {
@@ -119,6 +138,7 @@
       return true;
     },
     status() { fill(); return state; },
+    why() { return reason; },
     applyChosenProfile() { forcePending = true; fill(true); return state === 'filled'; }
   };
   new MutationObserver(() => fill()).observe(document.body, {childList:true, subtree:true});

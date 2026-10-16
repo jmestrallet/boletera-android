@@ -49,7 +49,9 @@ import androidx.fragment.app.FragmentActivity
 // Entry messages that are the person's own choice or the phone's state, not a failure: no «Enviar reporte» for them.
 private const val UNLOCK_NOT_CONFIRMED = "No se desbloqueó el acceso. Podés volver a intentar o ingresar manualmente."
 private const val FINGERPRINTS_CHANGED = "Cambiaron las huellas del celular y Android borró el acceso guardado. Ingresá con tu contraseña para guardarlo de nuevo."
-private val NOT_A_FAILURE = setOf(StmEngine.OFFLINE, UNLOCK_NOT_CONFIRMED, FINGERPRINTS_CHANGED)
+private val NOT_A_FAILURE = setOf(StmEngine.OFFLINE, UNLOCK_NOT_CONFIRMED, FINGERPRINTS_CHANGED, "Documento o contraseña incorrectos. Revisalos e intentá de nuevo.")
+/** The crash line is written by one handler, however many times the activity is created in the process. */
+private var crashLogInstalled = false
 
 class MainActivity : FragmentActivity() {
     private lateinit var engine: StmEngine
@@ -95,12 +97,13 @@ class MainActivity : FragmentActivity() {
             LabLog.init(this)
             // A crash leaves its first lines in the record before Android closes the app.
             val previous = Thread.getDefaultUncaughtExceptionHandler()
-            Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            if (!crashLogInstalled) Thread.setDefaultUncaughtExceptionHandler { thread, error ->
                 LabLog.add("CIERRE", "${error.javaClass.simpleName}: ${error.message.orEmpty().take(200)} @ " +
                     error.stackTrace.take(6).joinToString(" < ") { "${it.fileName}:${it.lineNumber}" })
                 Thread.sleep(300)
                 previous?.uncaughtException(thread, error)
             }
+            crashLogInstalled = true
         }
         LabReport.diagnostic = { if (::engine.isInitialized) engine.helpDiagnostic else "" }
         if (IsLab) lifecycleScope.launch {
@@ -112,7 +115,7 @@ class MainActivity : FragmentActivity() {
                     (if (p.cardBusy) " · tarjeta enviándose" else "") + (if (p.cardError) " · tarjeta con error" else "") +
                     (if (p.slowStep) " · Prex lento" else "") + (if (p.staleAfterResume) " · recargando al volver" else "") +
                     " · express=${p.expressPhase}" + (if (p.canContinue) " · puede seguir" else " · no puede seguir") +
-                    (if (p.completionSubmitted) " · paso enviado" else "") + " · titular ${p.payerValues.count { it.isNotBlank() }}/5" +
+                    (if (p.completionSubmitted) " · paso enviado" else "") + " · titular ${p.payerValues.count { it.isNotBlank() }}/5" + (if (p.nativeStage == "payer" && p.payerWhy.isNotBlank()) " (${p.payerWhy})" else "") +
                     (if (p.payerConflict) " · titular distinto" else "") + (if (p.verificationRequired) " · pide verificación" else "") +
                     (if (p.message.isNotBlank()) " · error: ${p.message}" else "") +
                     (if (engine.expressPreparing) " · Express preparando" else "") +
@@ -222,6 +225,8 @@ class MainActivity : FragmentActivity() {
             // Lab: with a card saved for Express, one fingerprint opens it and the rest runs by itself. Cancelling the
             // fingerprint cancels the Express; without a saved card it goes on as before (Android's saved-card suggestion).
             val cards=LabExpressCard.vault
+            // One fingerprint at a time: a second Express while the first one's prompt is open does nothing.
+            if(IsLab && cards!=null && cards.exists && LabExpressCard.opening) return
             if(IsLab && cards!=null && cards.exists) {
                 // Express starts right away, as without a card (the light lands on its waiting card); the fingerprint
                 // comes once the light is done and Prex's card step waits for it. If the card does not open, that step
@@ -236,6 +241,8 @@ class MainActivity : FragmentActivity() {
                 LabExpressCard.opening=true
                 lifecycleScope.launch {
                     kotlinx.coroutines.delay(1150)
+                    // Cancelled during the light: no fingerprint over the balance.
+                    if(!engine.expressPreparing && engine.state.stage!="embeddedPrex") { LabExpressCard.opening=false; LabLog.add("huella", "no pedida: Express cancelado"); return@launch }
                     LabLog.add("huella", "pedida para la tarjeta guardada")
                     cards.unlock { card ->
                         LabExpressCard.opening=false
@@ -634,8 +641,10 @@ class MainActivity : FragmentActivity() {
 
         // Lab: a version found on opening, offered on the entry or the home (never in the middle of a payment).
         val promptRelease=updates.release
-        if(IsLab && updates.prompt && promptRelease!=null && !updates.reviewRequested && !showSettings && state.stage in setOf("welcome","balance"))
-            LabUpdatePrompt(promptRelease,updates.progress,updates.busy,onUpdate=updates::acceptPrompt,onLater=updates::skipPrompt)
+        if(IsLab && updates.prompt && promptRelease!=null && !updates.reviewRequested && !showSettings && state.stage in setOf("welcome","balance") &&
+            !showAmount && state.credited==null && !manual && !showAccessGuide)
+            LabUpdatePrompt(promptRelease,updates.progress,updates.busy,onUpdate=updates::acceptPrompt,onLater=updates::skipPrompt,
+                problem=if(updates.downloadFailed && !updates.busy)updates.message else null)
         if(updates.reviewRequested && updates.ready && !updates.busy && IsLab) updates.release.let { r ->
             LabNewsSheet(r?.let { UpdatePolicy.display(it.version).substringAfter(' ') } ?: "La versión nueva",labNewsFrom(r?.notes.orEmpty()),installed=false,
                 onPrimary=updates::acceptReview,onLater=updates::dismissReview) }

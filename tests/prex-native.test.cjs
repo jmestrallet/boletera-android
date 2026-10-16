@@ -68,3 +68,13 @@ test('a payer «Continuar» answered with the check is not a send: after the che
  assert.equal(api.snapshot().canContinue,false);assert.equal(api.advance('payer',true),false);assert.equal(api.advance('payer'),false);assert.equal(clicks,2);
  }finally{dom.window.close();}
 });
+
+test('the page shape for the record says which fields exist and whether they are filled, never their values',()=>{
+ const dom=setup();try {const d=dom.window.document,api=dom.window.BoleteraNative;
+ const sections=d.querySelectorAll('section');sections[0].setAttribute('aria-expanded','false');sections[1].setAttribute('aria-expanded','true');
+ d.querySelector('alta-cliente').innerHTML='<form class="ng-valid"><input formcontrolname="nombreControl" value="Ficticia"><input formcontrolname="documentoControl" value="12345678"><input formcontrolname="emailControl" value="persona@example.invalid"><button>Continuar</button></form>';
+ const shape=api.shape();
+ assert.match(shape,/nombre:input\+/);assert.match(shape,/documento:input\+/);
+ for(const secret of ['Ficticia','12345678','persona@example.invalid','260'])assert.equal(shape.includes(secret),false,secret);
+ }finally{dom.window.close();}
+});
