@@ -371,7 +371,7 @@ class MainActivity : FragmentActivity() {
                         LabWelcome(state,savedAccess=state.hasSavedAccess,authenticating=authenticating,onUnlock={unlockSavedAccess()},onManual={manual=true},
                             onAccessGuide={showAccessGuide=true},heroPhase=labHeroPhase,opening=labOpening,errorText=labEntryError,
                             onOpenSite=if(labHeroResult==HeroPhase.ERROR && labEntryError!=StmEngine.OFFLINE)::openStmAccess else null,
-                            onReport=if(labEntryError.isNotBlank() && labEntryError!=StmEngine.OFFLINE)({LabReport.share(context,"No pude entrar · $labEntryError")}) else null)
+                            onReport=if(labEntryError.isNotBlank() && labEntryError!=StmEngine.OFFLINE)({LabReport.send(context,"No pude entrar · $labEntryError")}) else null)
                     } else Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal=24.dp).padding(top=if(stage=="balance")4.dp else 12.dp,bottom=if(stage in listOf("balance","blocked"))4.dp else 32.dp)
                         .pageEntrance(stage, state.captcha==null),verticalArrangement=Arrangement.spacedBy(if(stage in listOf("balance","blocked"))0.dp else 24.dp)) {
                         when(stage) {

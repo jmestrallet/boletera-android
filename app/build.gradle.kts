@@ -28,18 +28,23 @@ android {
         applicationId = if (isLab) "uy.boletera.lab" else "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = if (legacyUpdateBridge) 49 else if (isLab) 69 else 61
+        versionCode = if (legacyUpdateBridge) 49 else if (isLab) 70 else 61
         versionName = when {
             legacyUpdateBridge -> "0.2.31-prueba"
-            isLab -> "0.2.40-lab.9"
+            isLab -> "0.2.40-lab.10"
             isAlpha -> "0.2.40-alpha.5"
             isBeta -> "0.2.40-beta.2"
             else -> "0.2.40"
         }
         buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"$distributionChannel\"")
+        // Key that can only open issues in the private jmestrallet/boletera-reportes repo. It lives in .tools (never
+        // committed) and is read at build time; without it «Enviar reporte» falls back to the share sheet.
+        val reportToken = rootProject.file(".tools/reports-token.txt").takeIf { it.exists() }?.readText()?.trim().orEmpty()
+            .filter { it.isLetterOrDigit() || it == '_' }
+        buildConfigField("String", "REPORT_TOKEN", "\"$reportToken\"")
         buildConfigField("String", "DISPLAY_VERSION", when {
             legacyUpdateBridge -> "\"0.2.31\""
-            isLab -> "\"0.2.40 Lab 9\""
+            isLab -> "\"0.2.40 Lab 10\""
             isAlpha -> "\"0.2.40 Alpha 5\""
             isBeta -> "\"0.2.40 Beta 2\""
             else -> "\"0.2.40\""

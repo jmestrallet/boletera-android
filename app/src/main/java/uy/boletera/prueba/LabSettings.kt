@@ -120,7 +120,7 @@ private val RowLine = Color.White.copy(alpha = .09f)
                         }
                         Divider()
                     }
-                    SettingRow(R.drawable.ic_content_copy, "Enviar reporte", "Lo que pasó en STM, sin tus datos", onClick = { LabReport.share(context, "Reporte desde Configuración") }) {
+                    SettingRow(R.drawable.ic_content_copy, "Enviar reporte", "Lo que pasó en STM, sin tus datos", onClick = { LabReport.send(context, "Reporte desde Configuración") }) {
                         SmallAction(if (copied) "Copiado ✓" else "Copiar", done = copied, onClick = copy)
                     }
                 }

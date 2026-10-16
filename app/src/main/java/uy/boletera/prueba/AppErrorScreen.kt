@@ -93,7 +93,7 @@ internal fun errorPresentation(message:String):ErrorPresentation {
     val info=remember(message){errorPresentation(message)}
     val (title,line)=labErrorCopy(info.code)
     val context=androidx.compose.ui.platform.LocalContext.current
-    val report=LabAction("Enviar reporte",quiet=true){LabReport.share(context,"$title · $message")}
+    val report=LabAction("Enviar reporte",quiet=true){LabReport.send(context,"$title · $message")}
     if(payment) {
         // A payment cut is not an STM error: say what to do (look at the balance) and never invite to pay again blindly.
         LabStatusScreen(HeroPhase.ERROR,"El pago se interrumpió","Mirá tu saldo en el inicio antes de volver a cargar.",primary=LabAction("Volver al inicio",onClick=onExit),secondary=report)

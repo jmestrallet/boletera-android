@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.40 Lab 10 - Reportes directos
+
+- «Enviar reporte» ahora llega directo, sin elegir con qué mandarlo: en los errores, en la entrada cuando falla el ingreso y en Configuración. Dice «Reporte enviado».
+- El reporte lleva qué pasó, el modelo del celular y los pasos por STM, sin tu documento, tu contraseña ni datos de tarjeta.
+- Sin internet, se abre el menú para compartirlo como antes.
+
 ## 0.2.40 Lab 9 - Tarjeta guardada para Carga Express
 
 - Tarjeta guardada: en «Tu tarjeta», activá «Guardar para Carga Express». Queda cifrada en el chip de seguridad del celular y solo se abre con tu huella.
