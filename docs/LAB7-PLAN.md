@@ -55,7 +55,7 @@ Referencias: maquetas en `outputs/home-2026/` (reglas comunes en `reglas.html`),
 - [x] «Antes de entrar» con «Ya entré a STM con mi usuario gub.uy» / «Es mi primera vez: abrir STM»; el botón principal abre directo el panel del documento (B11).
 - [x] Novedades y «Lab 7 está lista»; sin Novedades en una instalación nueva (B12); actualización descargando.
 
-## Objetivo 6 · Movimiento (en curso: prototipo v2 a la espera del dueño; base en la app hecha: `LabMotion.kt`, tarjeta que vuela entre pantallas)
+## Objetivo 6 · Movimiento (v2 aprobada y en la app: `LabMotion.kt`; falta el gesto de volver predictivo)
 Las maquetas eran pantallas fijas: falta diseñar cómo se pasa de una a otra.
 - [ ] Inventario de transiciones: la tarjeta como pieza que viaja (entrada → inicio → pago → resultado → inicio, cambiando entre 360 y 132), cambios de estado del círculo (color y dibujo que se transforman, no que saltan), textos que cambian con fundido, hojas que suben, pasos del pago que avanzan, números que cambian, gesto de volver predictivo.
 - [ ] Prototipo HTML animado y navegable del recorrido, para aprobar (mismo método: diseño, pulido, crítica).
@@ -78,3 +78,6 @@ En Configuración, un interruptor «Modo demo» para probar todo sin plata ni ST
 - Recarga para otra persona con la «Recarga rápida» de STM (datos temporales).
 - Actividad, cuando el dueño tenga nivel 2 (probable: segundo factor de gub.uy).
 - eBROU.
+
+## Publicado
+- 0.2.40 Lab 7 (código 67), 15/10, tag `v0.2.40-lab.7`. Pendiente: prueba de pago real del dueño, gesto de volver predictivo, y en Lab 8 primero el reenvío de tarjeta rechazada.
