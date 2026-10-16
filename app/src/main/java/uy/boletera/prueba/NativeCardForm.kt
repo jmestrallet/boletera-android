@@ -55,6 +55,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     expandedChallenge: Boolean, onSubmit: (String,String,String)->Unit, onOriginal: ()->Unit,
     focusCard: Boolean = false, verificationRequired: Boolean = false, onManualContinue: () -> Unit = {}, onVerificationShown: () -> Unit = {},
     onAutomaticSubmit: ((String,String,String)->Unit)? = null, onOtherCard: (() -> Unit)? = null,
+    offerSave: Boolean = false, savedCard: String? = null, onUseSaved: (() -> Unit)? = null,
     verification: @Composable ()->Unit = {}) {
     var pan by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
@@ -77,12 +78,18 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     val codeView=remember { BringIntoViewRequester() }
     val verificationView=remember { BringIntoViewRequester() }
     val scope=rememberCoroutineScope()
+    var saveForExpress by remember { mutableStateOf(false) }
     fun submit(manual: Boolean = false, checkVerification: Boolean = false) {
         if(busy || !canContinue || providerError || expandedChallenge)return
         if(manual)onManualContinue()
         autoConsumed=true;filledFields=0;pendingContinue=false
         autofill?.cancel();keyboard?.hide();focus.clearFocus()
-        (if(manual&&!checkVerification)onSubmit else onAutomaticSubmit?:onSubmit)(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
+        val send=(if(manual&&!checkVerification)onSubmit else onAutomaticSubmit?:onSubmit)
+        val card=Triple(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
+        // «Guardar para Carga Express»: the fingerprint saves it first, then the card goes to Prex as always.
+        val cards=LabExpressCard.vault
+        if(IsLab && offerSave && saveForExpress && cards!=null) cards.save(card.first,card.second,card.third) { send(card.first,card.second,card.third) }
+        else send(card.first,card.second,card.third)
         cvv="";attempted=false
     }
     fun fill(field: Int, value: String): Boolean {
@@ -189,7 +196,8 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     if(IsLab) {
         LabCardFields(busy,canContinue,providerError,focusCard,pendingContinue,verificationRequired,numberField,expiryField,cvvField,verification,verificationView,
             onSaved={ pendingContinue=false;numberFocus.requestFocus();scope.launch { numberView.bringIntoView();cardAutofill.request();keyboard?.show() } },
-            onContinue={ if(!focusMissing())submit(manual=true) },onOriginal={ autofill?.cancel();onOriginal() },onOtherCard=onOtherCard)
+            onContinue={ if(!focusMissing())submit(manual=true) },onOriginal={ autofill?.cancel();onOriginal() },onOtherCard=onOtherCard,
+            saveForExpress=if(offerSave && LabExpressCard.vault?.available==true) saveForExpress else null,onSaveForExpress={saveForExpress=it},savedCard=savedCard,onUseSaved=onUseSaved)
         return
     }
     Column(Modifier.fillMaxSize()) {

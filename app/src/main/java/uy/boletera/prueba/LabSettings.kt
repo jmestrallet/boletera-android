@@ -93,6 +93,16 @@ private val RowLine = Color.White.copy(alpha = .09f)
                         }
                     }
                 }
+                // The card saved for Carga Express: which one, and how to forget it.
+                val savedCard = LabExpressCard.vault?.label
+                if (savedCard != null) {
+                    GroupTitle("Carga Express")
+                    Group {
+                        SettingRow(R.drawable.ic_credit_card, "Tarjeta guardada", "$savedCard · con tu huella") {
+                            SmallAction("Olvidar") { LabExpressCard.vault?.forget() }
+                        }
+                    }
+                }
                 GroupTitle("Ayuda")
                 Group {
                     SettingRow(R.drawable.ic_directions_bus, "Boletos y tarifas", "Qué cubre cada boleto y cuánto sale", onClick = onTicketGuide) {

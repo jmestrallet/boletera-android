@@ -78,6 +78,7 @@ class MainActivity : FragmentActivity() {
         // Screenshots remain available for the owner's prototype feedback.
         engine = StmEngine(this)
         vault = AccessVault(this)
+        if (IsLab) LabExpressCard.vault = CardVault(this)
         engine.savedAccess(vault.exists)
         handleShortcut(intent); publishShortcuts()
         val preferences = getSharedPreferences("appearance", MODE_PRIVATE)
@@ -164,8 +165,17 @@ class MainActivity : FragmentActivity() {
         }
         fun requestExpress() {
             if(!engine.expressAvailable || state.busy)return
+            // Lab: with a card saved for Express, one fingerprint opens it and the rest runs by itself. Cancelling the
+            // fingerprint cancels the Express; without a saved card it goes on as before (Android's saved-card suggestion).
+            val cards=LabExpressCard.vault
+            if(IsLab && cards!=null && cards.exists) {
+                cards.unlock { card -> if(card!=null) { LabExpressCard.pending=card; engine.startExpress(); if(!engine.expressPreparing) LabExpressCard.pending=null } }
+                return
+            }
             engine.startExpress()
         }
+        // A card opened for an Express that never reached Prex is dropped as soon as the balance is back.
+        LaunchedEffect(state.stage, state.busy) { if(state.stage=="balance" && !state.busy) LabExpressCard.pending=null }
         if (state.stage == "embeddedPrex") {
             if(IsLab) BoleteraTheme("dark") { LabEmbeddedPrexScreen(engine.prexPayment, state.activePayment, state.selectedCard, engine::leavePrexPayment) }
             else EmbeddedPrexScreen(engine.prexPayment, state.activePayment, engine::leavePrexPayment)
@@ -213,7 +223,7 @@ class MainActivity : FragmentActivity() {
             if (engine.forgetChoices()) {
                 // Forgetting the phone is not a new install: the news already read stay read.
                 val seen=helpPreferences.getString("whats_new_seen",null)
-                helpPreferences.edit().clear().putString("whats_new_seen",seen).apply();vault.forget(); lastBalances.clear()
+                helpPreferences.edit().clear().putString("whats_new_seen",seen).apply();vault.forget(); lastBalances.clear(); LabExpressCard.vault?.forget()
                 for (name in listOf("lab_card_names","lab_hints")) context.getSharedPreferences(name, android.content.Context.MODE_PRIVATE).edit().clear().apply(); engine.savedAccess(false); engine.logout()
                 // Lab says it with the clean entry itself; a notice there would paint the entry red as if signing in failed.
                 if(!IsLab) engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.")

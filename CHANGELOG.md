@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.2.40 Lab 9 - Tarjeta guardada para Carga Express
+
+- Tarjeta guardada: en «Tu tarjeta», activá «Guardar para Carga Express». Queda cifrada en el chip de seguridad del celular y solo se abre con tu huella.
+- Carga Express con tarjeta guardada: mantenés el rayo, ponés la huella y el resto es automático.
+- En una recarga normal, «Usar tu tarjeta ···· 8842» la completa con tu huella.
+- Seguridad: huella en cada uso, solo con el celular desbloqueado; si se agrega o quita una huella, la tarjeta se borra sola. En claro quedan solo los últimos 4 números.
+- Sin capturas de pantalla durante el pago.
+- Configuración → Carga Express muestra la tarjeta guardada y la deja olvidar. «Olvidar este celular» también la borra.
+
 ## 0.2.40 Lab 8 - Arreglos de Lab 7
 
 - El captcha de Prex sigue solo: al resolverlo, la app avanza sin que tengas que tocar nada.

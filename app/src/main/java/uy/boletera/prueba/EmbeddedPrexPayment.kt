@@ -375,6 +375,15 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
 
     fun submitCard(pan: String, expiry: String, cvv: String) = submitCard(pan,expiry,cvv,automatic=false)
     fun submitAutofilledCard(pan: String, expiry: String, cvv: String) = submitCard(pan,expiry,cvv,automatic=true)
+    /**
+     * Express with the card saved for it (CardVault): that card is the one expected, so the final confirmation goes on
+     * by itself only if the provider shows the same last four digits; otherwise it stops at «Pagar».
+     */
+    fun submitSavedCard(pan: String, expiry: String, cvv: String) {
+        if(!expressJourney)return
+        expectedCardIdentity=identifyCard(pan); expectedCardSuffix=pan.takeLast(4)
+        submitCard(pan,expiry,cvv,automatic=true)
+    }
     private fun submitCard(pan: String, expiry: String, cvv: String, automatic: Boolean) {
         if(destroyed || !visible || suspended || nativeStage!="card" || cardBusy || !canContinue)return
         enteredCardIdentity=identifyCard(pan)
