@@ -15,6 +15,9 @@
   };
   const ready = e => !!e && !e.disabled && e.getAttribute('aria-disabled') !== 'true';
   let sentStep = null;
+  // Prex may answer «Continuar» on the payer step by showing its check instead of moving on. That press did not go
+  // through: once the check is accepted, the step can be sent again (once). A press made with the check on screen stays sent.
+  let sentWithoutCheck = false;
   function snapshot() {
     if ([...document.querySelectorAll('[role="dialog"],[role="alertdialog"],.swal2-popup,mat-dialog-container')].some(visible)) return {stage:'original'};
     const summary = single('stepper-pago confirmar-pago');
@@ -24,7 +27,7 @@
     const root = summary || client || card;
     const original = single('alta-tarjeta,alta-tarjeta-externo,seleccion-tarjeta,finalizar-pago,resultado-pago,pago-redes');
     const stage = summary ? 'summary' : client ? 'payer' : card ? 'card' : original ? 'original' : 'loading';
-    if (sentStep && sentStep !== stage) sentStep = null;
+    if (sentStep && sentStep !== stage) { sentStep = null; sentWithoutCheck = false; }
     if (!root) return {stage};
     // Only summary text and explicitly named ordinary payer fields are read.
     const rows = summary ? [...summary.querySelectorAll('div')].map(div => {
@@ -40,6 +43,7 @@
     const r = challenge?.getBoundingClientRect();
     const measurable = r && r.width > 0 && r.height > 0;
     const verificationRequired=!!(client||card) && (frames.length>0 || [...root.querySelectorAll('angular-recaptcha,re-captcha')].some(visible));
+    if (sentStep === stage && stage === 'payer' && sentWithoutCheck && verificationRequired) { sentStep = null; sentWithoutCheck = false; }
     return {stage, rows, values, submitted: sentStep === stage, canContinue: card ? cardState.canContinue : ready(button(root)) && sentStep !== stage,
       cardBusy:!!card && cardState.busy, cardError:!!card && cardState.error,
       verificationRequired, verificationApproved:verificationRequired && window.BoleteraProviderVerification?.accepted(root)===true,
@@ -62,6 +66,7 @@
       const action = root && button(root);
       if (!ready(action)) return false;
       sentStep = expected;
+      sentWithoutCheck = !state.verificationRequired;
       action.click();
       return true;
     }

@@ -51,3 +51,20 @@ test('only original visible CAPTCHA geometry is exposed; provider dialogs remain
  const modal=d.createElement('div');modal.setAttribute('role','alertdialog');d.body.append(modal);assert.equal(api.snapshot().stage,'original');assert.equal(api.advance('payer'),false);
  }finally{dom.window.close();}
 });
+
+test('a payer «Continuar» answered with the check is not a send: after the check it continues once (Lab 15 report, 16/10)',()=>{
+ const dom=setup();try {const d=dom.window.document,api=dom.window.BoleteraNative;let clicks=0;
+ const sections=d.querySelectorAll('section');sections[0].setAttribute('aria-expanded','false');sections[1].setAttribute('aria-expanded','true');
+ const next=d.querySelector('alta-cliente button');next.disabled=false;next.onclick=()=>clicks++;
+ assert.equal(api.advance('payer',true),true);assert.equal(clicks,1);assert.equal(api.snapshot().canContinue,false);
+ // Prex shows its check instead of moving on: the step can be sent again, but not before the check is accepted.
+ const frame=d.createElement('iframe');frame.src='https://www.google.com/recaptcha/api2/anchor?size=normal';frame.getBoundingClientRect=()=>({x:12,y:40,width:304,height:78});
+ d.querySelector('alta-cliente').append(frame);
+ assert.equal(api.snapshot().verificationRequired,true);assert.equal(api.snapshot().canContinue,true);
+ assert.equal(api.advance('payer',true),false);assert.equal(clicks,1);
+ dom.window.BoleteraProviderVerification={accepted:()=>true};
+ assert.equal(api.advance('payer',true),true);assert.equal(clicks,2);
+ // That second press was made with the check on screen: it stays sent, nothing presses a third time.
+ assert.equal(api.snapshot().canContinue,false);assert.equal(api.advance('payer',true),false);assert.equal(api.advance('payer'),false);assert.equal(clicks,2);
+ }finally{dom.window.close();}
+});

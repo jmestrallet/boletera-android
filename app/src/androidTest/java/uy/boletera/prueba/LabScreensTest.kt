@@ -287,6 +287,23 @@ class LabScreensTest {
         compose.onNodeWithText("Cerrar sesión").assertDoesNotExist()
         capture("lab-settings-no-session.png")
     }
+    @Test fun updatePromptNormalAndCritical() {
+        var critical by mutableStateOf(false)
+        val notes = listOf("Carga Express arreglada — Arranca al instante y la huella llega al final de la luz.", "Registro de uso — «Enviar reporte» manda lo que pasó.")
+        compose.setContent {
+            Frame { LabWelcome(UiState(stage = "welcome"), savedAccess = true, authenticating = false, onUnlock = {}, onManual = {}, onAccessGuide = {}) }
+            BoleteraTheme("dark") {
+                LabUpdatePrompt(UpdateRelease("0.2.40-lab.16", "", 1, "", notes = notes, channel = UpdateChannel.LAB, critical = critical), null, false, onUpdate = {}, onLater = {})
+            }
+        }
+        compose.onNodeWithText("Lab 16 está disponible").assertIsDisplayed()
+        compose.onNodeWithText("Ahora no").assertIsDisplayed()
+        capture("lab-update-normal.png")
+        critical = true
+        compose.onNodeWithText("Actualizá para que Boletera siga andando").assertIsDisplayed()
+        compose.onNodeWithText("Seguir sin actualizar").assertIsDisplayed()
+        capture("lab-update-critical.png")
+    }
     @Test fun beforeEnteringAndNewsAreSheets() {
         var step by mutableIntStateOf(0)
         var ready = 0

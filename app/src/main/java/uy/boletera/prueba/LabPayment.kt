@@ -205,7 +205,9 @@ import androidx.compose.ui.unit.sp
     BackHandler { if (!paid) onClose() }
     val completion = stage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "returnBalance", "sessionExpired") ||
         payment.returningToWallet && stage == "loading"
-    val waitStage = stage in listOf("loading", "summary", "payer") && !payment.returningToWallet
+    // While the saved card's fingerprint is open, Prex's steps (and its check) stay behind the Express wait.
+    val fingerprintOpen = express && LabExpressCard.opening && !paid
+    val waitStage = stage in listOf("loading", "summary", "payer") && !payment.returningToWallet || fingerprintOpen
     // The provider's summary and payer steps carry what was already chosen: they go on by themselves (B7, B9). A check stops it.
     LaunchedEffect(stage, payment.canContinue, payment.challenge, payment.payerValues, payment.verificationApproved, payment.payerConflict) {
         if (stage == "summary" && payment.canContinue) payment.advance(stage)
@@ -245,6 +247,11 @@ import androidx.compose.ui.unit.sp
                     showOriginal || stage == "original" -> Column(Modifier.fillMaxSize()) {
                         if (stage != "original") LabTextLink("Volver", { showOriginal = false }, Modifier.align(Alignment.End), quiet = true)
                         PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.weight(1f).fillMaxWidth())
+                    }
+                    // Waiting for the saved card's fingerprint: only the Express wait shows.
+                    fingerprintOpen -> {
+                        Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
+                        LabPaymentWait(amount, card, express = true, onCancel = null)
                     }
                     // Before paying, a page that stalls offers to keep waiting or go back (after «Pagar» it just keeps processing).
                     // After «Pagar» a stall still has a way out: the balance on the home tells how it ended.

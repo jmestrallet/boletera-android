@@ -129,6 +129,17 @@ class AppUpdatesTest {
         val json = org.json.JSONObject(fixture("0.2.25")).put("body", body)
         assertEquals(parsed, UpdatePolicy.select("[$json]", "0.2.24-prueba")!!.notes)
     }
+    @Test fun criticalReleasesAreMarkedAndCarryThroughSkippedVersions() {
+        fun release(v:String,body:String)=org.json.JSONObject(fixture(v)).put("body",body)
+        assertTrue(UpdatePolicy.critical("## Novedades en la app\n- Arreglo\n<!-- critica -->"))
+        assertTrue(UpdatePolicy.critical("## Actualización crítica\n- STM cambió"))
+        assertFalse(UpdatePolicy.critical("## Novedades en la app\n- Una mejora crítica para el diseño"))
+        val normal=UpdatePolicy.select("[${release("0.2.25","- Visual")}]","0.2.24-prueba")!!
+        assertFalse(normal.critical)
+        // The critical fix was in a version skipped on the way: the newest one is still needed.
+        val skipped=UpdatePolicy.select(listOf(release("0.2.25","- Prex cambió\n<!-- critica -->"),release("0.2.26","- Visual")).joinToString(",","[","]"),"0.2.24-prueba")!!
+        assertEquals("0.2.26",skipped.version);assertTrue(skipped.critical)
+    }
     @Test fun skippedVersionsAccumulateWithoutInstalledOrDraftNotes() {
         fun release(v:String,body:String,draft:Boolean=false)=org.json.JSONObject(fixture(v,draft)).put("body",body)
         val entries=listOf(release("0.2.21","Instalada"),release("0.2.22","- Uno\n- Dos\n- Tres\n- Cuatro"),
@@ -148,8 +159,8 @@ class AppUpdatesTest {
         try {
             prefs.edit().putLong(key,1000).commit()
             assertFalse(updates.automaticCheckDue(1001))
-            assertFalse(updates.automaticCheckDue(1000+6*60*60*1000L-1))
-            assertTrue(updates.automaticCheckDue(1000+6*60*60*1000L))
+            assertFalse(updates.automaticCheckDue(1000+updates.automaticInterval-1))
+            assertTrue(updates.automaticCheckDue(1000+updates.automaticInterval))
             compose.runOnIdle {updates.downloadReady();updates.dismissReview()}
             assertFalse(updates.automaticCheckDue(1000+12*60*60*1000L))
             compose.runOnIdle {updates.checkAutomatic()}

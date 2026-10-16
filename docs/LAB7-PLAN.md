@@ -80,5 +80,8 @@ En Configuración, un interruptor «Modo demo» para probar todo sin plata ni ST
 - Actividad, cuando el dueño tenga nivel 2 (probable: segundo factor de gub.uy).
 - eBROU.
 
+## Actualizaciones críticas (desde Lab 16)
+Una versión se marca como **crítica** agregando la línea `<!-- critica -->` (no se ve en GitHub) o el título `## Actualización crítica` en sus notas. Usarlo solo cuando STM, Prex u otro medio de pago cambió cómo se comunica su página y sin la actualización la app deja de andar (por ejemplo, cuando el chequeo diario detecta un cambio y sale el arreglo). Lab avisa al abrir: las normales se pueden dejar para después; las críticas avisan en ámbar en cada apertura. Si una versión crítica quedó salteada, la siguiente también se muestra como necesaria.
+
 ## Publicado
 - 0.2.40 Lab 7 (código 67), 15/10, tag `v0.2.40-lab.7`. Pendiente: prueba de pago real del dueño, gesto de volver predictivo, y en Lab 8 primero el reenvío de tarjeta rechazada.

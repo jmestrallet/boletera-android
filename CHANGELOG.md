@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.40 Lab 16 - Express sin trabarse en el captcha y avisos de actualización
+
+- Carga Express ya no se traba después del captcha: si Prex pide «No soy un robot» al seguir con el titular, al marcarlo la recarga continúa sola.
+- Mientras se pide la huella de la tarjeta guardada, detrás solo se ve la espera de Carga Express (no el captcha).
+- Avisos de actualización: al abrir Lab, si hay una versión nueva te lo dice (podés dejarla para después). Si es una actualización necesaria porque cambió STM o Prex, lo avisa claramente.
+- Cancelar la huella al entrar ya no ofrece «Enviar reporte»: no es una falla.
+- El registro de uso anota más detalle del pago, para encontrar más rápido dónde se traba.
+
 ## 0.2.40 Lab 15 - Carga Express arreglada y registro de uso
 
 - Carga Express con tarjeta guardada arranca al instante: la luz da toda la vuelta, cae en la tarjeta y recién ahí pide la huella.

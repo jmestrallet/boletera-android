@@ -24,10 +24,10 @@ internal data class LabNews(@DrawableRes val icon: Int, val title: String, val l
 
 /** What Lab 7 brings, shown once after updating. Up to four; the full detail stays on GitHub. */
 internal val LabWhatsNewItems = listOf(
-    LabNews(R.drawable.ic_bolt, "Express arreglado", "Arranca al instante y la huella llega al final de la luz."),
-    LabNews(R.drawable.ic_credit_card, "Nunca se traba", "Si la tarjeta guardada no abre, seguís con la tarjeta a mano."),
-    LabNews(R.drawable.ic_transit_card, "Paneles que se arrastran", "Tirá para abajo para cerrar; para arriba se estiran."),
-    LabNews(R.drawable.ic_history, "Registro de uso", "«Enviar reporte» manda lo que pasó en las últimas 24 h, sin tus datos."),
+    LabNews(R.drawable.ic_bolt, "Express sin trabarse", "Marcás «No soy un robot» y la recarga sigue sola."),
+    LabNews(R.drawable.ic_fingerprint, "Huella sin distracciones", "Detrás solo se ve la espera de Carga Express."),
+    LabNews(R.drawable.ic_download, "Avisos de actualización", "Te avisa al abrir; las necesarias, bien claro."),
+    LabNews(R.drawable.ic_history, "Registro más detallado", "Para encontrar más rápido dónde se traba."),
 )
 
 /** The release notes as news: «Título — línea» (or «Título: línea») becomes a phrase and its line, with an icon by topic. */
@@ -64,9 +64,33 @@ internal fun labNewsFrom(notes: List<String>): List<LabNews> = notes.take(4).map
     }
 }
 
-@Composable private fun LabTag(text: String) =
-    Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.5.sp), color = LabColors.Primary,
-        modifier = Modifier.padding(start = 8.dp, bottom = 10.dp).clip(RoundedCornerShape(10.dp)).background(LabColors.Primary.copy(alpha = .13f)).padding(horizontal = 10.dp, vertical = 4.dp))
+@Composable private fun LabTag(text: String, color: androidx.compose.ui.graphics.Color = LabColors.Primary) =
+    Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.5.sp), color = color,
+        modifier = Modifier.padding(start = 8.dp, bottom = 10.dp).clip(RoundedCornerShape(10.dp)).background(color.copy(alpha = .13f)).padding(horizontal = 10.dp, vertical = 4.dp))
+
+/**
+ * A new version found on opening Lab. A normal one is recommended and can wait («Ahora no» skips that version); a
+ * critical one (STM or Prex changed how their pages talk to the app) says plainly that without it the app will not
+ * work, and asks again on every opening.
+ */
+@Composable internal fun LabUpdatePrompt(release: UpdateRelease, progress: Int?, busy: Boolean, onUpdate: () -> Unit, onLater: () -> Unit) {
+    val version = UpdatePolicy.display(release.version).substringAfter(' ')
+    val type = MaterialTheme.typography
+    LabSheet(onLater) {
+        if (release.critical) LabTag("Actualización necesaria", LabColors.Warn) else LabTag("Actualización")
+        Text(if (release.critical) "Actualizá para que Boletera siga andando" else "$version está disponible", style = type.labSheet, color = LabColors.On,
+            modifier = Modifier.padding(horizontal = 8.dp).semantics { heading() })
+        Text(if (release.critical) "STM o Prex cambiaron cómo funciona su página. Sin $version, la app no va a poder entrar ni recargar."
+            else "Recomendamos actualizar. Si preferís, podés hacerlo después desde Configuración.",
+            style = type.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp), color = LabColors.Muted, modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
+        val items = labNewsFrom(release.notes)
+        if (items.isNotEmpty()) LabNewsList(items, Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(start = 8.dp, end = 8.dp, top = 20.dp, bottom = 22.dp))
+        else Spacer(Modifier.height(22.dp))
+        LabPrimary(when { progress != null -> "Descargando… $progress %"; release.critical -> "Actualizar ahora"; else -> "Actualizar" },
+            enabled = !busy, onClick = onUpdate, sheet = true)
+        LabTextLink(if (release.critical) "Seguir sin actualizar" else "Ahora no", onLater, Modifier.align(Alignment.CenterHorizontally), quiet = true)
+    }
+}
 
 /**
  * The same sheet before and after updating: before, «Lab 7 está lista» with «Instalar» and «Ahora no»;

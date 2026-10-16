@@ -46,6 +46,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
 
+// Entry messages that are the person's own choice or the phone's state, not a failure: no «Enviar reporte» for them.
+private const val UNLOCK_NOT_CONFIRMED = "No se desbloqueó el acceso. Podés volver a intentar o ingresar manualmente."
+private const val FINGERPRINTS_CHANGED = "Cambiaron las huellas del celular y Android borró el acceso guardado. Ingresá con tu contraseña para guardarlo de nuevo."
+private val NOT_A_FAILURE = setOf(StmEngine.OFFLINE, UNLOCK_NOT_CONFIRMED, FINGERPRINTS_CHANGED)
+
 class MainActivity : FragmentActivity() {
     private lateinit var engine: StmEngine
     private lateinit var vault: AccessVault
@@ -106,6 +111,9 @@ class MainActivity : FragmentActivity() {
                     (if (p.challenge != null) " · captcha" else "") + (if (p.verificationApproved) " · captcha aprobado" else "") +
                     (if (p.cardBusy) " · tarjeta enviándose" else "") + (if (p.cardError) " · tarjeta con error" else "") +
                     (if (p.slowStep) " · Prex lento" else "") + (if (p.staleAfterResume) " · recargando al volver" else "") +
+                    " · express=${p.expressPhase}" + (if (p.canContinue) " · puede seguir" else " · no puede seguir") +
+                    (if (p.completionSubmitted) " · paso enviado" else "") + " · titular ${p.payerValues.count { it.isNotBlank() }}/5" +
+                    (if (p.payerConflict) " · titular distinto" else "") + (if (p.verificationRequired) " · pide verificación" else "") +
                     (if (p.message.isNotBlank()) " · error: ${p.message}" else "") +
                     (if (engine.expressPreparing) " · Express preparando" else "") +
                     (if (LabExpressCard.opening) " · esperando huella" else "") + (LabExpressCard.problem?.let { " · tarjeta guardada: $it" } ?: "")
@@ -172,8 +180,8 @@ class MainActivity : FragmentActivity() {
                 authenticating = false
                 if (!isDestroyed && !isFinishing && engine.state.stage=="welcome" && engine.state.accessRequestId==accessId) {
                     if (doc != null && pass != null) engine.connect(doc, pass, rememberForSession = true)
-                    else if (vault.invalidated) { engine.savedAccess(false); engine.notice("Cambiaron las huellas del celular y Android borró el acceso guardado. Ingresá con tu contraseña para guardarlo de nuevo.") }
-                    else engine.notice("No se desbloqueó el acceso. Podés volver a intentar o ingresar manualmente.")
+                    else if (vault.invalidated) { engine.savedAccess(false); engine.notice(FINGERPRINTS_CHANGED) }
+                    else engine.notice(UNLOCK_NOT_CONFIRMED)
                 }
             }
         }
@@ -443,7 +451,7 @@ class MainActivity : FragmentActivity() {
                         LabWelcome(state,savedAccess=state.hasSavedAccess,authenticating=authenticating,onUnlock={unlockSavedAccess()},onManual={manual=true},
                             onAccessGuide={showAccessGuide=true},heroPhase=labHeroPhase,opening=labOpening,errorText=labEntryError,
                             onOpenSite=if(labHeroResult==HeroPhase.ERROR && labEntryError!=StmEngine.OFFLINE)::openStmAccess else null,
-                            onReport=if(labEntryError.isNotBlank() && labEntryError!=StmEngine.OFFLINE)({LabReport.send(context,"No pude entrar · $labEntryError")}) else null)
+                            onReport=if(labEntryError.isNotBlank() && labEntryError !in NOT_A_FAILURE)({LabReport.send(context,"No pude entrar · $labEntryError")}) else null)
                     } else Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal=24.dp).padding(top=if(stage=="balance")4.dp else 12.dp,bottom=if(stage in listOf("balance","blocked"))4.dp else 32.dp)
                         .pageEntrance(stage, state.captcha==null),verticalArrangement=Arrangement.spacedBy(if(stage in listOf("balance","blocked"))0.dp else 24.dp)) {
                         when(stage) {
@@ -624,6 +632,10 @@ class MainActivity : FragmentActivity() {
             onTicketGuide={showSettings=false;showTicketGuide=true},
             effectsMode=if(IsLab)effectsMode else null,onEffectsMode={effectsMode=it;VisualEffects.setMode(context,it)})
 
+        // Lab: a version found on opening, offered on the entry or the home (never in the middle of a payment).
+        val promptRelease=updates.release
+        if(IsLab && updates.prompt && promptRelease!=null && !updates.reviewRequested && !showSettings && state.stage in setOf("welcome","balance"))
+            LabUpdatePrompt(promptRelease,updates.progress,updates.busy,onUpdate=updates::acceptPrompt,onLater=updates::skipPrompt)
         if(updates.reviewRequested && updates.ready && !updates.busy && IsLab) updates.release.let { r ->
             LabNewsSheet(r?.let { UpdatePolicy.display(it.version).substringAfter(' ') } ?: "La versión nueva",labNewsFrom(r?.notes.orEmpty()),installed=false,
                 onPrimary=updates::acceptReview,onLater=updates::dismissReview) }

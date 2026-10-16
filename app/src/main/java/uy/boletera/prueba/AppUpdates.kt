@@ -32,11 +32,15 @@ enum class UpdateChannel(val key: String, val label: String) {
 internal data class UpdateNews(val version: String, val notes: List<String>)
 internal data class UpdateRelease(val version: String, val url: String, val size: Long, val sha256: String,
     val notes: List<String> = emptyList(), val history: List<UpdateNews> = emptyList(),
-    val channel: UpdateChannel = UpdateChannel.STABLE, val packageVersion: String = version)
+    val channel: UpdateChannel = UpdateChannel.STABLE, val packageVersion: String = version,
+    /** Needed for the app to keep working (STM, Prex or a payment page changed how it talks to the app). */
+    val critical: Boolean = false)
 
 internal object UpdatePolicy {
     const val API = "https://api.github.com/repos/jmestrallet/boletera-android/releases?per_page=100"
     const val MAX_APK = 100L * 1024 * 1024
+    /** A release is critical when its notes carry «<!-- critica -->» (invisible on GitHub) or a «## Actualización crítica» heading. */
+    fun critical(body: String): Boolean = Regex("(?im)^\\s*(<!--\\s*cr[ií]tica\\s*-->|##\\s*actualizaci[oó]n\\s+cr[ií]tica)").containsMatchIn(body.take(32_000))
     fun notes(body: String): List<String> {
         // New releases have a concise app section. Older public releases used bullets or paragraphs.
         val normalized=body.take(32_000).replace("\r\n","\n")
@@ -92,13 +96,14 @@ internal object UpdatePolicy {
                 !Regex("sha256:[a-fA-F0-9]{64}").matches(digest)) return@mapNotNull null
             val packageVersion=v
             UpdateRelease(v, url, size, digest.substringAfter(':').lowercase(), notes(release.optString("body")),
-                channel=wanted,packageVersion=packageVersion)
+                channel=wanted,packageVersion=packageVersion,critical=critical(release.optString("body")))
         }
         val selected=candidates.reduceOrNull { best, next -> if (newer(next.version, best.version)) next else best } ?: return null
         val historySource=if(switching)listOf(selected) else candidates
         val history=historySource.distinctBy { it.version }.sortedWith { a,b -> when {newer(a.version,b.version)->-1;newer(b.version,a.version)->1;else->0} }
             .map { UpdateNews(it.version,it.notes) }
-        return selected.copy(history=history)
+        // Critical if any version skipped on the way is: its fix only arrives by installing the newest one.
+        return selected.copy(history=history,critical=historySource.any { it.critical })
     }
     fun allowed(url: URL): Boolean = url.protocol == "https" && url.userInfo == null && url.port in listOf(-1, 443) &&
         url.host in setOf("api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com")
@@ -211,6 +216,8 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     var installRequested by mutableStateOf(false); private set
     var reviewRequested by mutableStateOf(false); private set
     var automaticNotice by mutableStateOf(false); private set
+    /** Lab: a version found on opening, offered in a sheet (critical ones every time, normal ones until skipped). */
+    var prompt by mutableStateOf(false); private set
     private val preferences=application.getSharedPreferences("updates",Context.MODE_PRIVATE)
     val installedChannel=UpdateChannel.from(BuildConfig.DISTRIBUTION_CHANNEL)
     var channel by mutableStateOf(installedChannel); private set
@@ -269,8 +276,10 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     }
     internal fun automaticCheckDue(now: Long = System.currentTimeMillis()): Boolean {
         val previous=preferences.getLong("last_attempt.${channel.key}",0)
-        return !busy && !ready && !awaitingInstallPermission && (previous==0L || now<previous || now-previous>=6*60*60*1000L)
+        return !busy && !ready && !awaitingInstallPermission && (previous==0L || now<previous || now-previous>=automaticInterval)
     }
+    /** Lab looks on every opening (at most every 5 minutes); the other apps every 6 hours. */
+    val automaticInterval = if(installedChannel==UpdateChannel.LAB) 5*60*1000L else 6*60*60*1000L
     fun checkAutomatic() {
         if(automaticCheckDue())checkRelease(true)
     }
@@ -299,7 +308,9 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
             publish {
                 if(channel!=requested)return@publish
                 release = found
-                automaticNotice = automatic && found!=null
+                automaticNotice = automatic && found!=null && installedChannel!=UpdateChannel.LAB
+                if(automatic && found!=null && installedChannel==UpdateChannel.LAB &&
+                    (found.critical || preferences.getString("skipped.${requested.key}",null)!=found.version)) prompt=true
                 message = if(separateLab) {
                     if(found!=null)"Boletera Lab ${UpdatePolicy.display(found.version)} está lista. Se instala aparte: esta app no cambia."
                     else if(labInstalled!=null)"Tenés la última Boletera Lab."
@@ -333,7 +344,15 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
             } finally { partial.delete(); publish { progress = null } }
         }
     }
+    /** «Actualizar» in the sheet: it stays open with the download's progress, then the usual review and install follow. */
+    fun acceptPrompt() { if(!busy && release!=null) download() }
+    /** «Ahora no» skips this version (a newer one asks again); a critical one asks again on the next opening. */
+    fun skipPrompt() {
+        prompt=false
+        release?.let { if(!it.critical) preferences.edit().putString("skipped.${channel.key}",it.version).apply() }
+    }
     internal fun downloadReady() {
+        prompt = false
         ready = true; installRequested = false; reviewRequested = true
         message = "Descarga lista. Revisá las novedades antes de instalar."
     }
