@@ -151,6 +151,16 @@ import androidx.compose.ui.unit.sp
     }
 }
 
+/** While the provider's check is being redrawn (coming back to the app): a loader where the check goes. */
+@Composable internal fun LabCheckLoading(onLight: Boolean) {
+    // The card tells the state, as everywhere in Lab: loading, with one line under it.
+    Column(Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        LabCardHero(HeroPhase.LOADING, Modifier.size(110.dp, 88.dp))
+        Text("Cargando la verificación…", style = MaterialTheme.typography.bodyLarge, color = if (onLight) Color(0xFF3C4350) else LabColors.Muted,
+            modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
 /** No screenshots, screen recording or recent-apps thumbnail while the card's data is on screen. */
 @Composable internal fun SecureScreen() {
     val view = LocalView.current
@@ -220,10 +230,7 @@ import androidx.compose.ui.unit.sp
                 @Composable fun check() {
                     val cap = payment.challenge
                     // Coming back to the app: until the page answers, a loader instead of the old (maybe empty) crop.
-                    if (payment.staleAfterResume) Row(Modifier.padding(vertical = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), color = LabColors.Primary, strokeWidth = 2.5.dp)
-                        Text("Cargando la verificación…", style = MaterialTheme.typography.bodyLarge, color = if (payment.expandedChallenge) LabColors.Muted else Color(0xFF3C4350))
-                    }
+                    if (payment.staleAfterResume) LabCheckLoading(onLight = !payment.expandedChallenge)
                     else if (payment.expandedChallenge) ExpandedPaymentChallenge(payment, browserWidth, browserHeight, Modifier.fillMaxSize(), corner = 14.dp)
                     else {
                         val scale = if (cap == null) 1f else minOf(cssToDp, (maxWidth.value - 48f) / cap.width, (browserHeight / density - 200f).coerceAtLeast(120f) / cap.height)

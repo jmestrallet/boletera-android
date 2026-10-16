@@ -507,7 +507,7 @@ class MainActivity : FragmentActivity() {
                Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal=24.dp).padding(top=64.dp)) { LabRechargeDone(state,credited,engine.lastReceipt,engine::dismissCredited) }
            }
            // B7: the panel carries the payer; «Continuar con Prex» goes straight to Prex (no «Tu recarga» step).
-           if(labHome)LabAmountPanel(state,open=showAmount,onClose={showAmount=false},
+           if(labHome)LabAmountPanel(state,open=showAmount,onClose={showAmount=false},expressShown=onExpressCharge!=null,
                payer=engine.payerProfiles.find{it.id==state.payerProfileId}?:engine.payerProfiles.singleOrNull(),
                onPayer={ if(engine.payerProfiles.isEmpty()){editingPayer=null;showPayerEditor=true} else showPayerPicker=true },
                onChoose={amount->showAmount=false;engine.prepareWithPrex(amount)})

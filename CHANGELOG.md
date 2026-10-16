@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.40 Lab 12 - Animaciones más finas
+
+- Animaciones más finas: la tarjeta ya no se mueve a saltitos ni parpadea al cambiar de pantalla, y no desaparece en «Conectando».
+- El círculo de carga de la tarjeta tiene el borde liso.
+- El botón Recargar se convierte en el panel de montos, sin el destello celeste.
+- Los botones reaccionan al tocarlos: se hunden un poco y muestran la onda de Android.
+- Al volver a la app durante el captcha, la tarjeta avisa «Cargando la verificación…».
+
 ## 0.2.40 Lab 11 - Captcha a pantalla completa
 
 - Captcha de imágenes: la grilla ocupa todo el alto libre, centrada y sin el recuadro gris; el texto dice «Elegí las imágenes».

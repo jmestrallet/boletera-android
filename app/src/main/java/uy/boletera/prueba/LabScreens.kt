@@ -89,9 +89,10 @@ import androidx.compose.ui.semantics.contentDescription
 @Composable internal fun LabPrimary(label: String, enabled: Boolean = true, onClick: () -> Unit, glyph: Glyph? = null, sheet: Boolean = false) {
     val haptic = LocalHapticFeedback.current
     val height = if (sheet) 60.dp else 64.dp
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     // With large text a long label wraps to two lines and the button grows; it never cuts the words.
-    Row(Modifier.fillMaxWidth().heightIn(min = height).clip(RoundedCornerShape(height / 2)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
-        .clickable(enabled = enabled) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() },
+    Row(Modifier.fillMaxWidth().heightIn(min = height).labPress(interaction).clip(RoundedCornerShape(height / 2)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
+        .clickable(interaction, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() },
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         if (glyph != null) { AppGlyph(glyph, Modifier.size(22.dp), tint = LabColors.OnPrimary); Spacer(Modifier.width(10.dp)) }
         Text(label, style = MaterialTheme.typography.titleMedium.let { if (sheet) it.copy(fontSize = 17.sp) else it }, color = LabColors.OnPrimary,
@@ -359,7 +360,7 @@ internal class LabCardNames(context: android.content.Context) {
  * «Tu recarga» step any more. Nothing is charged until «Pagar» at the end.
  */
 @Composable internal fun LabAmountPanel(state: UiState, open: Boolean, onClose: () -> Unit, payer: PayerProfile?, onPayer: () -> Unit,
-    onChoose: (Long) -> Unit, modifier: Modifier = Modifier) {
+    onChoose: (Long) -> Unit, modifier: Modifier = Modifier, expressShown: Boolean = true) {
     val progress by animateFloatAsState(if (open) 1f else 0f, spring(dampingRatio = 0.8f, stiffness = 380f), label = "amount morph")
     if (progress < 0.01f && !open) return
     val type = MaterialTheme.typography
@@ -375,13 +376,15 @@ internal class LabCardNames(context: android.content.Context) {
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = progress.coerceIn(0f, 1f) }.background(Color(0x9E040609)).clickable(enabled = open, onClick = onClose))
         // Rises with the keyboard so the typed amount stays visible.
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
-            .padding(horizontal = lerp(16.dp, 8.dp, progress.coerceIn(0f, 1f)), vertical = lerp(16.dp, 8.dp, progress.coerceIn(0f, 1f)))
-            .clip(RoundedCornerShape(32.dp))
-            // The pill's blue goes dark early, so the panel reads as the panel while it is still growing.
-            .background(lerpColor(LabColors.Primary, Color(0xFF151B27), (progress / .38f).coerceIn(0f, 1f)))
-            .border(1.dp, LabColors.GlassLine.copy(alpha = LabColors.GlassLine.alpha * progress.coerceIn(0f, 1f)), RoundedCornerShape(32.dp))
-            .heightIn(min = 64.dp).animateContentSize()) {
-            AnimatedVisibility(open, enter = fadeIn(tween(160, delayMillis = 60)), exit = fadeOut(tween(90))) {
+            .padding(8.dp)
+            // The panel is laid out at its final size from the first frame and shown through a window shaped like the
+            // Recargar pill (inside its ring, left of the bolt), which grows into the whole panel: the button becomes the
+            // panel. Its blue turns dark early; the content fades in once there is room for it.
+            .graphicsLayer { clip = true; shape = amountMorphShape(progress.coerceIn(0f, 1f), expressShown) }
+            .drawBehind { drawRect(lerpColor(LabColors.Primary, Color(0xFF151B27), (progress / .3f).coerceIn(0f, 1f))) }
+            .border(1.dp, LabColors.GlassLine.copy(alpha = LabColors.GlassLine.alpha * ((progress - .7f) / .3f).coerceIn(0f, 1f)), RoundedCornerShape(32.dp))
+            .animateContentSize()) {
+            Box(Modifier.graphicsLayer { alpha = ((progress - .35f) / .5f).coerceIn(0f, 1f) }) {
                 Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp)) {
                     Box(Modifier.align(Alignment.CenterHorizontally).padding(bottom = 18.dp).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = .22f)))
                     Text("¿Cuánto cargás?", style = type.labSheet, color = LabColors.On, modifier = Modifier.padding(start = 8.dp, bottom = 18.dp).semantics { heading() })
@@ -440,8 +443,22 @@ internal class LabCardNames(context: android.content.Context) {
                     else LabPrimary("Agregar titular y continuar", valid && !state.busy, onClick = onPayer, sheet = true)
                 }
             }
-            if (!open) Box(Modifier.fillMaxWidth().height(64.dp))
         }
+    }
+}
+
+/** The window of the amount panel at [p]: the Recargar pill at 0, the whole panel at 1 (sizes match LabHomeChrome). */
+private fun amountMorphShape(p: Float, expressShown: Boolean) = object : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(size: androidx.compose.ui.geometry.Size, layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density): androidx.compose.ui.graphics.Outline {
+        val dp = density.density
+        // The pill sits 22 dp from the bottom and the left (16 dp bar + 6 dp ring), left of the bolt (76 dp + 12 dp gap);
+        // the panel itself has 8 dp around it.
+        val bottom0 = size.height - 14f * dp; val top0 = bottom0 - 64f * dp
+        val left0 = 14f * dp; val right0 = size.width - (if (expressShown) 102f else 14f) * dp
+        fun mix(a: Float, b: Float) = a + (b - a) * p
+        return androidx.compose.ui.graphics.Outline.Rounded(androidx.compose.ui.geometry.RoundRect(mix(left0, 0f), mix(top0, 0f), mix(right0, size.width),
+            mix(bottom0, size.height), androidx.compose.ui.geometry.CornerRadius(32f * dp)))
     }
 }
 

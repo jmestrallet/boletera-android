@@ -8,11 +8,19 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.*
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clipToBounds
@@ -21,6 +29,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -48,22 +58,36 @@ internal enum class CardSpot { MOMENT, HEADER, CHIP }
 
 /**
  * The card is one piece that travels (movimiento.html). Every screen marks where its card goes with [LabCardSlot]; when
- * one screen hands over to the next, a copy flies in an arc from the old place to the new one while the new place waits
- * empty, and the card's state keeps its own clock ([LabCardClock]) so a change in the middle of the trip goes on.
+ * one screen hands over to the next, a copy flies from the old place to the new one while the new place waits empty.
+ *
+ * Everything here is read while drawing, not while composing: the trip starts in the same frame the new screen is laid
+ * out (no blank frame between the two cards), and each frame only redraws the copy (no stutter from rebuilding it).
  */
 internal object LabCardFlight {
     class Slot(val id: Any, var rect: Rect, var spot: CardSpot, var phase: HeroPhase)
-    class Flight(val from: Rect, val fromSpot: CardSpot, val to: Slot, val badgeFrom: Rect? = null)
+    class Flight(val from: Rect, val fromSpot: CardSpot, val to: Slot, var start: Float, val badgeFrom: Rect? = null)
     private val live = mutableListOf<Slot>()
     private var gone: Pair<Slot, Long>? = null
     private var badgeSource: Pair<Rect, Long>? = null
-    /** «Pagar» was just pressed here: the next trip of the card brings its circle from this button. */
-    fun badgeFrom(rect: Rect) { badgeSource = rect to SystemClock.uptimeMillis() }
+    /**
+     * The trip in course, or null. Observed while drawing: the slots redraw the moment it starts and the moment it ends
+     * (a plain field left the landed card hidden until something else redrew its screen).
+     */
     var flight by mutableStateOf<Flight?>(null)
+    /** Animation clock in seconds, advanced by the overlay every frame. */
+    var now = 0f
     /** Only the window that draws the flying copy turns flights on (screens shown alone, as in tests, keep their card). */
     var enabled = false
+    const val LENGTH = .62f
+
+    fun progress(f: Flight) = if (f.start < 0f) 0f else (now - f.start).coerceAtLeast(0f)
     /** The copy flying now draws this slot's card, so the slot itself stays empty until it lands. */
-    fun hides(id: Any) = flight?.to?.id == id
+    fun hides(id: Any): Boolean {
+        val f = flight ?: return false
+        return f.to.id == id && progress(f) < LENGTH
+    }
+    /** «Pagar» was just pressed here: the next trip of the card brings its circle from this button. */
+    fun badgeFrom(rect: Rect) { badgeSource = rect to SystemClock.uptimeMillis() }
 
     fun arrive(id: Any, rect: Rect, spot: CardSpot, phase: HeroPhase) {
         live.firstOrNull { it.id == id }?.let { it.rect = rect; it.spot = spot; it.phase = phase; return }
@@ -82,11 +106,13 @@ internal object LabCardFlight {
         if (wasTop && back != null) fly(slot.rect, slot.spot, back) else if (wasTop) gone = slot to SystemClock.uptimeMillis()
     }
     private fun fly(from: Rect, fromSpot: CardSpot, to: Slot) {
-        // A trip shorter than a few pixels is the same place: the card just stays (an in-place change of state).
-        if (!enabled || hypot(from.center.x - to.rect.center.x, from.center.y - to.rect.center.y) < 6f && fromSpot == to.spot) return
+        // The same place (a change of state where the card stays): no trip at all.
+        if (!enabled || hypot(from.center.x - to.rect.center.x, from.center.y - to.rect.center.y) < 2f && fromSpot == to.spot) return
         val badge = badgeSource?.takeIf { SystemClock.uptimeMillis() - it.second < 900 }?.first
         badgeSource = null
-        flight = Flight(from, fromSpot, to, badge)
+        // The clock starts at the first frame that actually draws it: building the next screen can take a few frames on
+        // a slow phone, and the trip must not have advanced in the meantime.
+        flight = Flight(from, fromSpot, to, -1f, badge)
     }
 }
 
@@ -95,10 +121,12 @@ internal object LabCardFlight {
     val id = remember { Any() }
     DisposableEffect(id) { onDispose { LabCardFlight.leave(id) } }
     SideEffect { LabCardFlight.update(id, phase) }
-    Box(modifier.onGloballyPositioned { LabCardFlight.arrive(id, it.boundsInWindow(), spot, phase) }) {
-        if (!LabCardFlight.hides(id)) {
-            if (spot == CardSpot.CHIP) LabMiniCard(Modifier.fillMaxSize()) else LabCardHero(phase, Modifier.fillMaxSize(), opening = opening)
-        }
+    // The whole box, not boundsInWindow(): that one is clipped by the parent, and a card bigger than its room (the
+    // 288 dp moment in a shorter space) landed off-centre and jumped at the end of the trip.
+    Box(modifier.onGloballyPositioned { val p = it.positionInWindow(); LabCardFlight.arrive(id, Rect(p, it.size.toSize()), spot, phase) }
+        // Decided while drawing, in the same frame the trip starts or ends: never a frame with no card or with two.
+        .drawWithContent { if (!LabCardFlight.hides(id)) drawContent() }) {
+        if (spot == CardSpot.CHIP) LabMiniCard(Modifier.fillMaxSize()) else LabCardHero(phase, Modifier.fillMaxSize(), opening = opening)
     }
 }
 
@@ -106,54 +134,84 @@ internal object LabCardFlight {
 private fun unitOf(spot: CardSpot, r: Rect) =
     if (spot == CardSpot.CHIP) minOf(r.width / 52f, r.height / 36f) else minOf(r.width / 80f, r.height / 64f)
 
+/** Damped spring step (the prototype's): firm, settles in about a third of a second with a small overshoot. */
+private fun springAt(t: Float, z: Float = .74f, w: Float = 19f): Float {
+    if (t <= 0f) return 0f
+    val wd = w * kotlin.math.sqrt(1 - z * z)
+    return 1 - kotlin.math.exp(-z * w * t) * (kotlin.math.cos(wd * t) + z / kotlin.math.sqrt(1 - z * z) * kotlin.math.sin(wd * t))
+}
+
 /** Draws the flying copy over everything, in window coordinates; put it at the root of the window. */
 @Composable internal fun LabCardFlightOverlay() {
     val still = rememberLabStill()
     DisposableEffect(still) { LabCardFlight.enabled = !still; onDispose { LabCardFlight.enabled = false; LabCardFlight.flight = null } }
-    val f = LabCardFlight.flight ?: return
-    val p = remember(f) { Animatable(0f) }
-    LaunchedEffect(f) {
-        // A firm spring (movimiento.html v2): it lands in about a third of a second with a small overshoot.
-        p.animateTo(1f, spring(dampingRatio = .74f, stiffness = 360f, visibilityThreshold = .002f))
-        if (LabCardFlight.flight === f) LabCardFlight.flight = null
+    // The clock: one tick per frame redraws this layer only (the screens underneath are not rebuilt).
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(still) {
+        if (!still) while (true) withInfiniteAnimationFrameMillis {
+            LabCardFlight.now = LabCardClock.seconds(it); tick++
+            // The trip ends here, once per frame and outside drawing; the landed slot is redrawn with its card.
+            LabCardFlight.flight?.let { f ->
+                if (f.start < 0f) f.start = LabCardFlight.now
+                else if (LabCardFlight.progress(f) >= LabCardFlight.LENGTH) LabCardFlight.flight = null
+            }
+        }
     }
     val density = LocalDensity.current
-    Box(Modifier.fillMaxSize()) {
-        val t = p.value
+    // Where this layer starts in the window (below the status bar on some phones): the slots report window positions.
+    val origin = remember { arrayOf(Offset.Zero) }
+    Canvas(Modifier.fillMaxSize().onGloballyPositioned { origin[0] = it.positionInWindow() }) {
+        tick
+        val f = LabCardFlight.flight ?: return@Canvas
+        val t = LabCardFlight.progress(f)
+        if (t >= LabCardFlight.LENGTH) return@Canvas
         val to = f.to
-        val c0 = f.from.center; val c1 = to.rect.center
-        // An arc, not a straight line: the card lifts a little on the way.
-        val lift = with(density) { 28.dp.toPx() } * sin(PI.toFloat() * t.coerceIn(0f, 1f))
-        val c = Offset(c0.x + (c1.x - c0.x) * t, c0.y + (c1.y - c0.y) * t - lift)
-        val k = unitOf(f.fromSpot, f.from) + (unitOf(to.spot, to.rect) - unitOf(f.fromSpot, f.from)) * t
+        val x = springAt(t); val before = springAt((t - 1 / 60f).coerceAtLeast(0f))
+        val shift = origin[0]
+        val c0 = f.from.center - shift; val c1 = to.rect.center - shift
+        val dist = hypot(c1.x - c0.x, c1.y - c0.y)
+        // An arc only on a real trip; a short move (two screens that put the card almost in the same place) just slides.
+        val arc = minOf(28.dp.toPx(), dist * .18f) * sin(PI.toFloat() * x.coerceIn(0f, 1f))
+        val c = Offset(c0.x + (c1.x - c0.x) * x, c0.y + (c1.y - c0.y) * x - arc)
+        val k0 = unitOf(f.fromSpot, f.from); val k1 = unitOf(to.spot, to.rect); val k = k0 + (k1 - k0) * x
+        // It leans toward where it is going and straightens as it lands.
+        val lean = ((x - before) * (c1.x - c0.x) / 18.dp.toPx()).coerceIn(-9f, 9f)
         val fromChip = f.fromSpot == CardSpot.CHIP; val toChip = to.spot == CardSpot.CHIP
         val badge = when {
+            f.badgeFrom != null -> if (x > .97f) 1f else 0f
             fromChip && toChip -> 0f
-            toChip -> 1 - (t / .25f).coerceIn(0f, 1f)
-            fromChip -> ((t - .6f) / .4f).coerceIn(0f, 1f)
+            toChip -> 1 - (x / .25f).coerceIn(0f, 1f)
+            fromChip -> ((x - .6f) / .4f).coerceIn(0f, 1f)
             else -> 1f
         }
         val w = 80f * k; val h = 64f * k
-        // The card leans toward where it is going and straightens as it lands.
-        val lean = (p.velocity * (c1.x - c0.x) / with(density) { 1000.dp.toPx() }).coerceIn(-9f, 9f)
-        val fromButton = f.badgeFrom
-        LabCardHero(to.phase, Modifier.offset { IntOffset((c.x - w / 2).roundToInt(), (c.y - h / 2).roundToInt()) }
-            .size(with(density) { w.toDp() }, with(density) { h.toDp() }).graphicsLayer { rotationZ = lean }, badgeAlpha = if (fromButton != null) (if (t > .97f) 1f else 0f) else badge)
-        if (fromButton != null && t <= .97f) Canvas(Modifier.fillMaxSize()) {
-            // The pill closes into a circle where it is, then flies up in an arc and lands as the card's corner circle.
-            val k1 = unitOf(to.spot, to.rect)
+        val e = if (LabCardClock.phase == to.phase) (LabCardFlight.now - LabCardClock.since).coerceAtLeast(0f) else 10f
+        translate(c.x - w / 2, c.y - h / 2) {
+            rotate(lean, Offset(w / 2, h / 2)) {
+                withSize(w, h) { drawLabCard(to.phase, LabCardFlight.now, e, 10f, badge) }
+            }
+        }
+        // «Pagar»: the pill closes into a circle where it is, then flies up in an arc and lands as the card's circle.
+        val b = f.badgeFrom?.translate(-shift)
+        if (b != null && x <= .97f) {
             val target = Offset(c1.x + 24f * k1, c1.y + 6f * k1)
-            val close = (t / .3f).coerceIn(0f, 1f); val go = ((t - .15f) / .85f).coerceIn(0f, 1.1f)
-            val d0 = fromButton.height; val d1 = 18f * k1
-            val width = fromButton.width + (d0 - fromButton.width) * close
-            val diameter = d0 + (d1 - d0) * go
-            val wNow = if (go > 0f) diameter else width; val hNow = if (go > 0f) diameter else d0
-            val arc = 40.dp.toPx() * sin(PI.toFloat() * go.coerceIn(0f, 1f))
-            val center = Offset(fromButton.center.x + (target.x - fromButton.center.x) * go, fromButton.center.y + (target.y - fromButton.center.y) * go - arc)
-            val ink = androidx.compose.ui.graphics.lerp(LabColors.Primary, Color(0xFF2FA35A), (t / .25f).coerceIn(0f, 1f))
-            drawRoundRect(ink, Offset(center.x - wNow / 2, center.y - hNow / 2), androidx.compose.ui.geometry.Size(wNow, hNow), androidx.compose.ui.geometry.CornerRadius(hNow / 2))
+            val close = (t / .18f).coerceIn(0f, 1f); val go = ((x - .1f) / .9f).coerceIn(0f, 1.1f)
+            val d0 = b.height; val d1 = 18f * k1
+            val wNow = if (go > 0f) d0 + (d1 - d0) * go else b.width + (d0 - b.width) * close
+            val hNow = if (go > 0f) wNow else d0
+            val lift = 40.dp.toPx() * sin(PI.toFloat() * go.coerceIn(0f, 1f))
+            val center = Offset(b.center.x + (target.x - b.center.x) * go, b.center.y + (target.y - b.center.y) * go - lift)
+            val ink = androidx.compose.ui.graphics.lerp(LabColors.Primary, Color(0xFF2FA35A), (t / .15f).coerceIn(0f, 1f))
+            drawRoundRect(ink, Offset(center.x - wNow / 2, center.y - hNow / 2), Size(wNow, hNow), CornerRadius(hNow / 2))
         }
     }
+}
+
+/** Draws [block] as if the canvas were [w] × [h] (the card's drawing sizes itself from the canvas). */
+private inline fun DrawScope.withSize(w: Float, h: Float, block: DrawScope.() -> Unit) {
+    val previous = drawContext.size
+    drawContext.size = Size(w, h)
+    try { block() } finally { drawContext.size = previous }
 }
 
 /**
@@ -227,3 +285,11 @@ private fun Float.roundToLong() = kotlin.math.round(this.toDouble()).toLong()
 }
 
 private fun Modifier.androidxClip() = this.then(Modifier.clipToBounds())
+
+/** A button that answers the finger: it sinks a little while held and springs back when let go. */
+internal fun Modifier.labPress(interaction: androidx.compose.foundation.interaction.InteractionSource): Modifier = composed {
+    val pressed by interaction.collectIsPressedAsState()
+    val s by androidx.compose.animation.core.animateFloatAsState(if (pressed) .96f else 1f,
+        spring(dampingRatio = if (pressed) 1f else .55f, stiffness = if (pressed) 1400f else 700f), label = "press")
+    graphicsLayer { scaleX = s; scaleY = s }
+}

@@ -54,10 +54,10 @@ private fun springStep(t: Float, z: Float = .55f, w: Float = 14f): Float {
 }
 
 /** Material-style polar shape blending a 9-lobe cookie into a 4-lobe clover. */
-private fun loaderPath(radius: Float, blend: Float, rotation: Float): Path {
+private fun loaderPath(radius: Float, blend: Float, rotation: Float, points: Int = 120): Path {
     val path = Path()
-    for (i in 0..120) {
-        val t = i / 120f * 2f * PI.toFloat()
+    for (i in 0..points) {
+        val t = i / points.toFloat() * 2f * PI.toFloat()
         val a = 1 + .13f * cos(9 * (t + rotation)); val b = 1 + .2f * cos(4 * (t + rotation))
         val r = radius * mixF(a, b, blend)
         if (i == 0) path.moveTo(r * cos(t), r * sin(t)) else path.lineTo(r * cos(t), r * sin(t))
@@ -71,6 +71,14 @@ private fun loaderPath(radius: Float, blend: Float, rotation: Float): Path {
  */
 internal object LabCardClock {
     var phase: HeroPhase? = null; var since = 0f; var seen = -9f
+    /** The last frame time any card drew, in seconds (the animation clock). */
+    var frame = 0f
+    private var originMs = -1L
+    /**
+     * Seconds since the app's first animation frame. The frame clock counts milliseconds since the phone started; as a
+     * float that big number only moves in steps of 1/64 s, which made the card advance in visible jumps.
+     */
+    fun seconds(frameMs: Long): Float { if (originMs < 0) originMs = frameMs; return (frameMs - originMs) / 1000f }
     /** The state before the current one: a rejection after «Procesando» turns the green circle red, not a new one. */
     var previous: HeroPhase? = null
     fun start(phase: HeroPhase, now: Float): Float {
@@ -87,20 +95,30 @@ internal object LabCardClock {
 @Composable internal fun LabCardHero(phase: HeroPhase, modifier: Modifier = Modifier, opening: Boolean = false, openingFromY: Float = 0f, badgeAlpha: Float = 1f) {
     val context = LocalContext.current
     val still = remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
-    var now by remember { mutableFloatStateOf(0f) }
+    // A new copy of the card (the next screen's) starts at the current time, so its first frame is where the last one was.
+    var now by remember { mutableFloatStateOf(LabCardClock.frame) }
     // An infinite animation by design: tests freeze it, the app keeps it running.
-    LaunchedEffect(still) { if (!still) while (true) androidx.compose.animation.core.withInfiniteAnimationFrameMillis { now = it / 1000f } }
+    LaunchedEffect(still) { if (!still) while (true) androidx.compose.animation.core.withInfiniteAnimationFrameMillis { now = LabCardClock.seconds(it); LabCardClock.frame = now } }
     var origin by remember { mutableFloatStateOf(-1f) }
     // Keyed on phase so a new phase never draws one frame with the previous phase's clock.
-    var phaseStart by remember(phase) { mutableFloatStateOf(-1f) }
+    var phaseStart by remember(phase) { mutableFloatStateOf(if (LabCardClock.phase == phase && LabCardClock.frame - LabCardClock.seen < .6f) LabCardClock.since else -1f) }
     // The first frames after launch are slow; start the clock once they are out of the way so the card glides instead of jumping.
-    LaunchedEffect(Unit) { repeat(3) { androidx.compose.animation.core.withInfiniteAnimationFrameMillis { origin = it / 1000f } } }
-    LaunchedEffect(phase) { androidx.compose.animation.core.withInfiniteAnimationFrameMillis { phaseStart = LabCardClock.start(phase, it / 1000f) } }
-    LaunchedEffect(still) { if (!still) while (true) androidx.compose.animation.core.withInfiniteAnimationFrameMillis { if (LabCardClock.phase == phase) LabCardClock.seen = it / 1000f } }
+    LaunchedEffect(Unit) { repeat(3) { androidx.compose.animation.core.withInfiniteAnimationFrameMillis { origin = LabCardClock.seconds(it) } } }
+    LaunchedEffect(phase) { androidx.compose.animation.core.withInfiniteAnimationFrameMillis { phaseStart = LabCardClock.start(phase, LabCardClock.seconds(it)) } }
+    LaunchedEffect(still) { if (!still) while (true) androidx.compose.animation.core.withInfiniteAnimationFrameMillis { if (LabCardClock.phase == phase) LabCardClock.seen = LabCardClock.seconds(it) } }
     Canvas(modifier) {
         val T = if (still) 0f else now
         val e = if (still) 10f else if (phaseStart < 0f) 0f else (now - phaseStart).coerceAtLeast(0f)
         val o = if (still || !opening) 10f else if (origin < 0f) 0f else (now - origin).coerceAtLeast(0f)
+        drawLabCard(phase, T, e, o, badgeAlpha)
+    }
+}
+
+/**
+ * One frame of the card, at time [T] (seconds), [e] seconds into its state and [o] into the app's opening. Shared by
+ * [LabCardHero] and the copy that flies between screens, so both draw exactly the same card.
+ */
+internal fun DrawScope.drawLabCard(phase: HeroPhase, T: Float, e: Float, o: Float, badgeAlpha: Float) {
         // px per card unit (the card is 44 units wide); a short box shrinks the card so it never spills over the text.
         val k = minOf(size.width / 80f, size.height / 64f)
         var y = 0f; var rot = 0f; var scale = 1f
@@ -175,8 +193,9 @@ internal object LabCardClock {
         val bx = ax + sin(T * .7f + 2f) * 1.1f * drift + lift * 4f + shake
         val by = ay + y + trail + cos(T * .9f) * 1.0f * drift - lift * 6f
         translate(cx + bx * k, cy + by * k) {
-            scale(scale * k * (1 + .08f * lift + pop) * (1 - .32f * dip), Offset.Zero) {
-                if (badgeAlpha > 0f) rotate(spin, Offset.Zero) { drawBadge(Offset.Zero, badge, loaderAlpha, blend, T, plus, glyph, wave, openAlpha * badgeAlpha) }
+            val badgeScale = scale * k * (1 + .08f * lift + pop) * (1 - .32f * dip)
+            scale(badgeScale, Offset.Zero) {
+                if (badgeAlpha > 0f) rotate(spin, Offset.Zero) { drawBadge(Offset.Zero, badge, loaderAlpha, blend, T, plus, glyph, wave, openAlpha * badgeAlpha, badgeScale) }
             }
             // «Recarga hecha»: a few sparks fly out of the tick, green, blue and white, and fall a little as they fade.
             if (phase == HeroPhase.SUCCESS && badgeAlpha > 0f && e > .26f && e < .82f) {
@@ -189,7 +208,6 @@ internal object LabCardClock {
                 }
             }
         }
-    }
 }
 
 /** The same card, small and still: the home's card pill and the card lists. [dim] is a card that cannot be used. */
@@ -207,12 +225,15 @@ internal object LabCardClock {
     }
 }
 
-private fun DrawScope.drawBadge(at: Offset, fill: Color, loaderAlpha: Float, blend: Float, t: Float, plus: Float, glyph: Int, wave: Float, alpha: Float) {
+private fun DrawScope.drawBadge(at: Offset, fill: Color, loaderAlpha: Float, blend: Float, t: Float, plus: Float, glyph: Int, wave: Float, alpha: Float, px: Float = 1f) {
     translate(at.x, at.y) {
         if (wave in 0f..0.999f) drawCircle(HeroWave.copy(alpha = (1 - wave) * .9f * alpha), 9f + wave * 26f, Offset.Zero, style = Stroke(2.2f * (1 - wave) + .4f))
         drawCircle(HeroRing.copy(alpha = alpha), 10.2f, Offset.Zero)
         drawCircle(fill.copy(alpha = alpha), 9f, Offset.Zero)
-        if (loaderAlpha > 0f) rotate(t * 2.4f * 30f, Offset.Zero) { drawPath(loaderPath(5.2f, blend, t * 2.4f), Color.White.copy(alpha = loaderAlpha * alpha)) }
+        // The loader is built at screen size (not in card units then enlarged), with enough points for a clean, smooth edge.
+        if (loaderAlpha > 0f) rotate(t * 2.4f * 30f, Offset.Zero) {
+            scale(1f / px, Offset.Zero) { drawPath(loaderPath(5.2f * px, blend, t * 2.4f, 240), Color.White.copy(alpha = loaderAlpha * alpha)) }
+        }
         if (plus > 0f) scale(plus, Offset.Zero) {
             val s = Stroke(2.3f, cap = StrokeCap.Round)
             if (glyph == 2) {

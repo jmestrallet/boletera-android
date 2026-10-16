@@ -329,4 +329,17 @@ class LabScreensTest {
         compose.onNodeWithText("Elegí las imágenes").assertIsDisplayed()
         capture("lab-pay-picture-check.png")
     }
+    @Test fun checkLoadingAfterComingBack() {
+        var expanded by mutableStateOf(true)
+        compose.setContent {
+            Frame(back = true) {
+                LabVerification(26000, "ABCD4A4A", afterPay = false, onCancel = {}, expanded = expanded) { LabCheckLoading(onLight = !expanded) }
+            }
+        }
+        compose.onNodeWithText("Cargando la verificación…").assertIsDisplayed()
+        capture("lab-pay-check-loading-pictures.png")
+        expanded = false
+        compose.onNodeWithText("Cargando la verificación…").assertIsDisplayed()
+        capture("lab-pay-check-loading-box.png")
+    }
 }

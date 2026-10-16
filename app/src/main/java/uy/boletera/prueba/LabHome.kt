@@ -180,9 +180,11 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Lab (A3): a previous payment never leaves Recargar grey without a reason.
                 val enabled = !state.busy && state.minimum != null
+                val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                 Box(Modifier.weight(1f).height(76.dp).labGlass(haze, RoundedCornerShape(38.dp), blur).padding(6.dp)) {
-                    Row(Modifier.fillMaxSize().clip(RoundedCornerShape(32.dp)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
-                        .clickable(enabled = enabled, role = Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onCharge() },
+                    // It answers the finger: sinks a little and darkens while held, with Android's ripple from where it was touched.
+                    Row(Modifier.fillMaxSize().labPress(press).clip(RoundedCornerShape(32.dp)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
+                        .clickable(press, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled, role = Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onCharge() },
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                         Icon(painterResource(R.drawable.ic_add), contentDescription = null, tint = LabColors.OnPrimary, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.width(8.dp))
@@ -225,6 +227,8 @@ private val ExpressTicks = longArrayOf(0, 380, 640, 820, 950, 1040, 1105, 1150)
         var last = -1L; var pressStart = -1L; var released = -1L; var from = 0f; var kickAt = -1L; var nextTick = 0
         var firedAt = -1L
         while (true) withInfiniteAnimationFrameMillis { now ->
+            // Milliseconds since the app's first frame: small enough to stay exact as a float (see LabCardClock.seconds).
+            val ms = LabCardClock.seconds(now) * 1000f
             val dt = if (last < 0) 16f else (now - last).toFloat().coerceAtMost(64f); last = now
             val holding = pressed && enabledNow && !preparingNow && !fired
             if (holding) {
@@ -249,8 +253,8 @@ private val ExpressTicks = longArrayOf(0, 380, 640, 820, 950, 1040, 1105, 1150)
                 val j = (now - kickAt).toFloat()
                 val kick = if (kickAt >= 0 && j < 70f) sin(j / 70f * 2 * PI.toFloat()) * 1.3f * (1 - j / 70f) else 0f
                 tremorX = if (shot >= 0f && shot < .14f) sin(shot / .14f * 4 * PI.toFloat()) * 2.2f * (1 - shot / .14f)
-                    else amp * (sin(now * .138f) + .6f * sin(now * .211f + 1.3f)) / 1.6f + kick
-                tremorY = if (shot >= 0f) 0f else amp * .5f * sin(now * .173f + .7f)
+                    else amp * (sin(ms * .138f) + .6f * sin(ms * .211f + 1.3f)) / 1.6f + kick
+                tremorY = if (shot >= 0f) 0f else amp * .5f * sin(ms * .173f + .7f)
             }
         }
     }
