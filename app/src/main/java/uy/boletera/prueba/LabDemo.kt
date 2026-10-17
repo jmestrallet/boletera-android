@@ -123,7 +123,7 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
                         "processing" -> LabStatusScreen(HeroPhase.LOADING, "Procesando tu pago", "Prex está confirmando el pago de ${Amounts.format(amount)}.", null, null)
                         "done" -> LabRechargeDone(state, amount, listOf("Medio de pago" to "PREX **** 8842", "Importe" to Amounts.format(amount), "Número" to "DEMO-0001")) {
                             credited = null; stage = "home" }
-                        "rejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex rechazó el pago", "Revisá el saldo de tu Prex o los datos de la tarjeta.",
+                        "rejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex no aceptó el pago", "Puede faltar saldo en tu Prex o un dato de la tarjeta.",
                             LabAction("Probar de nuevo") { stage = "home"; showAmount = true }, LabAction("Volver al inicio", quiet = true) { stage = "home" })
                     }
                 }

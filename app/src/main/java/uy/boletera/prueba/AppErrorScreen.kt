@@ -96,8 +96,8 @@ internal fun errorPresentation(message:String):ErrorPresentation {
     val report=LabAction("Enviar reporte",quiet=true){LabReport.send(context,"$title · $message")}
     if(payment) {
         // A payment cut is not an STM error: say what to do (look at the balance) and never invite to pay again blindly.
-        if(!charged) LabStatusScreen(HeroPhase.ERROR,"No pudimos seguir con la recarga","No se cobró nada. Volvé al inicio e intentá de nuevo.",primary=LabAction("Volver al inicio",onClick=onExit),secondary=report)
-        else LabStatusScreen(HeroPhase.ERROR,"El pago se interrumpió","Mirá tu saldo en el inicio antes de volver a cargar.",primary=LabAction("Volver al inicio",onClick=onExit),secondary=report)
+        if(!charged) LabStatusScreen(HeroPhase.ERROR,"No pudimos seguir con la recarga","No se cobró nada. Podés intentarlo desde el inicio.",primary=LabAction("Volver al inicio",onClick=onExit),secondary=report)
+        else LabStatusScreen(HeroPhase.ERROR,"El pago se interrumpió","En el inicio vas a ver tu saldo actualizado.",primary=LabAction("Volver al inicio",onClick=onExit),secondary=report)
         return
     }
     val site=if(onOpenSite!=null && (info.code=="STM CAÍDO" || info.code in siteFallbackCodes))LabAction("Probar en el sitio de STM ↗",onClick=onOpenSite) else null

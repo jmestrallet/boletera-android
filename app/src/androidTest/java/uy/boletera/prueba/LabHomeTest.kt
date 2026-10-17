@@ -103,7 +103,7 @@ class LabHomeTest {
         // Lab 18: whose card it is comes after, and only with two or more people.
         compose.onNodeWithText("Titular", substring = true).assertDoesNotExist()
         compose.onAllNodesWithText("Quedás con", substring = true).onFirst().assertExists()
-        compose.onNodeWithText("Se paga con tu tarjeta Prex").assertExists()
+        compose.onNodeWithText("Por ahora, solo con tarjeta Prex.").assertExists()
         capture("lab-amount.png")
         compose.onNodeWithText("500").performClick()
         compose.onNodeWithText("Continuar").performClick()

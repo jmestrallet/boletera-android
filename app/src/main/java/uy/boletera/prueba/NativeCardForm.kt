@@ -172,7 +172,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
                     keyboardActions=KeyboardActions(onNext={if(!focusMissing())keyboard?.hide()}),
                     isError=attempted&&!CardInput.panValid(pan),
-                    supportingText=if(attempted&&!CardInput.panValid(pan)) {{Text("Revisá el número de tarjeta.")}} else null)
+                    supportingText=if(attempted&&!CardInput.panValid(pan)) {{Text(if(IsLab)"El número no parece correcto." else "Revisá el número de tarjeta.")}} else null)
     }
     val expiryField: @Composable (Modifier)->Unit = { modifier ->
         OutlinedTextField(value=expiry,onValueChange={ filledFields=0;pendingContinue=false;committed=false;val digits=it.filter { c->c in '0'..'9' };expiry=if(digits.length==6)digits.take(2)+digits.takeLast(2) else digits.take(4) },
@@ -182,7 +182,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
                         keyboardActions=KeyboardActions(onNext={if(!focusMissing())keyboard?.hide()}),
                         isError=attempted&&!CardInput.expiryValid(expiry),
-                        supportingText=if(attempted&&!CardInput.expiryValid(expiry)) {{Text("Usá mes y año vigentes.")}} else null)
+                        supportingText=if(attempted&&!CardInput.expiryValid(expiry)) {{Text(if(IsLab)"Fecha vencida o no válida." else "Usá mes y año vigentes.")}} else null)
     }
     val cvvField: @Composable (Modifier)->Unit = { modifier ->
         OutlinedTextField(value=cvv,onValueChange={filledFields=0;pendingContinue=false;committed=false;cvv=it.filter { c->c in '0'..'9' }.take(4)},
@@ -195,7 +195,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                             else submit(manual=true)
                         }}),
                         isError=attempted&&!CardInput.cvvValid(cvv),
-                        supportingText=if(attempted&&!CardInput.cvvValid(cvv)) {{Text(if(cvv.isBlank())"Falta el código de seguridad de tu tarjeta." else "Ingresá 3 o 4 dígitos.")}} else null)
+                        supportingText=if(attempted&&!CardInput.cvvValid(cvv)) {{Text(if(cvv.isBlank())(if(IsLab)"Falta el código del dorso." else "Falta el código de seguridad de tu tarjeta.") else "Ingresá 3 o 4 dígitos.")}} else null)
     }
     if(IsLab) {
         // What Google filled is shown before going on (never «a ciegas»): the last four, and the code if it is missing.

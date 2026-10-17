@@ -76,8 +76,8 @@ internal fun labErrorCopy(code: String): Pair<String, String> = when (code) {
     "STM CAÍDO" -> "STM no responde" to "La página de STM está caída o muy lenta. No es tu conexión."
     "DATOS DE ACCESO" -> "Revisá tus datos" to "El documento o la contraseña de gub.uy no coinciden."
     "CONEXIÓN SEGURA" -> "Conexión no segura" to "No pudimos verificar la seguridad de la conexión. Probá más tarde."
-    "CONEXIÓN" -> "Se cortó la conexión" to "Revisá tu internet y volvé a intentar."
-    "SERVICIO" -> "STM no respondió" to "Este paso demoró o devolvió un error."
+    "CONEXIÓN" -> "Se cortó la conexión" to "Fijate tu internet y probá de nuevo."
+    "SERVICIO" -> "STM no respondió" to "Tardó demasiado o dio un error."
     "CARGA DE DATOS" -> "Saldo no disponible" to "STM no terminó de mostrar la información."
     "VERIFICACIÓN" -> "Falta una verificación" to "STM pidió otra comprobación. Volvé a intentar."
     else -> "No pudimos seguir" to "Algo interrumpió este paso. Volvé a intentar en un momento."
@@ -108,7 +108,7 @@ internal fun labErrorCopy(code: String): Pair<String, String> = when (code) {
             stage == "finalConfirmation" || crediting || stage == "receipt" ->
                 LabStatusScreen(HeroPhase.LOADING, processing.title, processing.line, null, null)
             // The provider gives no reason («Existen datos incorrectos» also means no funds), so both causes are named.
-            stage == "paymentRejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex rechazó el pago", "Revisá el saldo de tu Prex o los datos de la tarjeta.",
+            stage == "paymentRejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex no aceptó el pago", "Puede faltar saldo en tu Prex o un dato de la tarjeta.",
                 LabAction("Probar de nuevo") { LabRetry.reopenAmount = true; if (free) payment.advance(stage) else onLeave() },
                 LabAction("Volver al inicio", quiet = true) { if (free) payment.advance(stage) else onLeave() })
             stage == "paymentPending" -> LabStatusScreen(HeroPhase.LOADING, processing.title, "Prex todavía está confirmando el pago de $amount.",

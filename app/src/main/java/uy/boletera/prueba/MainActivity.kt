@@ -58,7 +58,7 @@ private var crashLogInstalled = false
 /** The engine's reason for not starting Carga Express, said to a person (the raw reason goes to the report). */
 internal fun expressWhyCopy(why: String) = when {
     why.startsWith("STM") || why.startsWith("pantalla") || why == "STM ocupado" -> "STM todavía está leyendo tu saldo. Esperá un momento y volvé a intentar."
-    why == "sin titular" -> "Agregá los datos de quien paga con Prex para usar Carga Express."
+    why == "sin titular" -> "Para usar Carga Express, cargá tus datos para Prex."
     why == "hay un pago en curso" || why == "ya hay una Carga Express en curso" -> "Ya hay una recarga en curso."
     else -> "No pudimos empezar la Carga Express. Probá de nuevo en un momento."
 }

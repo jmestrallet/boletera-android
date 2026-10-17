@@ -24,10 +24,9 @@ internal data class LabNews(@DrawableRes val icon: Int, val title: String, val l
 
 /** What Lab 7 brings, shown once after updating. Up to four; the full detail stays on GitHub. */
 internal val LabWhatsNewItems = listOf(
-    LabNews(R.drawable.ic_download, "Primero la actualización", "Si hay versión nueva, te avisa antes de pedir la huella."),
-    LabNews(R.drawable.ic_credit_card, "Google completa y sigue", "Elegís tu Prex en la lista y pasa solo a «Confirmá tu pago»."),
-    LabNews(R.drawable.ic_payments, "Con tu tarjeta Prex", "La app dice con qué se paga antes de empezar."),
-    LabNews(R.drawable.ic_check, "Vuelve al inicio", "Si el pago no sale, ya no te deja en la página de STM."),
+    LabNews(R.drawable.ic_info, "Textos más claros", "La app explica qué pasa en vez de dar órdenes."),
+    LabNews(R.drawable.ic_payments, "Por ahora, solo Prex", "Te lo dice al empezar y al elegir la tarjeta."),
+    LabNews(R.drawable.ic_check, "Prex, solo donde importa", "Ya no da por hecho que elegiste Prex antes de tiempo."),
 )
 
 /** The release notes as news: «Título — línea» (or «Título: línea») becomes a phrase and its line, with an icon by topic. */
@@ -119,6 +118,8 @@ internal fun labNewsFrom(notes: List<String>): List<LabNews> = notes.take(4).map
 @Composable internal fun LabAccessGuideSheet(onReady: () -> Unit, onFirstTime: () -> Unit, onClose: () -> Unit) {
     LabSheet(onClose) {
         Text("Antes de entrar", style = MaterialTheme.typography.labSheet, color = LabColors.On, modifier = Modifier.padding(horizontal = 8.dp).semantics { heading() })
+        Text("Por ahora, Boletera recarga solo con tarjetas Prex. Pronto vamos a sumar otros medios.", style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp),
+            color = LabColors.On, modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
         Text("La primera vez, STM te pide autorizar el acceso en su web. Se hace una sola vez.", style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp),
             color = LabColors.Muted, modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
         LabAccessSteps(Modifier.padding(start = 8.dp, end = 8.dp, top = 20.dp, bottom = 22.dp), accent = LabColors.Primary)

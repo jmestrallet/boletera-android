@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.40 Lab 20 - Textos más claros y «por ahora, solo Prex»
+
+- Textos de Lab revisados con el dueño (docs/maquetas/lab20/textos.html): explican en vez de ordenar, ninguno más largo que antes.
+- «Por ahora» solo tarjetas Prex: aviso de primera vez, «¿Cuánto cargás?» y la tarjeta; la espera y su pie ya no nombran Prex; sin la línea «Se paga con tu tarjeta Prex».
+- Rechazo: «Prex no aceptó el pago · Puede faltar saldo en tu Prex o un dato de la tarjeta.»; corte después de pagar sin tono de pago dudoso.
+
 ## 0.2.40 Lab 19 - Primero la actualización, Google sigue solo y siempre vuelve al inicio
 
 - Al abrir, la búsqueda de versión nueva (hasta 2 s) va antes de la huella; con aviso, la huella se pide al contestar «Ahora no».

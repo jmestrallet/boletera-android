@@ -94,10 +94,10 @@ internal fun List<PayerProfile>.ordered() = sortedByDescending { it.personal }
     val type = MaterialTheme.typography
     LabSheet(onClose) {
         Text("¿Cuáles son tus datos?", style = type.labSheet, color = LabColors.On, modifier = Modifier.padding(start = 8.dp).semantics { heading() })
-        Text("Carga Express paga con tus datos. Tocá los tuyos una vez y sigue sola.", style = type.bodyLarge.copy(fontSize = 15.sp), color = LabColors.Muted,
+        Text("Elegí los tuyos. Te lo preguntamos una sola vez.", style = type.bodyLarge.copy(fontSize = 15.sp), color = LabColors.Muted,
             modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 18.dp))
         profiles.forEach { p -> LabPersonRow(p.fullName, p.maskedDocument, { onMine(p) }) }
-        LabAddPersonRow("Ninguno: cargar los míos", onNone)
+        LabAddPersonRow("No están mis datos", onNone)
     }
 }
 
@@ -155,7 +155,7 @@ internal fun List<PayerProfile>.ordered() = sortedByDescending { it.personal }
                 Text(when { existing != null -> "Editar datos"; askMine || mine -> "Datos para Prex"; else -> "Agregar otra persona" },
                     style = type.labStep, color = LabColors.On, modifier = Modifier.padding(start = 4.dp, top = 4.dp).semantics { heading() })
                 Text(if (existing == null && !askMine && !mine) "Para pagar con la tarjeta de alguien más, con su permiso. Sus datos quedan en este celular."
-                    else "Prex los pide para cobrar. Quedan solo en este celular.",
+                    else "Prex los pide en cada pago. Quedan solo en este celular.",
                     style = type.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp), color = LabColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 18.dp))
                 if (askMine && existing == null) {
                     Text("¿Son tus datos?", style = type.titleSmall.copy(fontSize = 14.sp), color = LabColors.Muted, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
@@ -169,8 +169,8 @@ internal fun List<PayerProfile>.ordered() = sortedByDescending { it.personal }
                     OutlinedTextField(family, { family = it.take(80) }, label = { Text("Apellido") }, singleLine = true, shape = shape, keyboardOptions = words,
                         isError = validate && family.isBlank(), modifier = Modifier.weight(1f).semantics { if (mine) contentType = ContentType.PersonLastName })
                 }
-                if (!mine) OutlinedTextField(label, { label = it.take(80) }, label = { Text("Nombre para guardar (así aparece al pagar)") },
-                    placeholder = { Text("Por ejemplo, Mamá") }, singleLine = true, shape = shape, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                if (!mine) OutlinedTextField(label, { label = it.take(80) }, label = { Text("Apodo (por ejemplo, Mamá)") },
+                    singleLine = true, shape = shape, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
                 LabSegmented(listOf("Cédula", "Pasaporte"), if (documentType == "CI") 0 else 1, { documentType = if (it == 0) "CI" else "PAS" },
                     Modifier.padding(top = 14.dp))
@@ -191,8 +191,8 @@ internal fun List<PayerProfile>.ordered() = sortedByDescending { it.personal }
             Column(Modifier.padding(horizontal = 24.dp, vertical = 10.dp)) {
                 val invalid = when {
                     given.isBlank() || family.isBlank() -> "Completá el nombre y el apellido."
-                    !documentValid -> "Revisá el número de documento."
-                    !emailValid -> "Revisá el correo electrónico."
+                    !documentValid -> "El documento no parece correcto."
+                    !emailValid -> "El correo no parece correcto."
                     !phoneValid -> "El celular lleva al menos 9 números."
                     else -> ""
                 }

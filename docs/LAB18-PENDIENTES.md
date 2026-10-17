@@ -10,6 +10,9 @@ Queda para después (punto 3, pendientes de agentes no hechos): entrada (spinner
 - «Datos para Prex»: cambiar entre Cédula y Pasaporte ya no borra el número; cada uno guarda el suyo mientras el formulario está abierto.
 - Tarjeta: si Google completa los tres datos, sigue sola a «Confirmá tu pago» también en la recarga común (ahí se ve la tarjeta); si falta el código, espera en el código.
 
+## Para Lab 20 (sin publicar)
+- Prex se nombra una sola vez, donde se elige la tarjeta: «Tu tarjeta / Elegí tu tarjeta Prex.» (en Express: «Solo falta la tarjeta / Elegí tu tarjeta Prex.»). Se saca «Se paga con tu tarjeta Prex» del panel (era la fila «Pagás con…» que se había decidido sacar). Espera: «Preparando tu pago · Un momento», pie «Conexión segura»; Express «Cargando el mínimo a tu STM». No se sabe con certeza si la opción «Prex» de STM acepta otras tarjetas; se asume que no.
+
 ## 0 · Ya publicado en Lab 17 (16/10 19:13)
 Pedido y arreglado entre 18:19 y 19:12; ya está en el celular si se actualizó:
 - Cerrar sesión sin «No pudimos entrar» ni «Enviar reporte».

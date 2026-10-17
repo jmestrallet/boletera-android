@@ -281,7 +281,7 @@ private val RowLine = Color.White.copy(alpha = .09f)
     if (deleting) LabSheet({ deleting = false }) {
         Text("¿Borrar ${if (profile.personal) "tus datos" else "los datos de ${profile.label}"}?", style = type.labSheet, color = LabColors.On,
             modifier = Modifier.padding(horizontal = 8.dp).semantics { heading() })
-        Text("Se borran de este celular. Los podés volver a cargar cuando quieras.", style = type.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp),
+        Text(if (profile.personal) "Se borran de este celular. Carga Express te los va a volver a pedir." else "Se borran de este celular. Los podés volver a cargar cuando quieras.", style = type.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp),
             color = LabColors.Muted, modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
         Box(Modifier.padding(top = 22.dp).fillMaxWidth().height(60.dp).clip(RoundedCornerShape(30.dp)).background(Err.copy(alpha = .16f))
             .clickable(role = Role.Button) { deleting = false; if (onDelete()) onClose() else problem = "No se pudieron borrar. Probá de nuevo." }, contentAlignment = Alignment.Center) {

@@ -134,7 +134,7 @@ class LabScreensTest {
         android.os.SystemClock.sleep(1200)
         // Says what happened and nothing about charges; never offers the site in the middle of a payment.
         compose.onNodeWithText("El pago se interrumpió").assertIsDisplayed()
-        compose.onNodeWithText("Mirá tu saldo en el inicio antes de volver a cargar.").assertIsDisplayed()
+        compose.onNodeWithText("En el inicio vas a ver tu saldo actualizado.").assertIsDisplayed()
         compose.onNodeWithText("Enviar reporte").assertIsDisplayed()
         compose.onNodeWithText("Revisá el pago").assertDoesNotExist()
         compose.onNodeWithText("Probar en el sitio de STM ↗").assertDoesNotExist()
@@ -149,7 +149,7 @@ class LabScreensTest {
         } }
         android.os.SystemClock.sleep(1200)
         compose.onNodeWithText("Volvé a entrar").assertIsDisplayed()
-        compose.onNodeWithText("STM cierra la sesión después de un rato.").assertIsDisplayed()
+        compose.onNodeWithText("STM cerró la sesión. Entrá de nuevo.").assertIsDisplayed()
         compose.onNodeWithText("No se repite la recarga", substring = true).assertDoesNotExist()
         capture("lab-session-expired.png")
     }
@@ -236,12 +236,12 @@ class LabScreensTest {
             2 -> LabConfirmPayment(50000, "ABCD1234", rows, "Ana Pérez", canPay = true, onPay = { paid++ }, onDetail = {})
             else -> LabVerification(50000, "ABCD1234", afterPay = true, onCancel = null) { Box(Modifier.size(304.dp, 78.dp).background(androidx.compose.ui.graphics.Color.White)) }
         } } } }
-        compose.onNodeWithText("Preparando tu pago con Prex").assertIsDisplayed(); capture("lab-pay-wait.png")
+        compose.onNodeWithText("Preparando tu pago").assertIsDisplayed(); capture("lab-pay-wait.png")
         which = 1; compose.onNodeWithText("Carga rápida").assertIsDisplayed(); capture("lab-pay-express.png")
         which = 2; compose.onNodeWithText("Prex ···· 8842").assertIsDisplayed(); compose.onNodeWithText("A nombre de").assertIsDisplayed()
         capture("lab-pay-confirm.png")
         compose.onNodeWithText("Pagar $ 500 ahora").performClick(); assertEquals(1, paid)
-        which = 3; compose.onNodeWithText("Una verificación y seguimos").assertIsDisplayed()
+        which = 3; compose.onNodeWithText("Prex pide una verificación").assertIsDisplayed()
         compose.onNodeWithText("Cancelar").assertDoesNotExist()
         capture("lab-pay-verification.png")
     }
@@ -279,7 +279,8 @@ class LabScreensTest {
         var paid = 0
         compose.setContent { Frame { LabConfirmPayment(26000, "ABCD1234", listOf("Medio de pago:" to "PREX **** 1111"), null, canPay = true, onPay = { paid++ },
             onDetail = null, countdown = 4, onCancel = {}, expectedSuffix = "8842") } }
-        compose.onNodeWithText("Prex muestra otra tarjeta", substring = true).assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onNodeWithText("Prex muestra la ···· 1111", substring = true).assertIsDisplayed()
         compose.onNodeWithContentDescription("Se paga en", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Pagar con ···· 1111").assertIsDisplayed()
         capture("lab-pay-other-card.png")
@@ -302,9 +303,9 @@ class LabScreensTest {
         compose.onNodeWithText("Mamá").performClick(); assertEquals("p2", chosen?.id)
         which = 1
         compose.onNodeWithText("¿Son tus datos?").assertIsDisplayed()
-        compose.onNodeWithText("Nombre para guardar (así aparece al pagar)").assertDoesNotExist()
+        compose.onNodeWithText("Apodo (por ejemplo, Mamá)").assertDoesNotExist()
         compose.onNodeWithText("De otra persona").performClick()
-        compose.onNodeWithText("Nombre para guardar (así aparece al pagar)").assertExists()
+        compose.onNodeWithText("Apodo (por ejemplo, Mamá)").assertExists()
         capture("lab-payer-form.png")
         which = 2
         compose.onNodeWithText("Si lo activás, José Mestrallet deja de ser «tus datos»").assertIsDisplayed()

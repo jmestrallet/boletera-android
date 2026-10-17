@@ -189,7 +189,7 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 16.dp).labRise(60), horizontalAlignment = Alignment.CenterHorizontally) {
             if (onExpressCharge != null && (expressUses < 3 || pressing || expressPreparing)) Text(when {
                 expressPreparing -> "Preparando tu pago · $expressProvider"
-                pressing -> "Soltá antes de que se cargue para cancelar"
+                pressing -> "Si soltás antes, no se carga"
                 else -> "Mantené el rayo para cargar ${Amounts.format(state.minimum)} con $expressProvider"
             }, style = type.bodyMedium.copy(fontSize = 13.5.sp), color = LabColors.Muted, modifier = Modifier.padding(bottom = 10.dp, start = 24.dp, end = 24.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

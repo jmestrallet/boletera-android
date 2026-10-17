@@ -169,7 +169,7 @@ private fun Modifier.intro(v: State<Float>) = graphicsLayer { alpha = v.value.co
                 heroPhase == HeroPhase.LOADING -> if (authenticating) "Confirmá con tu huella." else "Conectando con STM…"
                 heroPhase == HeroPhase.SUCCESS -> "Listo."
                 problem != null -> problem.second
-                state.sessionExpired -> "STM cierra la sesión después de un rato."
+                state.sessionExpired -> "STM cerró la sesión. Entrá de nuevo."
                 savedAccess -> "Tu acceso está guardado en este celular."
                 else -> "Con tu cuenta de gub.uy."
             }
@@ -206,12 +206,12 @@ internal val LabErrorText = Color(0xFFFFB4AB)
 internal fun labEntryProblem(message: String): Pair<String, String> {
     val text = message.lowercase()
     return when {
-        "no hay internet" in text -> "Sin internet" to "Conectate a Wi-Fi o datos y volvé a intentar."
+        "no hay internet" in text -> "Sin internet" to "Cuando vuelva la conexión, probá de nuevo."
         "stm no está respondiendo" in text || "stm no respond" in text -> "STM no responde" to "Probá de nuevo en un momento."
-        "cambiaron las huellas" in text -> "Cambiaron las huellas" to "Ingresá con contraseña para guardar la huella de nuevo."
-        "no se desbloqueó" in text -> "No se confirmó la huella" to "Probá de nuevo o ingresá con contraseña."
-        "dígitos" in text -> "Revisá tus datos" to "Ingresá tu cédula (sin puntos ni guion) y la contraseña."
-        "no se guardó el acceso" in text -> "Entrás sin huella" to "No se pudo guardar la huella; la próxima vez probá de nuevo."
+        "cambiaron las huellas" in text -> "Cambiaron las huellas" to "Entrá con tu contraseña y la volvemos a guardar."
+        "no se desbloqueó" in text -> "No se confirmó la huella" to "Probá de nuevo o entrá con tu contraseña."
+        "dígitos" in text -> "Faltan datos" to "Ingresá tu cédula (sin puntos ni guion) y la contraseña."
+        "no se guardó el acceso" in text -> "Entrás sin huella" to "No la pudimos guardar. Probá la próxima vez."
         message.isNotBlank() && message.length <= 80 -> "No pudimos entrar" to message
         else -> "No pudimos entrar" to "Probá de nuevo en un momento."
     }
@@ -418,7 +418,10 @@ internal class LabCardNames(context: android.content.Context) {
     LaunchedEffect(custom) { if (custom) { kotlinx.coroutines.delay(60); runCatching { customFocus.requestFocus() } } }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp)) {
         Box(Modifier.align(Alignment.CenterHorizontally).padding(bottom = 18.dp).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = .22f)))
-        Text("¿Cuánto cargás?", style = type.labSheet, color = LabColors.On, modifier = Modifier.padding(start = 8.dp, bottom = 18.dp).semantics { heading() })
+        Text("¿Cuánto cargás?", style = type.labSheet, color = LabColors.On, modifier = Modifier.padding(start = 8.dp).semantics { heading() })
+        // Today the only way to pay (owner, 17/10): said once, quietly, where the recharge starts.
+        Text("Por ahora, solo con tarjeta Prex.", style = type.bodyMedium.copy(fontSize = 14.sp), color = LabColors.Muted,
+            modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 16.dp))
         val choices = (listOfNotNull(state.minimum) + listOf(50000L, 100000L).filter { it > (state.minimum ?: Long.MAX_VALUE) }).distinct().take(3)
         choices.forEachIndexed { i, value ->
             val active = !custom && chosen == value
@@ -454,13 +457,7 @@ internal class LabCardNames(context: android.content.Context) {
             Icon(painterResource(R.drawable.ic_edit), contentDescription = null, tint = LabColors.Primary, modifier = Modifier.size(22.dp))
             Text("Otro importe", style = type.titleMedium.copy(fontSize = 16.sp), color = LabColors.On)
         }
-        // What you pay with, said before going on: today only a Prex card (the day there is another way, this becomes the choice).
-        Row(Modifier.fillMaxWidth().padding(start = 8.dp, top = 14.dp, bottom = 12.dp).semantics(mergeDescendants = true) {},
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AppGlyph(Glyph.Card, Modifier.size(18.dp), tint = LabColors.Muted)
-            Text(buildAnnotatedString { append("Se paga con tu tarjeta "); withStyle(SpanStyle(color = LabColors.On, fontWeight = FontWeight.Medium)) { append("Prex") } },
-                style = type.bodyMedium.copy(fontSize = 14.5.sp), color = LabColors.Muted)
-        }
+        Spacer(Modifier.height(14.dp))
         // Whose card it is (only with two or more people) and the card itself come after (Lab 18).
         LabPrimary("Continuar", valid && !state.busy, onClick = { amount?.let(onChoose) }, sheet = true)
     }

@@ -69,8 +69,8 @@ import androidx.compose.ui.unit.sp
         Spacer(Modifier.weight(1f))
         LabPaymentHeader(amount, card, HeroPhase.LOADING)
         Column(Modifier.padding(top = 30.dp, start = 8.dp, end = 8.dp).labEnter(0, base = 90).semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(if (express) "Carga Express" else "Preparando tu pago con Prex", style = type.labStep, color = LabColors.On, textAlign = TextAlign.Center)
-            Text(if (express) "Cargando el mínimo con tu tarjeta Prex." else "Tené a mano tu tarjeta Prex.",
+            Text(if (express) "Carga Express" else "Preparando tu pago", style = type.labStep, color = LabColors.On, textAlign = TextAlign.Center)
+            Text(if (express) "Cargando el mínimo a tu STM." else "Un momento.",
                 style = type.bodyLarge, color = LabColors.Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         }
         if (express) Row(Modifier.padding(top = 14.dp).labEnter(1, base = 90).clip(RoundedCornerShape(18.dp)).background(LabColors.Teal.copy(alpha = .12f)).padding(horizontal = 14.dp, vertical = 7.dp),
@@ -79,7 +79,7 @@ import androidx.compose.ui.unit.sp
             Text("Carga rápida", style = type.labelLarge.copy(fontSize = 13.5.sp), color = LabColors.Teal)
         } else Row(Modifier.padding(top = 14.dp).labEnter(1, base = 90), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AppGlyph(Glyph.Lock, Modifier.size(16.dp), tint = LabColors.Faint)
-            Text("Conexión segura con Prex", style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Faint)
+            Text("Conexión segura", style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Faint)
         }
         Spacer(Modifier.weight(1.3f))
         Box(Modifier.height(52.dp), contentAlignment = Alignment.Center) { if (onCancel != null) LabTextLink("Cancelar", onCancel, quiet = true) }
@@ -96,11 +96,11 @@ import androidx.compose.ui.unit.sp
     val type = MaterialTheme.typography
     Column(Modifier.fillMaxSize()) {
         LabPaymentLine(amount, card)
-        Text(if (expanded) "Elegí las imágenes" else "Una verificación y seguimos", style = type.labStep, color = LabColors.On,
+        Text(if (expanded) "Elegí las imágenes" else "Prex pide una verificación", style = type.labStep, color = LabColors.On,
             modifier = Modifier.padding(start = 4.dp, top = 20.dp).semantics { heading() })
         Text(when {
-            expanded && afterPay -> "Tocá las que te pide y «Verificar». Después el pago se confirma solo."
-            expanded -> "Tocá las que te pide y «Verificar». Después seguimos solos."
+            expanded && afterPay -> "Elegí las imágenes y tocá «Verificar». El pago se confirma solo."
+            expanded -> "Elegí las imágenes y tocá «Verificar». Seguimos solos."
             afterPay -> "Marcá la casilla. Después el pago se confirma solo."
             else -> "Marcá la casilla y seguimos."
         }, style = type.bodyMedium.copy(fontSize = 15.sp, lineHeight = 22.sp), color = LabColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
@@ -152,7 +152,7 @@ import androidx.compose.ui.unit.sp
         if (otherCard) Row(Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(LabColors.Rose.copy(alpha = .12f))
             .padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AppGlyph(Glyph.Info, Modifier.size(18.dp), tint = LabColors.Rose)
-            Text("Prex muestra otra tarjeta (···· $shownSuffix), no la que elegiste (···· $expectedSuffix). Revisá antes de pagar.",
+            Text("Prex muestra la ···· $shownSuffix, no la ···· $expectedSuffix que elegiste. Fijate antes de pagar.",
                 style = type.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp), color = LabColors.On)
         }
         // «Pagar» shrinks into the green circle that flies up to become the card's own (movimiento.html v2).
@@ -372,7 +372,8 @@ import androidx.compose.ui.unit.sp
                     stage == "payer" && payment.payerConflict -> {
                         Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
                         val chosen = payment.chosenPayer?.let { if (it.personal) "tus datos" else "los datos de ${it.label}" } ?: "tus datos"
-                        LabStatusScreen(HeroPhase.WARN, "Prex tiene otros datos", "Los datos que tiene Prex no coinciden con $chosen.",
+                        val theirs = payment.chosenPayer?.takeIf { !it.personal }?.let { "los de ${it.label}" } ?: "los tuyos"
+                        LabStatusScreen(HeroPhase.WARN, "Prex tiene otros datos", "No coinciden con $theirs. Podés usar $theirs.",
                             primary = LabAction("Usar ${chosen.replaceFirstChar { it.uppercase() }}", logLabel = "Usar los datos elegidos") { payment.applyChosenPayer() },
                             secondary = LabAction("Cancelar", quiet = true, onClick = onClose))
                     }
@@ -436,16 +437,11 @@ import androidx.compose.ui.unit.sp
     val type = MaterialTheme.typography
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 18.dp)) {
-            Text(if (express) "Solo falta la tarjeta" else "Tu tarjeta Prex", style = type.labStep, color = LabColors.On,
+            Text(if (express) "Solo falta la tarjeta" else "Tu tarjeta", style = type.labStep, color = LabColors.On,
                 modifier = Modifier.padding(horizontal = 4.dp).labEnter(0, dy = 0.dp, dx = 28.dp, base = 50).semantics { heading() })
-            // Google's list can hold other cards too; Prex takes only its own.
-            if (!express) Text("Elegí tu Prex en la lista de Google.", style = type.bodyLarge.copy(fontSize = 15.sp), color = LabColors.Muted,
+            // The one place Prex is named (owner, 17/10): Google's list shows every card, and STM's «Prex» takes Prex cards.
+            Text("Por ahora, solo tarjetas Prex.", style = type.bodyLarge.copy(fontSize = 15.sp), color = LabColors.Muted,
                 modifier = Modifier.padding(start = 4.dp, top = 6.dp).labEnter(1, dy = 0.dp, dx = 28.dp, base = 50))
-            if (express) Row(Modifier.padding(start = 4.dp, top = 12.dp).labEnter(1, dy = 0.dp, dx = 28.dp, base = 50).clip(RoundedCornerShape(18.dp)).background(LabColors.Teal.copy(alpha = .12f)).padding(horizontal = 14.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_bolt), contentDescription = null, tint = LabColors.Teal, modifier = Modifier.size(17.dp))
-                Text("Elegí tu Prex y el resto se hace solo", style = type.labelLarge.copy(fontSize = 13.5.sp), color = LabColors.Teal)
-            }
             Spacer(Modifier.height(16.dp))
             Box(Modifier.labEnter(2, dy = 0.dp, dx = 28.dp, base = 50)) { number(Modifier.fillMaxWidth().heightIn(min = 60.dp)) }
             Row(Modifier.padding(top = 12.dp).labEnter(3, dy = 0.dp, dx = 28.dp, base = 50), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -455,7 +451,7 @@ import androidx.compose.ui.unit.sp
             when {
                 providerError -> Row(Modifier.padding(start = 4.dp, end = 4.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     AppGlyph(Glyph.Info, Modifier.size(17.dp), tint = LabColors.Rose)
-                    Text("Prex no aceptó la tarjeta. Revisá los datos o probá con otra.", style = type.bodySmall.copy(fontSize = 13.sp, lineHeight = 19.sp), color = LabColors.Rose)
+                    Text("Prex no aceptó esta tarjeta. Probá con otra o revisá los datos.", style = type.bodySmall.copy(fontSize = 13.sp, lineHeight = 19.sp), color = LabColors.Rose)
                 }
                 waitingCheck || checkRequired -> Text(if (waitingCheck) "Completá la verificación y seguimos solos." else "Completá la tarjeta y la verificación para seguir.",
                     style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 10.dp))
