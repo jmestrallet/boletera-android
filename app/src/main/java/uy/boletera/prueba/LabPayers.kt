@@ -128,7 +128,10 @@ internal fun List<PayerProfile>.ordered() = sortedByDescending { it.personal }
     var given by remember(id) { mutableStateOf(existing?.givenName.orEmpty()) }
     var family by remember(id) { mutableStateOf(existing?.familyName.orEmpty()) }
     var documentType by remember(id) { mutableStateOf(existing?.documentType ?: "CI") }
-    var document by remember(id) { mutableStateOf(existing?.document.orEmpty()) }
+    // Each document type keeps its own number while the form is open (owner, 17/10): switching back brings it back.
+    var cedula by remember(id) { mutableStateOf(existing?.takeIf { it.documentType == "CI" }?.document.orEmpty()) }
+    var passport by remember(id) { mutableStateOf(existing?.takeIf { it.documentType != "CI" }?.document.orEmpty()) }
+    val document = if (documentType == "CI") cedula else passport
     var email by remember(id) { mutableStateOf(existing?.email.orEmpty()) }
     var phone by remember(id) { mutableStateOf(existing?.phone.orEmpty()) }
     var label by remember(id) { mutableStateOf(existing?.takeIf { !it.personal && it.label != it.fullName }?.label.orEmpty()) }
@@ -169,9 +172,9 @@ internal fun List<PayerProfile>.ordered() = sortedByDescending { it.personal }
                 if (!mine) OutlinedTextField(label, { label = it.take(80) }, label = { Text("Nombre para guardar (así aparece al pagar)") },
                     placeholder = { Text("Por ejemplo, Mamá") }, singleLine = true, shape = shape, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
-                LabSegmented(listOf("Cédula", "Pasaporte"), if (documentType == "CI") 0 else 1, { documentType = if (it == 0) "CI" else "PAS"; document = "" },
+                LabSegmented(listOf("Cédula", "Pasaporte"), if (documentType == "CI") 0 else 1, { documentType = if (it == 0) "CI" else "PAS" },
                     Modifier.padding(top = 14.dp))
-                OutlinedTextField(document, { document = if (documentType == "CI") it.filter(Char::isDigit).take(8) else it.take(40) },
+                OutlinedTextField(document, { if (documentType == "CI") cedula = it.filter(Char::isDigit).take(8) else passport = it.take(40) },
                     label = { Text(if (documentType == "CI") "Número de cédula" else "Número de pasaporte") },
                     supportingText = if (documentType == "CI") { { Text("Sin puntos ni guion") } } else null,
                     isError = validate && !documentValid, singleLine = true, shape = shape, modifier = Modifier.fillMaxWidth().padding(top = 10.dp),

@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
 import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.flow.first
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
@@ -196,15 +197,29 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+        // Lab (owner, 17/10): a new version found on opening comes before the fingerprint; the fingerprint is asked once the
+        // notice is answered «Ahora no» (after «Actualizar» it is not asked: the app is about to be replaced).
+        var unlockAfterUpdate by remember { mutableStateOf(false) }
         LaunchedEffect(state.accessRequestId) {
             // Let the Lab opening play smoothly before the STM page loads or the fingerprint prompt covers it.
             kotlinx.coroutines.delay((LabLaunch.openingUntil-android.os.SystemClock.uptimeMillis()).coerceAtLeast(0))
+            // The look for a new version gets at most 2 s; without internet or with GitHub slow, the fingerprint is not held back.
+            if (IsLab) kotlinx.coroutines.withTimeoutOrNull(2000) { androidx.compose.runtime.snapshotFlow { updates.busy }.first { !it } }
             lifecycle.withResumed {
                 val current=engine.state
                 if (automaticUnlockHandled != current.accessRequestId) {
                     automaticUnlockHandled = current.accessRequestId
-                    if (vault.exists && current.stage == "welcome" && !engine.trySavedSession()) unlockSavedAccess()
+                    if (vault.exists && current.stage == "welcome" && !engine.trySavedSession()) {
+                        if (IsLab && updates.prompt) unlockAfterUpdate = true else unlockSavedAccess()
+                    }
                 }
+            }
+        }
+        LaunchedEffect(unlockAfterUpdate, updates.prompt, updates.busy, updates.reviewRequested, updates.installRequested) {
+            // «Actualizar» and then «Más tarde» (or Android's installer cancelled) also ends here: the fingerprint is asked.
+            if (unlockAfterUpdate && !updates.prompt && !updates.busy && !updates.reviewRequested && !updates.installRequested) {
+                unlockAfterUpdate = false
+                lifecycle.withResumed { if (engine.state.stage == "welcome") unlockSavedAccess() }
             }
         }
         var showSettings by rememberSaveable { mutableStateOf(false) }

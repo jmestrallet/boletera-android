@@ -136,21 +136,24 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     if (decoded != null) {
                         val state = org.json.JSONObject(decoded)
                         staleAfterResume = false
-                        nativeStage = state.optString("stage", "loading")
+                        // «Recarga no confirmada» is only handled by Lab; the other apps keep showing STM's page as before.
+                        nativeStage = state.optString("stage", "loading").let { if (it == "stmNotConfirmed" && !IsLab) "original" else it }
                         if(nativeStage!="card")cardCheckboxReady=false
                         if(nativeStage=="original") {
                             timingObserver(ExpressTiming.Phase.REVIEW)
                             if(!prepareOriginalReview())return@evaluateJavascript
                         }
                         completionNotice = state.optString("completionNotice")
-                        completionSubmitted = state.optBoolean("submitted")
+                        // Outside Lab the remapped «original» carries nothing to continue or submitted, as before.
+                        val outsideLab = !IsLab && state.optString("stage") == "stmNotConfirmed"
+                        completionSubmitted = !outsideLab && state.optBoolean("submitted")
                         val rows = state.optJSONArray("rows")
                         summaryRows = if (rows == null) emptyList() else (0 until rows.length()).map {
                             rows.getJSONArray(it).let { row -> row.getString(0) to row.getString(1) }
                         }
                         val values = state.optJSONArray("values")
                         payerValues = if (values == null) emptyList() else (0 until values.length()).map(values::getString)
-                        canContinue = state.optBoolean("canContinue")
+                        canContinue = !outsideLab && state.optBoolean("canContinue")
                         cardBusy = state.optBoolean("cardBusy")
                         cardError = state.optBoolean("cardError")
                         expressPhase = state.optString("expressPhase","off")
@@ -167,7 +170,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                             nativeStage=="card" -> ExpressTiming.Phase.CARD
                             nativeStage=="payer" && expressPhase=="verification" -> ExpressTiming.Phase.VERIFICATION
                             nativeStage=="finalConfirmation" -> ExpressTiming.Phase.CONFIRMATION
-                            nativeStage in setOf("receipt","stmSuccess","returnBalance") || returningToWallet -> ExpressTiming.Phase.RETURN
+                            nativeStage in setOf("receipt","stmSuccess","stmNotConfirmed","returnBalance") || returningToWallet -> ExpressTiming.Phase.RETURN
                             nativeStage=="sessionExpired" -> ExpressTiming.Phase.RECOVERY
                             nativeStage in setOf("original","paymentPending","paymentRejected") -> ExpressTiming.Phase.REVIEW
                             else -> ExpressTiming.Phase.PREX
@@ -191,9 +194,11 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                         // Lab (B8): no «Pago confirmado / Ver mi saldo» stop; the receipt goes straight back to the balance.
                         if((expressJourney || IsLab) && nativeStage=="receipt" && canContinue) advance(nativeStage,automatic=true)
                         if(nativeStage=="stmSuccess" && canContinue) advance(nativeStage,automatic=true)
+                        // Lab: after a refusal STM says «Recarga no confirmada»; its CONTINUAR leads back to the balance (the home).
+                        if(IsLab && nativeStage=="stmNotConfirmed" && canContinue) advance(nativeStage,automatic=true)
                         if(nativeStage!=progressStage) {
                             progressStage=nativeStage;progressSince=clock();slowStep=false
-                            if(nativeStage!=failureStage && nativeStage in listOf("summary","payer","card","finalConfirmation","receipt","paymentRejected","paymentPending","stmSuccess","returnBalance","sessionExpired")) {
+                            if(nativeStage!=failureStage && nativeStage in listOf("summary","payer","card","finalConfirmation","receipt","paymentRejected","paymentPending","stmSuccess","stmNotConfirmed","returnBalance","sessionExpired")) {
                                 pendingFailure=null
                                 if(transientFailureShown) {message="";transientFailureShown=false}
                             }
@@ -301,7 +306,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                 } else {
                     view.evaluateJavascript(returnScript + ";window.BoleteraNative ? window.BoleteraNative.snapshot().stage : 'original'") { raw ->
                         if (!destroyed && url == view.url) {
-                            nativeStage = try { org.json.JSONTokener(raw).nextValue() as? String ?: "original" } catch (_: Exception) { "original" }
+                            nativeStage = (try { org.json.JSONTokener(raw).nextValue() as? String ?: "original" } catch (_: Exception) { "original" }).let { if (it == "stmNotConfirmed" && !IsLab) "original" else it }
                             this@EmbeddedPrexPayment.handler.removeCallbacks(profileStatus)
                             if (visible) this@EmbeddedPrexPayment.handler.post(profileStatus)
                         }
@@ -370,9 +375,9 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     fun advance() = advance(nativeStage)
     fun advance(expectedStage: String) = advance(expectedStage,automatic=false)
     private fun advance(expectedStage: String, automatic: Boolean) {
-        if (destroyed || !visible || suspended || !canContinue || nativeStage!=expectedStage || nativeStage !in listOf("summary", "payer", "finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess")) return
+        if (destroyed || !visible || suspended || !canContinue || nativeStage!=expectedStage || nativeStage !in listOf("summary", "payer", "finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "stmNotConfirmed")) return
         val expected = nativeStage
-        if(expected in listOf("receipt","paymentRejected","paymentPending","stmSuccess"))returningToWallet=true
+        if(expected in listOf("receipt","paymentRejected","paymentPending","stmSuccess","stmNotConfirmed"))returningToWallet=true
         if (expected == "finalConfirmation") {
             val retry = IsLab && finalSubmitted && captchaRetry && !retried
             if (finalSubmitted && !retry) return

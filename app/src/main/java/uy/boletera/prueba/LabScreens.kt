@@ -454,7 +454,13 @@ internal class LabCardNames(context: android.content.Context) {
             Icon(painterResource(R.drawable.ic_edit), contentDescription = null, tint = LabColors.Primary, modifier = Modifier.size(22.dp))
             Text("Otro importe", style = type.titleMedium.copy(fontSize = 16.sp), color = LabColors.On)
         }
-        Spacer(Modifier.height(14.dp))
+        // What you pay with, said before going on: today only a Prex card (the day there is another way, this becomes the choice).
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp, top = 14.dp, bottom = 12.dp).semantics(mergeDescendants = true) {},
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AppGlyph(Glyph.Card, Modifier.size(18.dp), tint = LabColors.Muted)
+            Text(buildAnnotatedString { append("Se paga con tu tarjeta "); withStyle(SpanStyle(color = LabColors.On, fontWeight = FontWeight.Medium)) { append("Prex") } },
+                style = type.bodyMedium.copy(fontSize = 14.5.sp), color = LabColors.Muted)
+        }
         // Whose card it is (only with two or more people) and the card itself come after (Lab 18).
         LabPrimary("Continuar", valid && !state.busy, onClick = { amount?.let(onChoose) }, sheet = true)
     }

@@ -236,7 +236,7 @@ class LabScreensTest {
             2 -> LabConfirmPayment(50000, "ABCD1234", rows, "Ana Pérez", canPay = true, onPay = { paid++ }, onDetail = {})
             else -> LabVerification(50000, "ABCD1234", afterPay = true, onCancel = null) { Box(Modifier.size(304.dp, 78.dp).background(androidx.compose.ui.graphics.Color.White)) }
         } } } }
-        compose.onNodeWithText("Preparando tu pago").assertIsDisplayed(); capture("lab-pay-wait.png")
+        compose.onNodeWithText("Preparando tu pago con Prex").assertIsDisplayed(); capture("lab-pay-wait.png")
         which = 1; compose.onNodeWithText("Carga rápida").assertIsDisplayed(); capture("lab-pay-express.png")
         which = 2; compose.onNodeWithText("Prex ···· 8842").assertIsDisplayed(); compose.onNodeWithText("A nombre de").assertIsDisplayed()
         capture("lab-pay-confirm.png")
@@ -262,12 +262,12 @@ class LabScreensTest {
         compose.mainClock.autoAdvance = false
         compose.setContent { Frame { LabConfirmPayment(26000, "ABCD1234", rows, null, canPay = true, onPay = { paid++ }, onDetail = null, countdown = 4, onCancel = { cancelled++ }) } }
         compose.mainClock.advanceTimeBy(300)
-        compose.onNodeWithText("Cargando en 4…").assertExists()
+        compose.onNodeWithContentDescription("Se paga en 4 segundos").assertExists()
         compose.onNodeWithText("Pagar ahora").assertExists()
         compose.onNodeWithText("Cancelar").assertExists()
         assertEquals(0, paid)
         compose.mainClock.advanceTimeBy(2000)
-        compose.onNodeWithText("Cargando en 2…").assertExists()
+        compose.onNodeWithContentDescription("Se paga en 2 segundos").assertExists()
         compose.mainClock.autoAdvance = true
         capture("lab-express-countdown.png")
         compose.mainClock.autoAdvance = false
@@ -280,7 +280,7 @@ class LabScreensTest {
         compose.setContent { Frame { LabConfirmPayment(26000, "ABCD1234", listOf("Medio de pago:" to "PREX **** 1111"), null, canPay = true, onPay = { paid++ },
             onDetail = null, countdown = 4, onCancel = {}, expectedSuffix = "8842") } }
         compose.onNodeWithText("Prex muestra otra tarjeta", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Cargando en", substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Se paga en", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Pagar con ···· 1111").assertIsDisplayed()
         capture("lab-pay-other-card.png")
         compose.mainClock.advanceTimeBy(6000)

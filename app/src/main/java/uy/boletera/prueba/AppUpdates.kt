@@ -313,7 +313,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                 if(channel!=requested)return@publish
                 release = found
                 automaticNotice = automatic && found!=null && installedChannel!=UpdateChannel.LAB
-                if(automatic && found==null)prompt=false
+                if(found==null)prompt=false
                 if(automatic && found!=null && installedChannel==UpdateChannel.LAB &&
                     (found.critical || preferences.getString("skipped.${requested.key}",null)!=found.version)) prompt=true
                 message = if(separateLab) {

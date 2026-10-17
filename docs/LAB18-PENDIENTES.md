@@ -5,6 +5,11 @@ Todo lo de los puntos 1, 2, 4 y 5 está en Lab 18. Pruebas: lógica de pago 82, 
 
 Queda para después (punto 3, pendientes de agentes no hechos): entrada (spinner sin internet, contraseña guardada antes de verificar, etc.), accesibilidad (contraste, alturas fijas), Novedades fijas en el código, «Copiar» sin el registro. Por probar con plata real: que Google ofrezca guardar una tarjeta escrita y qué completa al elegir una.
 
+## Lab 19 (pedidos después de publicar Lab 18)
+- Al abrir, la búsqueda de versión nueva va antes de la huella (espera hasta 2 s): con aviso, la huella se pide recién al tocar «Ahora no»; con «Actualizar», no se pide.
+- «Datos para Prex»: cambiar entre Cédula y Pasaporte ya no borra el número; cada uno guarda el suyo mientras el formulario está abierto.
+- Tarjeta: si Google completa los tres datos, sigue sola a «Confirmá tu pago» también en la recarga común (ahí se ve la tarjeta); si falta el código, espera en el código.
+
 ## 0 · Ya publicado en Lab 17 (16/10 19:13)
 Pedido y arreglado entre 18:19 y 19:12; ya está en el celular si se actualizó:
 - Cerrar sesión sin «No pudimos entrar» ni «Enviar reporte».
@@ -64,7 +69,7 @@ Antes de implementar, probar en el emulador: que Google ofrezca guardar una tarj
 - «Versión» pasa a la 2.ª sección de Configuración, abajo de tu cuenta.
 
 ## 5 · Decisiones del dueño (17/10)
-1. Cuenta regresiva de Express: **opción 1, el botón que se llena** («Cargando en 4… 3… 2… 1»; tocarlo paga ya; «Cancelar» abajo).
+1. Cuenta regresiva de Express: primero se eligió el botón que se llena; al verlo grabado no gustó y quedó **el círculo 4-3-2-1** con «Cargando en N…», «Pagar ahora» y «Cancelar».
 2. Clave de reportes: **se deja como está** (acepta el riesgo; los reportes no traen tarjeta, cédula ni contraseñas).
 3. **«Recarga en camino» sí:** solo cuando Prex confirmó el pago y STM todavía no muestra el saldo nuevo; debajo del saldo, «Recarga de $ 260 en camino · STM la suma en unos minutos»; desaparece cuando el saldo la muestra. Es un pago confirmado, no uno dudoso.
 

@@ -56,6 +56,14 @@ test('STM success requires both explicit statements; continuation is one-shot an
  }
  const dom=page(html.replace('Recarga Confirmada.','Pendiente.'),'https://stm.gub.uy/app/mistm/cuenta/pages/resultado.xhtml');assert.equal(dom.window.BoleteraNative.snapshot().stage,'original');dom.window.close();
 });
+test('STM «Recarga no confirmada» goes back with its one CONTINUAR, once, and only on STM',()=>{
+ const html='<h1>Recarga no confirmada</h1><p>Atención, tu Banco no ha confirmado el débito. Verifica tu estado de cuenta.</p><button>CONTINUAR</button>';
+ const dom=page(html,'https://stm.gub.uy/app/mistm/cuenta/pages/resultado.xhtml');try {let clicks=0;dom.window.document.querySelector('button').onclick=()=>clicks++;
+  const api=dom.window.BoleteraNative;assert.equal(api.snapshot().stage,'stmNotConfirmed');assert.equal(api.snapshot().canContinue,true);
+  assert.equal(api.advance('stmNotConfirmed'),true);assert.equal(api.advance('stmNotConfirmed'),false);assert.equal(clicks,1);
+ }finally{dom.window.close();}
+ const other=page(html,'https://stm.gub.uy/app/mistm/cuenta/pages/recarga2.xhtml');assert.equal(other.window.BoleteraNative.snapshot().stage,'original');other.window.close();
+});
 test('STM balance requires actual displayed balance and recharge control; wrong origin and login never close the panel',()=>{
  for(const [html,url,stage] of [
   ['<div>Operativa <label>Saldo disponible*:</label> $ 824</div><button>Recargar</button>','https://stm.gub.uy/app/mistm/cuenta/pages/principal.xhtml','returnBalance'],

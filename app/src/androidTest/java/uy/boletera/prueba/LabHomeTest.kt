@@ -80,6 +80,8 @@ class LabHomeTest {
     @Test fun negativeBalanceIsRoseWithTheMinimum() {
         val state = UiState(stage = "balance", selectedCard = "DEMO1234", cards = twoCards, balance = -12000, minimum = 38000, consultedAt = System.currentTimeMillis())
         compose.setContent { Home(state) }
+        // The home comes in as a cascade; on a slow phone the lower lines are still fading in (transparent) at first.
+        compose.mainClock.advanceTimeBy(1500)
         compose.onNodeWithText("Saldo negativo").assertIsDisplayed()
         compose.onNodeWithText("Recarga mínima", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Mantené el rayo para cargar $ 380 con Prex").assertIsDisplayed()
@@ -101,6 +103,7 @@ class LabHomeTest {
         // Lab 18: whose card it is comes after, and only with two or more people.
         compose.onNodeWithText("Titular", substring = true).assertDoesNotExist()
         compose.onAllNodesWithText("Quedás con", substring = true).onFirst().assertExists()
+        compose.onNodeWithText("Se paga con tu tarjeta Prex").assertExists()
         capture("lab-amount.png")
         compose.onNodeWithText("500").performClick()
         compose.onNodeWithText("Continuar").performClick()

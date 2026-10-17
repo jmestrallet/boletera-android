@@ -23,6 +23,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -67,8 +69,8 @@ import androidx.compose.ui.unit.sp
         Spacer(Modifier.weight(1f))
         LabPaymentHeader(amount, card, HeroPhase.LOADING)
         Column(Modifier.padding(top = 30.dp, start = 8.dp, end = 8.dp).labEnter(0, base = 90).semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(if (express) "Carga Express" else "Preparando tu pago", style = type.labStep, color = LabColors.On, textAlign = TextAlign.Center)
-            Text(if (express) "Cargando el mínimo con Prex y tus datos." else "Completamos tus datos en Prex.",
+            Text(if (express) "Carga Express" else "Preparando tu pago con Prex", style = type.labStep, color = LabColors.On, textAlign = TextAlign.Center)
+            Text(if (express) "Cargando el mínimo con tu tarjeta Prex." else "Tené a mano tu tarjeta Prex.",
                 style = type.bodyLarge, color = LabColors.Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         }
         if (express) Row(Modifier.padding(top = 14.dp).labEnter(1, base = 90).clip(RoundedCornerShape(18.dp)).background(LabColors.Teal.copy(alpha = .12f)).padding(horizontal = 14.dp, vertical = 7.dp),
@@ -126,7 +128,10 @@ import androidx.compose.ui.unit.sp
     val type = MaterialTheme.typography
     val method = rows.firstOrNull { it.first.trim().trimEnd(':').equals("Medio de pago", true) }?.second
     // «PREX **** 0849» reads as «Prex ···· 0849».
-    val methodLabel = method?.let { m -> m.takeLast(4).takeIf { it.all(Char::isDigit) }?.let { "Prex ···· $it" } ?: m }
+    // «PREX **** 0849» reads «Prex ···· 0849», «VISA **** 7712» reads «Visa ···· 7712»: the brand Prex shows, never assumed.
+    val methodLabel = method?.let { m -> m.takeLast(4).takeIf { it.all(Char::isDigit) }?.let { last ->
+        val brand = m.trim().substringBefore(' ').takeIf { it.isNotBlank() && it.none(Char::isDigit) && '*' !in it }?.lowercase()?.replaceFirstChar { it.uppercase() }
+        "${brand ?: "Tarjeta"} ···· $last" } ?: m }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Spacer(Modifier.height(8.dp))
         LabPaymentHeader(amount, card, HeroPhase.IDLE)
@@ -187,7 +192,7 @@ import androidx.compose.ui.unit.sp
             counting = false; LabLog.add("Express", "cuenta terminada: paga"); pay()
         }
         Box(Modifier.weight(1f).fillMaxWidth().heightIn(min = 24.dp), contentAlignment = Alignment.Center) {
-            if (counting && countdown > 0) LabCountdownRing(left, fill)
+            if (counting && countdown > 0) LabCountdownRing(left, fill, paused = !focused)
         }
         Box(Modifier.labEnter(2, dy = 0.dp, dx = 28.dp, base = 40).onGloballyPositioned { payRect = it.boundsInWindow() }) {
             LabPrimary(when { counting && countdown > 0 -> "Pagar ahora"; otherCard -> "Pagar con ···· $shownSuffix"; else -> "Pagar ${Amounts.format(amount)} ahora" }, canPay && !paid,
@@ -202,9 +207,11 @@ import androidx.compose.ui.unit.sp
 }
 
 /** Carga Express' count before paying: a ring that fills with the number in the middle, and what it is doing under it. */
-@Composable private fun LabCountdownRing(left: Int, progress: Float) {
+@Composable private fun LabCountdownRing(left: Int, progress: Float, paused: Boolean = false) {
     val type = MaterialTheme.typography
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.semantics(mergeDescendants = true) {
+    // Read once per second as one phrase (not the digit and the line twice).
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clearAndSetSemantics {
+        contentDescription = if (paused) "Cuenta en pausa" else "Se paga en $left segundos"
         liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }) {
         Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
             val track = LabColors.Primary.copy(alpha = .16f)
@@ -220,7 +227,8 @@ import androidx.compose.ui.unit.sp
             }
             Text("$left", style = type.displaySmall.copy(fontSize = 40.sp, lineHeight = 44.sp), color = LabColors.On)
         }
-        Text("Cargando en $left…", style = type.bodyLarge.copy(fontSize = 15.sp), color = LabColors.Muted, modifier = Modifier.padding(top = 12.dp))
+        // Google's «¿Guardar la tarjeta?» or another system sheet on top: the count waits and says so.
+        Text(if (paused) "En pausa" else "Cargando en $left…", style = type.bodyLarge.copy(fontSize = 15.sp), color = LabColors.Muted, modifier = Modifier.padding(top = 12.dp))
     }
 }
 
@@ -296,9 +304,9 @@ import androidx.compose.ui.unit.sp
     val payerName = payment.chosenPayer?.takeIf { showPayer }?.let { if (it.personal) "${it.givenName} ${it.familyName}".trim() else it.label }
     // From «Pagar» on, nothing leaves the payment until the result (A4).
     val paid = payment.authorizationSent || stage == "finalConfirmation" && (payment.completionSubmitted || payment.captchaRetry) ||
-        stage in listOf("receipt", "paymentRejected", "paymentPending", "stmSuccess") || payment.returningToWallet
+        stage in listOf("receipt", "paymentRejected", "paymentPending", "stmSuccess", "stmNotConfirmed") || payment.returningToWallet
     BackHandler { if (!paid) onClose() }
-    val completion = stage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "returnBalance", "sessionExpired") ||
+    val completion = stage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "stmNotConfirmed", "returnBalance", "sessionExpired") ||
         payment.returningToWallet && stage == "loading"
     var stuckAfterPay by remember { mutableStateOf(false) }
     LaunchedEffect(stage, payment.challenge != null, paid) {
@@ -379,9 +387,9 @@ import androidx.compose.ui.unit.sp
                         // Only where the card is on screen: no screenshots or recording (the rest of the payment can be captured to report a problem).
                         SecureScreen()
                         LabPaymentLine(amount, card)
-                        // Google's list opens by itself on every card step; Express goes on once Google filled it all.
+                        // Google's list opens by itself on every card step; once Google filled all three it goes on to «Confirmá tu pago» (owner, 17/10).
                         NativeCardForm(payment.cardBusy, payment.canContinue, payment.cardError, payment.expandedChallenge, payment::submitCard,
-                            { if (payment.prepareOriginalReview()) showOriginal = true }, focusCard = true, autoContinue = express, express = express,
+                            { if (payment.prepareOriginalReview()) showOriginal = true }, focusCard = true, autoContinue = true, express = express,
                             verificationRequired = payment.verificationRequired && !payment.verificationApproved, onManualContinue = payment.manualContinueObserver,
                             onVerificationShown = payment::cardVerificationShown, onAutomaticSubmit = payment::submitAutofilledCard,
                             onOtherCard = { LabRetry.reopenAmount = true; onClose() }) { check() }
@@ -428,12 +436,15 @@ import androidx.compose.ui.unit.sp
     val type = MaterialTheme.typography
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 18.dp)) {
-            Text(if (express) "Solo falta la tarjeta" else "Tu tarjeta", style = type.labStep, color = LabColors.On,
+            Text(if (express) "Solo falta la tarjeta" else "Tu tarjeta Prex", style = type.labStep, color = LabColors.On,
                 modifier = Modifier.padding(horizontal = 4.dp).labEnter(0, dy = 0.dp, dx = 28.dp, base = 50).semantics { heading() })
+            // Google's list can hold other cards too; Prex takes only its own.
+            if (!express) Text("Elegí tu Prex en la lista de Google.", style = type.bodyLarge.copy(fontSize = 15.sp), color = LabColors.Muted,
+                modifier = Modifier.padding(start = 4.dp, top = 6.dp).labEnter(1, dy = 0.dp, dx = 28.dp, base = 50))
             if (express) Row(Modifier.padding(start = 4.dp, top = 12.dp).labEnter(1, dy = 0.dp, dx = 28.dp, base = 50).clip(RoundedCornerShape(18.dp)).background(LabColors.Teal.copy(alpha = .12f)).padding(horizontal = 14.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_bolt), contentDescription = null, tint = LabColors.Teal, modifier = Modifier.size(17.dp))
-                Text("Elegí tu tarjeta y el resto se hace solo", style = type.labelLarge.copy(fontSize = 13.5.sp), color = LabColors.Teal)
+                Text("Elegí tu Prex y el resto se hace solo", style = type.labelLarge.copy(fontSize = 13.5.sp), color = LabColors.Teal)
             }
             Spacer(Modifier.height(16.dp))
             Box(Modifier.labEnter(2, dy = 0.dp, dx = 28.dp, base = 50)) { number(Modifier.fillMaxWidth().heightIn(min = 60.dp)) }

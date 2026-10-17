@@ -24,10 +24,10 @@ internal data class LabNews(@DrawableRes val icon: Int, val title: String, val l
 
 /** What Lab 7 brings, shown once after updating. Up to four; the full detail stays on GitHub. */
 internal val LabWhatsNewItems = listOf(
-    LabNews(R.drawable.ic_credit_card, "Tus tarjetas, de Google", "Boletera ya no guarda tarjetas: borramos la que tenías."),
-    LabNews(R.drawable.ic_bolt, "Express con cuenta regresiva", "Elegís la tarjeta y a los 4 segundos paga solo."),
-    LabNews(R.drawable.ic_person, "¿De quién es la tarjeta?", "Solo si guardaste a más de una persona."),
-    LabNews(R.drawable.ic_payments, "Recarga en camino", "Si STM tarda en sumarla, lo ves en el inicio."),
+    LabNews(R.drawable.ic_download, "Primero la actualización", "Si hay versión nueva, te avisa antes de pedir la huella."),
+    LabNews(R.drawable.ic_credit_card, "Google completa y sigue", "Elegís tu Prex en la lista y pasa solo a «Confirmá tu pago»."),
+    LabNews(R.drawable.ic_payments, "Con tu tarjeta Prex", "La app dice con qué se paga antes de empezar."),
+    LabNews(R.drawable.ic_check, "Vuelve al inicio", "Si el pago no sale, ya no te deja en la página de STM."),
 )
 
 /** The release notes as news: «Título — línea» (or «Título: línea») becomes a phrase and its line, with an icon by topic. */

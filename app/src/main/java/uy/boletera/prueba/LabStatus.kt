@@ -103,10 +103,12 @@ internal fun labErrorCopy(code: String): Pair<String, String> = when (code) {
         // «Recarga hecha» comes when STM shows the new balance. No «Pago confirmado / Ver mi saldo» stop.
         val processing = LabStatusScreenArgs("Procesando tu pago", "Prex está confirmando el pago de $amount.")
         when {
+            // After a refusal STM shows «Recarga no confirmada»; the app answers it by itself and goes back to the home.
+            stage == "stmNotConfirmed" -> LabStatusScreen(HeroPhase.LOADING, "Volviendo al inicio", "Un momento.", null, null)
             stage == "finalConfirmation" || crediting || stage == "receipt" ->
                 LabStatusScreen(HeroPhase.LOADING, processing.title, processing.line, null, null)
             // The provider gives no reason («Existen datos incorrectos» also means no funds), so both causes are named.
-            stage == "paymentRejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex rechazó el pago", "Revisá el saldo o los datos de la tarjeta.",
+            stage == "paymentRejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex rechazó el pago", "Revisá el saldo de tu Prex o los datos de la tarjeta.",
                 LabAction("Probar de nuevo") { LabRetry.reopenAmount = true; if (free) payment.advance(stage) else onLeave() },
                 LabAction("Volver al inicio", quiet = true) { if (free) payment.advance(stage) else onLeave() })
             stage == "paymentPending" -> LabStatusScreen(HeroPhase.LOADING, processing.title, "Prex todavía está confirmando el pago de $amount.",

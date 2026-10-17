@@ -686,7 +686,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
 
     private var pausedAt = 0L
     fun pause() {
-        foreground=false; pausedAt=System.currentTimeMillis()
+        foreground=false; if (IsLab) pausedAt=System.currentTimeMillis()
         expressTiming.pause(true)
         // Suspend only: the existing authorization remains bound to this one in-memory journey.
         prexPayment.pause()

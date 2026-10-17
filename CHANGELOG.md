@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.2.40 Lab 19 - Primero la actualización, Google sigue solo y siempre vuelve al inicio
+
+- Al abrir, la búsqueda de versión nueva (hasta 2 s) va antes de la huella; con aviso, la huella se pide al contestar «Ahora no».
+- Tarjeta: si Google completa los tres datos, sigue sola a «Confirmá tu pago» también en la recarga común.
+- Textos de Prex: «Se paga con tu tarjeta Prex» en el panel, «Preparando tu pago con Prex», «Tu tarjeta Prex · Elegí tu Prex en la lista de Google»; rechazo con «el saldo de tu Prex».
+- STM «Recarga no confirmada» (después de un rechazo): Lab la reconoce, toca «Continuar» y vuelve al inicio; las demás apps no cambian.
+- Datos para Prex: cédula y pasaporte guardan cada uno su número mientras se edita.
+- «Confirmá tu pago» muestra la marca de la tarjeta que dice Prex; la cuenta regresiva se lee una vez por segundo y dice «En pausa».
+- Revisión de 3 agentes: cambios de Lab que llegaban a otras apps, huella que podía no pedirse tras cancelar la instalación.
+
 ## 0.2.40 Lab 18 - Tarjetas de Google, cuenta regresiva y «tus datos»
 
 - Boletera ya no guarda tarjetas (la guardada se borra al actualizar): siempre el autocompletado de Google, que se abre solo en el paso de la tarjeta y ahora ofrece guardar las nuevas.
