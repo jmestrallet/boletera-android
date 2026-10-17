@@ -69,36 +69,15 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
     val now = remember(stage) { System.currentTimeMillis() }
     val state = UiState(stage = if (stage == "home") "balance" else stage, cards = DemoCards, selectedCard = card,
         balance = balance, minimum = 26_000L, consultedAt = now, hasSavedAccess = true, credited = credited)
-    var savedCard by remember { mutableStateOf(false) }
-    // The fingerprint of the saved card is still open: the wait goes on until it answers.
-    var opening by remember { mutableStateOf(false) }
     fun pay(value: Long, quick: Boolean) { amount = value; express = quick; checked = false; showAmount = false; stage = "wait" }
-    val scope = rememberCoroutineScope()
-    // Like the real Express: it starts at once, and with a card saved for it the fingerprint comes once the bolt's light
-    // has run; nothing else is asked. If the card does not open, the card step says why. The demo opens the card only
-    // to prove the fingerprint works; it never uses it.
-    fun express() {
-        val vault = LabExpressCard.vault
-        savedCard = false; LabExpressCard.problem = null
-        pay(26_000L, quick = true)
-        if (vault == null || !vault.exists) return
-        opening = true
-        scope.launch {
-            delay(1150)
-            // Cancelled during the light: no fingerprint over the home.
-            if (stage == "home" || stage == "welcome") { opening = false; return@launch }
-            vault.unlock { card ->
-                opening = false; savedCard = card != null
-                if (card == null && vault.lastProblem.isNotBlank()) LabExpressCard.problem = vault.lastProblem
-            }
-        }
-    }
+    // Like the real Express (Lab 18): it starts at once and stops only at the card, where Google's suggestion is chosen.
+    fun express() = pay(26_000L, quick = true)
     LaunchedEffect(stage) { LabLog.add("demo", "pantalla $stage") }
     // The made-up timings are close to the real ones, so the waits feel like the real waits.
     LaunchedEffect(stage) {
         when (stage) {
             "connecting" -> { delay(1600); stage = "home" }
-            "wait" -> { delay(1400); snapshotFlow { opening }.first { !it }; stage = if (express && savedCard) "processing" else "card" }
+            "wait" -> { delay(1400); stage = "card" }
             "switching" -> { delay(1200); stage = "home" }
             "processing" -> { delay(2300)
                 if (LabDemo.rejectNext) { LabDemo.rejectNext = false; stage = "rejected" } else { balances[card] = balance + amount; credited = amount; stage = "done" } }
@@ -132,20 +111,19 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
                         "wait" -> LabPaymentWait(amount, card, express, onCancel = { stage = "home" })
                         "card" -> Column(Modifier.fillMaxSize()) {
                             LabPaymentLine(amount, card)
-                            LabSavedCardProblem(LabExpressCard.problem)
                             // Express waits for the saved card to be chosen, like Android's suggestion does, and then goes on by itself.
-                            LabDemoCardFields(express) { stage = if (LabDemo.askCheck) "check" else if (express) "processing" else "confirm" }
+                            LabDemoCardFields(express) { stage = if (LabDemo.askCheck) "check" else "confirm" }
                         }
                         "check" -> LabVerification(amount, card, afterPay = false, onCancel = { stage = "home" }) {
                             LabDemoCheck(checked) { checked = true }
-                            LaunchedEffect(checked) { if (checked) { delay(700); LabDemo.askCheck = false; stage = if (express) "processing" else "confirm" } }
+                            LaunchedEffect(checked) { if (checked) { delay(700); LabDemo.askCheck = false; stage = "confirm" } }
                         }
-                        "confirm" -> LabConfirmPayment(amount, card, listOf("Medio de pago" to "PREX **** 8842"), "Ana Pérez", canPay = true,
-                            onPay = { stage = "processing" }, onDetail = null)
+                        "confirm" -> LabConfirmPayment(amount, card, listOf("Medio de pago" to "PREX **** 8842"), null, canPay = true,
+                            onPay = { stage = "processing" }, onDetail = null, countdown = if (express) 4 else 0, onCancel = if (express) ({ stage = "home" }) else null)
                         "processing" -> LabStatusScreen(HeroPhase.LOADING, "Procesando tu pago", "Prex está confirmando el pago de ${Amounts.format(amount)}.", null, null)
                         "done" -> LabRechargeDone(state, amount, listOf("Medio de pago" to "PREX **** 8842", "Importe" to Amounts.format(amount), "Número" to "DEMO-0001")) {
                             credited = null; stage = "home" }
-                        "rejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex rechazó el pago", "Revisá el saldo de tu Prex o los datos de la tarjeta.",
+                        "rejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex rechazó el pago", "Revisá el saldo o los datos de la tarjeta.",
                             LabAction("Probar de nuevo") { stage = "home"; showAmount = true }, LabAction("Volver al inicio", quiet = true) { stage = "home" })
                     }
                 }
@@ -153,7 +131,7 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
             if (stage == "home") {
                 LabHomeChrome(state, haze, blur = false, onChangeCard = { showCards = true }, onSettings = { showSheet = true }, onCharge = { showAmount = true },
                     onExpressCharge = { express() }, expressPreparing = false, expressProvider = "Prex")
-                LabAmountPanel(state, open = showAmount, onClose = { showAmount = false }, payer = DemoPayer, onPayer = {}, onChoose = { pay(it, quick = false) })
+                LabAmountPanel(state, open = showAmount, onClose = { showAmount = false }, onChoose = { pay(it, quick = false) })
             }
             if (stage == "welcome") LabSignInSheet(open = signIn, document = "12345678", onDocument = {}, password = "muestra-demo", onPassword = {},
                 reveal = reveal, onReveal = { reveal = !reveal }, save = false, onSave = {}, canSave = false, enabled = true,
@@ -202,7 +180,8 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
 /** «Tu tarjeta» with a sample card already filled in and nothing to type: there is no place for a real card in the demo. */
 @Composable private fun LabDemoCardFields(express: Boolean, onContinue: () -> Unit) {
     val view = remember { BringIntoViewRequester() }
-    var picked by remember { mutableStateOf(!express) }
+    // Google's list opens on every card step, as in the real one; Express goes on by itself once a card is chosen.
+    var picked by remember { mutableStateOf(false) }
     LaunchedEffect(picked) { if (picked && express) { delay(450); onContinue() } }
     @Composable fun field(label: String, value: String, modifier: Modifier) =
         Column(modifier.clip(RoundedCornerShape(16.dp)).border(1.dp, Color(0x57ECEEF6), RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 9.dp)) {
@@ -223,8 +202,9 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
                     }
                 }
             }
-        } }, expiry = { field("Vencimiento", if (picked) "08/29" else " ", it) }, code = { field("Código", if (picked) "•••" else " ", it) },
-        verification = {}, verificationView = view, onSaved = { picked = true }, onContinue = { picked = true; if (!express) onContinue() }, onOriginal = {})
+        } }, expiry = { field("Vencimiento", if (picked) "08/29" else " ", it) }, code = { field("Código de seguridad", if (picked) "•••" else " ", it) },
+        verification = {}, verificationView = view, onContinue = { if (picked) onContinue() else picked = true }, onOriginal = {},
+        filledNote = if (picked) "Tarjeta ···· 8842 lista." else null)
 }
 
 /** A stand-in for Google's check: a box to tick, in the same light frame. */

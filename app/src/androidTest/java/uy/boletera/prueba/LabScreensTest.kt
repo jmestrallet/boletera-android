@@ -236,11 +236,11 @@ class LabScreensTest {
             2 -> LabConfirmPayment(50000, "ABCD1234", rows, "Ana Pérez", canPay = true, onPay = { paid++ }, onDetail = {})
             else -> LabVerification(50000, "ABCD1234", afterPay = true, onCancel = null) { Box(Modifier.size(304.dp, 78.dp).background(androidx.compose.ui.graphics.Color.White)) }
         } } } }
-        compose.onNodeWithText("Abriendo Prex").assertIsDisplayed(); capture("lab-pay-wait.png")
+        compose.onNodeWithText("Preparando tu pago").assertIsDisplayed(); capture("lab-pay-wait.png")
         which = 1; compose.onNodeWithText("Carga rápida").assertIsDisplayed(); capture("lab-pay-express.png")
-        which = 2; compose.onNodeWithText("Prex ···· 8842").assertIsDisplayed(); compose.onNodeWithText("Titular").assertIsDisplayed()
+        which = 2; compose.onNodeWithText("Prex ···· 8842").assertIsDisplayed(); compose.onNodeWithText("A nombre de").assertIsDisplayed()
         capture("lab-pay-confirm.png")
-        compose.onNodeWithText("Pagar $ 500").performClick(); assertEquals(1, paid)
+        compose.onNodeWithText("Pagar $ 500 ahora").performClick(); assertEquals(1, paid)
         which = 3; compose.onNodeWithText("Una verificación y seguimos").assertIsDisplayed()
         compose.onNodeWithText("Cancelar").assertDoesNotExist()
         capture("lab-pay-verification.png")
@@ -254,6 +254,61 @@ class LabScreensTest {
             }
         }
         for (at in listOf(260f, 420f, 520f, 580f, 640f)) { t = at; capture("lab-express-light-${at.toInt()}.png") }
+    }
+    @Test fun expressCountsDownAndPaysByItself() {
+        var paid = 0
+        var cancelled = 0
+        val rows = listOf("Medio de pago:" to "PREX **** 8842")
+        compose.mainClock.autoAdvance = false
+        compose.setContent { Frame { LabConfirmPayment(26000, "ABCD1234", rows, null, canPay = true, onPay = { paid++ }, onDetail = null, countdown = 4, onCancel = { cancelled++ }) } }
+        compose.mainClock.advanceTimeBy(300)
+        compose.onNodeWithText("Cargando en 4…").assertExists()
+        compose.onNodeWithText("Pagar ahora").assertExists()
+        compose.onNodeWithText("Cancelar").assertExists()
+        assertEquals(0, paid)
+        compose.mainClock.advanceTimeBy(2000)
+        compose.onNodeWithText("Cargando en 2…").assertExists()
+        compose.mainClock.autoAdvance = true
+        capture("lab-express-countdown.png")
+        compose.mainClock.autoAdvance = false
+        compose.mainClock.advanceTimeBy(2500)
+        assertEquals(1, paid)
+        assertEquals(0, cancelled)
+    }
+    @Test fun anotherCardOnPrexIsSaidAndNeverPaidAlone() {
+        var paid = 0
+        compose.setContent { Frame { LabConfirmPayment(26000, "ABCD1234", listOf("Medio de pago:" to "PREX **** 1111"), null, canPay = true, onPay = { paid++ },
+            onDetail = null, countdown = 4, onCancel = {}, expectedSuffix = "8842") } }
+        compose.onNodeWithText("Prex muestra otra tarjeta", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Cargando en", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Pagar con ···· 1111").assertIsDisplayed()
+        capture("lab-pay-other-card.png")
+        compose.mainClock.advanceTimeBy(6000)
+        assertEquals(0, paid)
+    }
+    @Test fun whoPaysAndTheirData() {
+        val mine = PayerProfile("p1", "José Mestrallet", "José", "Mestrallet", "12345678", "jose@example.com", "099123456", personal = true)
+        val mom = PayerProfile("p2", "Mamá", "Ana", "Pérez", "23456789", "ana@example.com", "098765432")
+        var chosen: PayerProfile? = null
+        var which by mutableStateOf(0)
+        compose.setContent { when (which) {
+            0 -> Frame { LabWhoPaysSheet(listOf(mom, mine), onChoose = { chosen = it }, onAdd = {}, onClose = {}) }
+            1 -> BoleteraTheme("dark") { LabPayerScreen(null, askMine = true, actionLabel = "Continuar", onSave = { true }, onClose = {}) }
+            else -> BoleteraTheme("dark") { LabPayerDetail(mom, listOf(mine, mom), onEdit = {}, onMine = {}, onDelete = { true }, onClose = {}) }
+        } }
+        compose.onNodeWithText("¿De quién es la tarjeta?").assertIsDisplayed()
+        compose.onNodeWithText("Mía").assertIsDisplayed()
+        capture("lab-who-pays.png")
+        compose.onNodeWithText("Mamá").performClick(); assertEquals("p2", chosen?.id)
+        which = 1
+        compose.onNodeWithText("¿Son tus datos?").assertIsDisplayed()
+        compose.onNodeWithText("Nombre para guardar (así aparece al pagar)").assertDoesNotExist()
+        compose.onNodeWithText("De otra persona").performClick()
+        compose.onNodeWithText("Nombre para guardar (así aparece al pagar)").assertExists()
+        capture("lab-payer-form.png")
+        which = 2
+        compose.onNodeWithText("Si lo activás, José Mestrallet deja de ser «tus datos»").assertIsDisplayed()
+        capture("lab-payer-detail.png")
     }
     @Test fun cardStepLooksLikeTheRest() {
         compose.setContent {

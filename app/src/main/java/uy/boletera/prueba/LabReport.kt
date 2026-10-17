@@ -26,8 +26,9 @@ internal object LabReport {
     fun text(what: String): String = buildString {
         append("Reporte de Boletera ${BuildConfig.DISPLAY_VERSION}\n")
         append("Celular: ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}\n")
-        if (what.isNotBlank()) append("Qué pasó: $what\n")
-        val trail = diagnostic().trim()
+        // What happened can quote an error with numbers in it: runs of 6+ digits are masked, as in the record.
+        if (what.isNotBlank()) append("Qué pasó: ${what.replace(Regex("[0-9]{6,}"), "••••••")}\n")
+        val trail = runCatching { diagnostic() }.getOrDefault("").trim()
         if (trail.isNotEmpty()) append("\nRecorrido en STM:\n$trail\n")
         append("\n(No incluye tu documento, tu contraseña ni datos de tarjeta.)")
     }

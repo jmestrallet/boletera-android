@@ -71,7 +71,9 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
         Text(if (negative) "Saldo negativo" else "Saldo", style = type.titleMedium.copy(fontSize = 15.sp), color = if (negative) LabColors.Rose else LabColors.Muted,
             modifier = Modifier.labEnter(0, base = 40))
         val number = Amounts.format(balance?.let { kotlin.math.abs(it) }).removePrefix("$ ")
-        val big = when { number.length > 7 -> 64.sp; number.length > 5 -> 88.sp; else -> 112.sp }
+        // Already huge: with large text it keeps its size instead of growing out of the screen.
+        val scale = androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)
+        val big = (when { number.length > 7 -> 64f; number.length > 5 -> 88f; else -> 112f } / scale).sp
         Row(Modifier.padding(top = 8.dp).labEnter(1, base = 40).semantics(mergeDescendants = true) {
             contentDescription = if (balance == null) "Saldo no disponible" else (if (negative) "Saldo negativo, " else "Saldo, ") + Amounts.format(kotlin.math.abs(balance))
         }, verticalAlignment = Alignment.Top) {
@@ -95,6 +97,17 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
                     append(" de 1 hora")
                 }
             }, style = type.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Normal), color = LabColors.On, modifier = Modifier.padding(top = 20.dp).labEnter(2, base = 40))
+        }
+        // A recharge Prex confirmed that STM has not added yet: said under the balance until the balance shows it.
+        state.onTheWay?.let { amount ->
+            Row(Modifier.padding(top = 14.dp).clip(RoundedCornerShape(16.dp)).background(LabColors.Primary.copy(alpha = .12f)).padding(horizontal = 14.dp, vertical = 10.dp)
+                .semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                androidx.compose.material3.CircularProgressIndicator(Modifier.size(16.dp), color = LabColors.Primary, strokeWidth = 2.dp)
+                Column {
+                    Text("Recarga de ${Amounts.format(amount)} en camino", style = type.titleSmall.copy(fontSize = 15.sp), color = LabColors.On)
+                    Text("STM la suma en unos minutos", style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Muted)
+                }
+            }
         }
         // On the home the day is always said («hoy 08:53»), so an old balance never passes for a fresh one.
         val consulted = state.consultedAt?.let { consultedLabel(it).let { label -> if (label.length == 5) "hoy $label" else label } }
@@ -175,7 +188,7 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
         // The bar comes up from below the edge with a firm spring.
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 16.dp).labRise(60), horizontalAlignment = Alignment.CenterHorizontally) {
             if (onExpressCharge != null && (expressUses < 3 || pressing || expressPreparing)) Text(when {
-                expressPreparing -> "Preparando tu recarga · abriendo $expressProvider"
+                expressPreparing -> "Preparando tu pago · $expressProvider"
                 pressing -> "Soltá antes de que se cargue para cancelar"
                 else -> "Mantené el rayo para cargar ${Amounts.format(state.minimum)} con $expressProvider"
             }, style = type.bodyMedium.copy(fontSize = 13.5.sp), color = LabColors.Muted, modifier = Modifier.padding(bottom = 10.dp, start = 24.dp, end = 24.dp))

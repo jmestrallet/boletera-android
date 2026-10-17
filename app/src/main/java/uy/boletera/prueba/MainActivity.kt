@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -53,6 +54,14 @@ private val NOT_A_FAILURE = setOf(StmEngine.OFFLINE, UNLOCK_NOT_CONFIRMED, FINGE
 /** The crash line is written by one handler, however many times the activity is created in the process. */
 private var crashLogInstalled = false
 
+/** The engine's reason for not starting Carga Express, said to a person (the raw reason goes to the report). */
+internal fun expressWhyCopy(why: String) = when {
+    why.startsWith("STM") || why.startsWith("pantalla") || why == "STM ocupado" -> "STM todavía está leyendo tu saldo. Esperá un momento y volvé a intentar."
+    why == "sin titular" -> "Agregá los datos de quien paga con Prex para usar Carga Express."
+    why == "hay un pago en curso" || why == "ya hay una Carga Express en curso" -> "Ya hay una recarga en curso."
+    else -> "No pudimos empezar la Carga Express. Probá de nuevo en un momento."
+}
+
 class MainActivity : FragmentActivity() {
     private lateinit var engine: StmEngine
     private lateinit var vault: AccessVault
@@ -88,7 +97,7 @@ class MainActivity : FragmentActivity() {
         // Screenshots remain available for the owner's prototype feedback.
         engine = StmEngine(this)
         vault = AccessVault(this)
-        if (IsLab) LabExpressCard.vault = CardVault(this)
+        if (IsLab) OldCardVault.erase(this)
         engine.savedAccess(vault.exists)
         handleShortcut(intent); publishShortcuts()
         val preferences = getSharedPreferences("appearance", MODE_PRIVATE)
@@ -118,8 +127,7 @@ class MainActivity : FragmentActivity() {
                     (if (p.completionSubmitted) " · paso enviado" else "") + " · titular ${p.payerValues.count { it.isNotBlank() }}/5" + (if (p.nativeStage == "payer" && p.payerWhy.isNotBlank()) " (${p.payerWhy})" else "") +
                     (if (p.payerConflict) " · titular distinto" else "") + (if (p.verificationRequired) " · pide verificación" else "") +
                     (if (p.message.isNotBlank()) " · error: ${p.message}" else "") +
-                    (if (engine.expressPreparing) " · Express preparando" else "") +
-                    (if (LabExpressCard.opening) " · esperando huella" else "") + (LabExpressCard.problem?.let { " · tarjeta guardada: $it" } ?: "")
+                    (if (engine.expressPreparing) " · Express preparando" else "")
             }.collect { LabLog.add("estado", it) }
         }
         setContent {
@@ -220,51 +228,35 @@ class MainActivity : FragmentActivity() {
             helpPreferences.edit().putBoolean("beta_channel_intro_v1",true).apply()
             showBetaIntro=false
         }
+        // Lab: several people saved and none marked as the person's own: Carga Express asks once which data are theirs.
+        var askOwnData by remember { mutableStateOf(false) }
+        // Lab 18: «¿De quién es la tarjeta?» for the amount chosen, the «Datos para Prex» form, and one person's detail.
+        var whoPaysFor by remember { mutableStateOf<Long?>(null) }
+        var labPayerForm by remember { mutableStateOf<LabPayerForm?>(null) }
+        var labPayerDetail by remember { mutableStateOf<String?>(null) }
+        fun ownMissing() = engine.payerProfiles.none { it.personal }
+        /** Lab: after the amount, the person whose card it is (asked only with two or more), then Prex. */
+        fun labPay(amount: Long) {
+            val people = engine.payerProfiles.filter { it.valid() }
+            when {
+                people.isEmpty() -> labPayerForm = LabPayerForm(null, askMine = true, startMine = true, action = "Continuar") { engine.prepareWithPrex(amount, engine.state.payerProfileId) }
+                people.size == 1 -> engine.prepareWithPrex(amount, people[0].id)
+                else -> whoPaysFor = amount
+            }
+        }
         fun requestExpress() {
-            if(!engine.expressAvailable || state.busy)return
-            // Lab: with a card saved for Express, one fingerprint opens it and the rest runs by itself. Cancelling the
-            // fingerprint cancels the Express; without a saved card it goes on as before (Android's saved-card suggestion).
-            val cards=LabExpressCard.vault
-            // One fingerprint at a time: a second Express while the first one's prompt is open does nothing.
-            if(IsLab && cards!=null && cards.exists && LabExpressCard.opening) return
-            if(IsLab && cards!=null && cards.exists) {
-                // Express starts right away, as without a card (the light lands on its waiting card); the fingerprint
-                // comes once the light is done and Prex's card step waits for it. If the card does not open, that step
-                // shows the card form with the reason, so Express never stalls.
-                LabExpressCard.pending=null; LabExpressCard.problem=null
+            if(!engine.expressAvailable || engine.state.busy)return
+            if(IsLab) {
                 val why=engine.startExpressOrWhy()
-                if(why!=null) {
-                    engine.expressNotStarted="Carga Express con tarjeta guardada no empezó: $why"
-                    engine.notice("No pudimos empezar la Carga Express ($why). Probá de nuevo.")
-                    return
-                }
-                LabExpressCard.opening=true
-                lifecycleScope.launch {
-                    kotlinx.coroutines.delay(1150)
-                    // Cancelled during the light: no fingerprint over the balance.
-                    if(!engine.expressPreparing && engine.state.stage!="embeddedPrex") { LabExpressCard.opening=false; LabLog.add("huella", "no pedida: Express cancelado"); return@launch }
-                    LabLog.add("huella", "pedida para la tarjeta guardada")
-                    cards.unlock { card ->
-                        LabExpressCard.opening=false
-                        LabLog.add("huella", if(card!=null) "tarjeta abierta" else cards.lastProblem.ifBlank { "cancelada" })
-                        if(card==null) {
-                            val problem=cards.lastProblem
-                            if(problem.isNotBlank()) { LabExpressCard.problem=problem; engine.expressNotStarted="Tarjeta guardada no se abrió: $problem" }
-                            return@unlock
-                        }
-                        // Express may have been cancelled meanwhile: then the card is not kept.
-                        if(!engine.expressPreparing && engine.state.stage!="embeddedPrex") return@unlock
-                        LabExpressCard.pending=card
-                        // Used at Prex's card step (a few seconds away); if Express never gets there, it is dropped.
-                        lifecycleScope.launch { kotlinx.coroutines.delay(90_000); if(LabExpressCard.pending===card) LabExpressCard.pending=null }
-                    }
-                }
+                if(why=="elegir tus datos") { askOwnData=true; return }
+                if(why!=null) { engine.expressNotStarted="Carga Express no empezó: $why"; if(why!="sin internet") engine.notice(expressWhyCopy(why)) }
                 return
             }
             engine.startExpress()
         }
         if (state.stage == "embeddedPrex") {
-            if(IsLab) BoleteraTheme("dark") { LabEmbeddedPrexScreen(engine.prexPayment, state.activePayment, state.selectedCard, engine::leavePrexPayment) }
+            if(IsLab) BoleteraTheme("dark") { LabEmbeddedPrexScreen(engine.prexPayment, state.activePayment, state.selectedCard, engine::leavePrexPayment,
+                showPayer = engine.payerProfiles.size > 1) }
             else EmbeddedPrexScreen(engine.prexPayment, state.activePayment, engine::leavePrexPayment)
             return
         }
@@ -310,7 +302,7 @@ class MainActivity : FragmentActivity() {
             if (engine.forgetChoices()) {
                 // Forgetting the phone is not a new install: the news already read stay read.
                 val seen=helpPreferences.getString("whats_new_seen",null)
-                helpPreferences.edit().clear().putString("whats_new_seen",seen).apply();vault.forget(); lastBalances.clear(); LabExpressCard.vault?.forget()
+                helpPreferences.edit().clear().putString("whats_new_seen",seen).apply();vault.forget(); lastBalances.clear()
                 for (name in listOf("lab_card_names","lab_hints")) context.getSharedPreferences(name, android.content.Context.MODE_PRIVATE).edit().clear().apply(); engine.savedAccess(false); engine.logout()
                 // Lab says it with the clean entry itself; a notice there would paint the entry red as if signing in failed.
                 if(!IsLab) engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.")
@@ -338,6 +330,7 @@ class MainActivity : FragmentActivity() {
         LaunchedEffect(state.sessionExpired, state.recoveringSession) {
             if(state.sessionExpired || state.recoveringSession) {
                 showAmount=false; showPayerPicker=false; showPayerEditor=false
+                whoPaysFor=null; labPayerForm=null; labPayerDetail=null; askOwnData=false
                 showSettings=false; document=""; password=""; revealPassword=false; manual=false
             }
         }
@@ -391,7 +384,7 @@ class MainActivity : FragmentActivity() {
             // After an error with a live session, back is the way to the balance, not a sign-out.
             if(IsLab && state.stage=="blocked" && state.activePayment==null && engine.sessionVerified) { engine.refresh(); return }
             // «Cancelar» while Prex opens goes back to the balance; it never signs out (A2).
-            if(IsLab && engine.sessionVerified && (state.stage=="openingPayment" || state.stage=="connecting" && state.amount!=null)) { engine.refresh(); return }
+            if(IsLab && engine.sessionVerified && (state.stage=="openingPayment" || state.stage=="connecting" && state.amount!=null)) { engine.cancelPreparing(); return }
             // After a payment problem, back re-reads the balance like the on-screen button instead of signing out.
             if(state.stage in listOf("paymentBoundary", "externalPayment") || (state.stage=="blocked" && state.activePayment!=null)) engine.refresh() else engine.cancel()
         }
@@ -589,15 +582,15 @@ class MainActivity : FragmentActivity() {
                })
            // Lab: the moment a recharge is credited, over the home, until "Listo".
            val credited=state.credited
-           if(labHome && credited!=null) Box(Modifier.fillMaxSize().background(LabColors.Base)) {
+           if(labHome && credited!=null) BackHandler { engine.dismissCredited() }
+           if(labHome && credited!=null) Box(Modifier.fillMaxSize().background(LabColors.Base)
+               .clickable(interactionSource=remember{androidx.compose.foundation.interaction.MutableInteractionSource()},indication=null){}) {
                LabAmbient()
                Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal=24.dp).padding(top=64.dp)) { LabRechargeDone(state,credited,engine.lastReceipt,engine::dismissCredited) }
            }
            // B7: the panel carries the payer; «Continuar con Prex» goes straight to Prex (no «Tu recarga» step).
            if(labHome)LabAmountPanel(state,open=showAmount,onClose={showAmount=false},expressShown=onExpressCharge!=null,
-               payer=engine.payerProfiles.find{it.id==state.payerProfileId}?:engine.payerProfiles.singleOrNull(),
-               onPayer={ if(engine.payerProfiles.isEmpty()){editingPayer=null;showPayerEditor=true} else showPayerPicker=true },
-               onChoose={amount->showAmount=false;engine.prepareWithPrex(amount)})
+               onChoose={amount->showAmount=false;labPay(amount)})
           }
         }
         if(showAmount && !IsLab)AmountSheet(state,{showAmount=false}){amount->showAmount=false;engine.prepare(amount)}
@@ -633,7 +626,26 @@ class MainActivity : FragmentActivity() {
         if(showSettings && IsLab)LabSettingsScreen(updates,state.hasSavedAccess,canLogout=state.stage!="welcome",engine.helpDiagnostic,effectsMode,
             onEffectsMode={effectsMode=it;VisualEffects.setMode(context,it)},onLogout={showSettings=false;engine.logout()},onForget={showSettings=false;forgetPhone()},
             onTicketGuide={showSettings=false;showTicketGuide=true},onInstall=updates::requestReview,onClose={showSettings=false},
-            onDemo={showSettings=false;LabDemo.set(context,true)})
+            onDemo={showSettings=false;LabDemo.set(context,true)},
+            payers=if(state.stage!="welcome")engine.payerProfiles else null,onPayer={labPayerDetail=it.id},
+            onAddPayer={labPayerForm=LabPayerForm(null,askMine=ownMissing(),startMine=ownMissing(),action="Guardar")})
+        if(IsLab && showSettings) labPayerDetail?.let { id -> engine.payerProfiles.find { it.id==id }?.let { p ->
+            LabPayerDetail(p,engine.payerProfiles,onEdit={labPayerForm=LabPayerForm(p,askMine=false,startMine=p.personal,action="Guardar")},
+                onMine={mine->if(!engine.savePayer(p.copy(personal=mine)))engine.notice("No pudimos guardar el cambio. Probá de nuevo.")},onDelete={engine.deletePayer(p.id)},onClose={labPayerDetail=null})
+        } ?: run { labPayerDetail=null } }
+        if(IsLab && whoPaysFor!=null) whoPaysFor?.let { amount ->
+            LabWhoPaysSheet(engine.payerProfiles.filter{it.valid()},onChoose={p->whoPaysFor=null;engine.prepareWithPrex(amount,p.id)},
+                onAdd={whoPaysFor=null;labPayerForm=LabPayerForm(null,askMine=ownMissing(),startMine=ownMissing(),action="Continuar"){engine.prepareWithPrex(amount,engine.state.payerProfileId)}},
+                onClose={whoPaysFor=null})
+        }
+        if(IsLab && askOwnData) LabOwnDataSheet(engine.payerProfiles.filter{it.valid()},
+            onMine={p->askOwnData=false;if(engine.savePayer(p.copy(personal=true)))requestExpress()},
+            onNone={askOwnData=false;labPayerForm=LabPayerForm(null,askMine=false,startMine=true,action="Continuar"){requestExpress()}},
+            onClose={askOwnData=false})
+        labPayerForm?.let { form ->
+            LabPayerScreen(form.existing,form.askMine,form.action,startMine=form.startMine,
+                onSave={p->engine.savePayer(p).also{ok->if(ok){labPayerForm=null;form.then?.invoke()}}},onClose={labPayerForm=null})
+        }
         if(showSettings && !IsLab)SettingsSheet(updates,appearance,onAppearance,state.hasSavedAccess,state.stage!="welcome",engine.helpDiagnostic,
             onForget={showSettings=false;showForget=true},onLogout={showSettings=false;engine.logout()},onInstall=updates::requestReview,onClose={showSettings=false},
             onTicketGuide={showSettings=false;showTicketGuide=true},
@@ -642,7 +654,7 @@ class MainActivity : FragmentActivity() {
         // Lab: a version found on opening, offered on the entry or the home (never in the middle of a payment).
         val promptRelease=updates.release
         if(IsLab && updates.prompt && promptRelease!=null && !updates.reviewRequested && !showSettings && state.stage in setOf("welcome","balance") &&
-            !showAmount && state.credited==null && !manual && !showAccessGuide)
+            !showAmount && state.credited==null && !manual && !showAccessGuide && labPayerForm==null && whoPaysFor==null && !askOwnData)
             LabUpdatePrompt(promptRelease,updates.progress,updates.busy,onUpdate=updates::acceptPrompt,onLater=updates::skipPrompt,
                 problem=if(updates.downloadFailed && !updates.busy)updates.message else null)
         if(updates.reviewRequested && updates.ready && !updates.busy && IsLab) updates.release.let { r ->
@@ -927,3 +939,6 @@ internal val LabWhatsNew = listOf(
     "El pago, la verificación y Configuración tienen el diseño de Lab.",
     "Mantené apretado el ícono: «Ver saldo» y «Recargar».",
 )
+
+/** The «Datos para Prex» form open in Lab: who it edits, whether it asks «¿Son tus datos?», and what comes after saving. */
+internal data class LabPayerForm(val existing: PayerProfile?, val askMine: Boolean, val startMine: Boolean, val action: String, val then: (() -> Unit)? = null)

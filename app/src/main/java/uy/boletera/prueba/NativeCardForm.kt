@@ -55,7 +55,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     expandedChallenge: Boolean, onSubmit: (String,String,String)->Unit, onOriginal: ()->Unit,
     focusCard: Boolean = false, verificationRequired: Boolean = false, onManualContinue: () -> Unit = {}, onVerificationShown: () -> Unit = {},
     onAutomaticSubmit: ((String,String,String)->Unit)? = null, onOtherCard: (() -> Unit)? = null,
-    offerSave: Boolean = false, savedCard: String? = null, onUseSaved: (() -> Unit)? = null,
+    autoContinue: Boolean = true, express: Boolean = false,
     verification: @Composable ()->Unit = {}) {
     var pan by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
@@ -78,18 +78,17 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     val codeView=remember { BringIntoViewRequester() }
     val verificationView=remember { BringIntoViewRequester() }
     val scope=rememberCoroutineScope()
-    var saveForExpress by remember { mutableStateOf(false) }
+    // Lab: the card typed (or filled) is handed to Android's autofill on «Continuar», so Google can offer «Guardar»;
+    // once committed, leaving the screen must not cancel that.
+    var committed by remember { mutableStateOf(false) }
     fun submit(manual: Boolean = false, checkVerification: Boolean = false) {
         if(busy || !canContinue || providerError || expandedChallenge)return
         if(manual)onManualContinue()
         autoConsumed=true;filledFields=0;pendingContinue=false
-        autofill?.cancel();keyboard?.hide();focus.clearFocus()
+        if(IsLab) {autofill?.commit();committed=true} else autofill?.cancel()
+        keyboard?.hide();focus.clearFocus()
         val send=(if(manual&&!checkVerification)onSubmit else onAutomaticSubmit?:onSubmit)
-        val card=Triple(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
-        // «Guardar para Carga Express»: the fingerprint saves it first, then the card goes to Prex as always.
-        val cards=LabExpressCard.vault
-        if(IsLab && offerSave && saveForExpress && cards!=null) cards.save(card.first,card.second,card.third) { send(card.first,card.second,card.third) }
-        else send(card.first,card.second,card.third)
+        send(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
         cvv="";attempted=false
     }
     fun fill(field: Int, value: String): Boolean {
@@ -111,7 +110,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     LaunchedEffect(filledFields,pan,expiry,cvv,busy,canContinue,providerError,expandedChallenge,verificationRequired,pendingContinue,focusCard) {
         if(providerError)filledFields=0
         if(providerError||!focusCard)pendingContinue=false
-        if(((filledFields==7 && !autoConsumed)||pendingContinue) && !busy && !providerError && !expandedChallenge &&
+        if(((filledFields==7 && !autoConsumed && autoContinue)||pendingContinue) && !busy && !providerError && !expandedChallenge &&
             CardInput.panValid(pan) && CardInput.expiryValid(expiry) && CardInput.cvvValid(cvv)) {
             // Typing alone never requests a submission. Express may retain an explicit IME Done
             // while verification is pending; recheck in the provider before sending that request.
@@ -147,7 +146,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     }
     LaunchedEffect(expandedChallenge) { if(expandedChallenge) {focus.clearFocus();keyboard?.hide()} }
     DisposableEffect(lifecycle,autofill) {
-        fun clear() { filledFields=0;pendingContinue=false;autofill?.cancel();pan="";expiry="";cvv="";attempted=false;focus.clearFocus() }
+        fun clear() { filledFields=0;pendingContinue=false;if(!committed)autofill?.cancel();pan="";expiry="";cvv="";attempted=false;focus.clearFocus() }
         val observer=LifecycleEventObserver { _, event -> if(event==Lifecycle.Event.ON_STOP) clear() }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer);clear() }
@@ -160,9 +159,14 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
         return
     }
     val shape=if(IsLab)androidx.compose.foundation.shape.RoundedCornerShape(16.dp) else OutlinedTextFieldDefaults.shape
+    // Lab: Google's list hides when the person taps elsewhere or types; a tap on the empty number brings it back.
+    val numberTouch=remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    LaunchedEffect(numberTouch) {
+        numberTouch.interactions.collect { if(IsLab && it is androidx.compose.foundation.interaction.PressInteraction.Release && pan.isEmpty() && !busy) cardAutofill.request() }
+    }
     val numberField: @Composable (Modifier)->Unit = { modifier ->
-        OutlinedTextField(value=pan,onValueChange={filledFields=0;pendingContinue=false;pan=it.filter { c -> c in '0'..'9' }.take(16)},
-                    label={Text("Número de tarjeta")},shape=shape,singleLine=true,enabled=!busy,
+        OutlinedTextField(value=pan,onValueChange={filledFields=0;pendingContinue=false;committed=false;pan=it.filter { c -> c in '0'..'9' }.take(16)},
+                    label={Text("Número de tarjeta")},shape=shape,singleLine=true,enabled=!busy,interactionSource=numberTouch,
                     modifier=modifier.bringIntoViewRequester(numberView).focusRequester(numberFocus).cardAutofill(cardAutofill).testTag("cardNumber").semantics { contentType=ContentType.CreditCardNumber;onAutofillText { fill(1,it.text) } },
                     visualTransformation=remember { CardGrouping(4,' ') },
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
@@ -171,7 +175,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                     supportingText=if(attempted&&!CardInput.panValid(pan)) {{Text("Revisá el número de tarjeta.")}} else null)
     }
     val expiryField: @Composable (Modifier)->Unit = { modifier ->
-        OutlinedTextField(value=expiry,onValueChange={ filledFields=0;pendingContinue=false;val digits=it.filter { c->c in '0'..'9' };expiry=if(digits.length==6)digits.take(2)+digits.takeLast(2) else digits.take(4) },
+        OutlinedTextField(value=expiry,onValueChange={ filledFields=0;pendingContinue=false;committed=false;val digits=it.filter { c->c in '0'..'9' };expiry=if(digits.length==6)digits.take(2)+digits.takeLast(2) else digits.take(4) },
                         label={Text("Vencimiento")},shape=shape,placeholder={Text("MM/AA")},singleLine=true,enabled=!busy,
                         modifier=modifier.bringIntoViewRequester(expiryView).focusRequester(expiryFocus).semantics { contentType=ContentType.CreditCardExpirationDate;onAutofillText { fill(2,it.text) } },
                         visualTransformation=remember { CardGrouping(2,'/') },
@@ -181,8 +185,8 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                         supportingText=if(attempted&&!CardInput.expiryValid(expiry)) {{Text("Usá mes y año vigentes.")}} else null)
     }
     val cvvField: @Composable (Modifier)->Unit = { modifier ->
-        OutlinedTextField(value=cvv,onValueChange={filledFields=0;pendingContinue=false;cvv=it.filter { c->c in '0'..'9' }.take(4)},
-                        label={Text(if(IsLab)"Código" else "CVV")},shape=shape,singleLine=true,enabled=!busy,
+        OutlinedTextField(value=cvv,onValueChange={filledFields=0;pendingContinue=false;committed=false;cvv=it.filter { c->c in '0'..'9' }.take(4)},
+                        label={Text(if(IsLab)"Código de seguridad" else "CVV")},shape=shape,singleLine=true,enabled=!busy,
                         modifier=modifier.bringIntoViewRequester(codeView).focusRequester(codeFocus).semantics { contentType=ContentType.CreditCardSecurityCode;onAutofillText { fill(4,it.text) } },
                         visualTransformation=PasswordVisualTransformation(),
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword,imeAction=ImeAction.Done),
@@ -194,10 +198,12 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                         supportingText=if(attempted&&!CardInput.cvvValid(cvv)) {{Text(if(cvv.isBlank())"Falta el código de seguridad de tu tarjeta." else "Ingresá 3 o 4 dígitos.")}} else null)
     }
     if(IsLab) {
-        LabCardFields(busy,canContinue,providerError,focusCard,pendingContinue,verificationRequired,numberField,expiryField,cvvField,verification,verificationView,
-            onSaved={ pendingContinue=false;numberFocus.requestFocus();scope.launch { numberView.bringIntoView();cardAutofill.request();keyboard?.show() } },
-            onContinue={ if(!focusMissing())submit(manual=true) },onOriginal={ autofill?.cancel();onOriginal() },onOtherCard=onOtherCard,
-            saveForExpress=if(offerSave && LabExpressCard.vault?.available==true) saveForExpress else null,onSaveForExpress={saveForExpress=it},savedCard=savedCard,onUseSaved=onUseSaved)
+        // What Google filled is shown before going on (never «a ciegas»): the last four, and the code if it is missing.
+        val filledNote=if(filledFields and 1 != 0 && CardInput.panValid(pan))
+            if(CardInput.cvvValid(cvv)) "Tarjeta ···· ${pan.takeLast(4)} lista." else "Tarjeta ···· ${pan.takeLast(4)}. Escribí el código de seguridad."
+            else null
+        LabCardFields(busy,canContinue,providerError,express,pendingContinue,verificationRequired,numberField,expiryField,cvvField,verification,verificationView,
+            onContinue={ if(!focusMissing())submit(manual=true) },onOriginal={ autofill?.cancel();onOriginal() },onOtherCard=onOtherCard,filledNote=filledNote)
         return
     }
     Column(Modifier.fillMaxSize()) {

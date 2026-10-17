@@ -87,7 +87,8 @@ internal fun labErrorCopy(code: String): Pair<String, String> = when (code) {
  * How a Prex payment ends, in the Lab shape. The confirmation step itself stays in the payment flow; this covers what comes
  * after: processing, confirmed, crediting in STM, pending and rejected. [browser] keeps the hidden payment page alive.
  */
-@Composable internal fun LabPaymentResult(payment: EmbeddedPrexPayment, pending: ActivePayment?, onOriginal: () -> Unit, browser: @Composable () -> Unit) {
+@Composable internal fun LabPaymentResult(payment: EmbeddedPrexPayment, pending: ActivePayment?, onOriginal: () -> Unit, onLeave: () -> Unit = {},
+    browser: @Composable () -> Unit) {
     val stage = payment.nativeStage
     val amount = pending?.amount?.let(Amounts::format) ?: "la recarga"
     var details by remember(stage) { mutableStateOf(false) }
@@ -105,11 +106,11 @@ internal fun labErrorCopy(code: String): Pair<String, String> = when (code) {
             stage == "finalConfirmation" || crediting || stage == "receipt" ->
                 LabStatusScreen(HeroPhase.LOADING, processing.title, processing.line, null, null)
             // The provider gives no reason («Existen datos incorrectos» also means no funds), so both causes are named.
-            stage == "paymentRejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex rechazó el pago", "Revisá el saldo de tu Prex o los datos de la tarjeta.",
-                LabAction("Probar de nuevo", enabled = free) { LabRetry.reopenAmount = true; payment.advance(stage) },
-                LabAction("Volver al inicio", enabled = free, quiet = true) { payment.advance(stage) })
+            stage == "paymentRejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex rechazó el pago", "Revisá el saldo o los datos de la tarjeta.",
+                LabAction("Probar de nuevo") { LabRetry.reopenAmount = true; if (free) payment.advance(stage) else onLeave() },
+                LabAction("Volver al inicio", quiet = true) { if (free) payment.advance(stage) else onLeave() })
             stage == "paymentPending" -> LabStatusScreen(HeroPhase.LOADING, processing.title, "Prex todavía está confirmando el pago de $amount.",
-                LabAction("Volver al inicio", enabled = free) { payment.advance(stage) }, null)
+                LabAction("Volver al inicio") { if (free) payment.advance(stage) else onLeave() }, null)
             else -> LabStatusScreen(HeroPhase.LOADING, processing.title, processing.line, null, null)
         }
     }

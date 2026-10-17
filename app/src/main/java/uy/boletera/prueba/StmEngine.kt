@@ -219,7 +219,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         val pending=state.activePayment ?: return false
         val account=choices.accountKey ?: return false
         // A finished payment (credited or rejected) on another card must not block new recharges forever.
-        val open=paymentRecord?.takeUnless {it.phase in setOf("credited","rejected")}
+        val open=paymentRecord?.takeUnless {it.phase in setOf("credited","rejected") || superseded(it,pending)}
         if(journalUnavailable || open?.let {it.phase!="reviewing" || it.startedAt!=pending.createdAt || it.card!=pending.card || it.provider!=pending.provider || it.amount!=pending.amount}==true)return false
         val transaction=prexPayment.summaryRows.firstOrNull {paymentLabel(it.first)=="transaccion"}?.second.orEmpty()
         val record=PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance,transaction=transaction)
@@ -228,10 +228,16 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         paymentRecord=record;paymentNeedsReview=true
         return true
     }
+    /**
+     * Lab (A3): a record left open by an EARLIER payment (pending, a receipt STM never confirmed, a look at Prex's own
+     * page, an interrupted app) is superseded by the new one instead of blocking every later «Pagar». The balance
+     * still tells how the earlier one ended.
+     */
+    private fun superseded(record: PaymentRecord, pending: ActivePayment) = IsLab && record.startedAt!=pending.createdAt
     private fun trackOriginalReview(): Boolean {
         val pending=state.activePayment ?: return false
         if(journalUnavailable)return false
-        paymentRecord?.takeUnless {it.phase in setOf("credited","rejected")}?.let {return it.startedAt==pending.createdAt && it.card==pending.card && it.provider==pending.provider && it.amount==pending.amount}
+        paymentRecord?.takeUnless {it.phase in setOf("credited","rejected") || superseded(it,pending)}?.let {return it.startedAt==pending.createdAt && it.card==pending.card && it.provider==pending.provider && it.amount==pending.amount}
         val account=choices.accountKey ?: return false
         val record=PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance,"reviewing")
         if(!paymentJournal.write(account,record))return false
@@ -250,7 +256,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         val phase=when(stage) {"receipt"->"confirmed";"paymentRejected"->"rejected";"paymentPending"->"pending";"stmSuccess"->"credited";else->return}
         val transaction=rows.firstOrNull {paymentLabel(it.first)=="transaccion"}?.second.orEmpty()
         if(previous.transaction.isNotBlank() && transaction.isNotBlank() && previous.transaction!=transaction) {
-            journalUnavailable=true;paymentNeedsReview=true;return
+            if(!IsLab) journalUnavailable=true
+            paymentNeedsReview=true;return
         }
         val record=previous.copy(phase=phase,transaction=transaction.ifBlank {previous.transaction})
         if(paymentJournal.write(account,record)) {
@@ -344,6 +351,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
      * card (the usual card becomes this one, and the regular re-read reaches it); no full-screen picker in between.
      */
     fun switchCard(id: String) {
+        if (IsLab && noInternet()) { notice("No hay internet en el celular. Seguís viendo la boletera de antes."); return }
         if (state.busy || id == state.selectedCard || state.cards.none { it.id == id && it.active }) return
         choices.card = id
         switchingTo = id
@@ -373,7 +381,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
 
     fun forgetChoices(): Boolean {
-        if (!payerStore.forget()) { notice("No pudimos borrar los datos de titular guardados. No se confirmó su eliminación."); return false }
+        if (!payerStore.forget()) { notice(if (IsLab) "No pudimos borrar los datos para Prex guardados. Probá de nuevo." else "No pudimos borrar los datos de titular guardados. No se confirmó su eliminación."); return false }
         payerProfiles = emptyList()
         payerStoreAvailable = true
         choices.forgetAll()
@@ -383,15 +391,19 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
 
     fun choosePayer(id: String) {
-        if (!accountVerified || state.busy || state.activePayment != null || state.stage != "paymentBoundary") return
+        // Lab chooses the payer in the amount panel, on the balance screen, before the payment starts.
+        if (!accountVerified || state.busy || state.activePayment != null || state.stage != "paymentBoundary" && !(IsLab && state.stage == "balance")) return
         if (payerProfiles.none { it.id == id }) return
         choices.payerProfileId = id
         state = state.copy(payerProfileId = id, message = "")
     }
 
     fun savePayer(profile: PayerProfile): Boolean {
+        if (IsLab && !payerStoreAvailable) { notice("Los datos para Prex guardados en este celular no se pueden leer. Borralos con «Olvidar este celular» y cargalos de nuevo."); return false }
+        if (IsLab && (!accountVerified || state.busy)) { notice("STM todavía está leyendo tu saldo. Esperá un momento y volvé a intentar."); return false }
         if (!accountVerified || state.busy || state.activePayment != null || !payerStoreAvailable || !profile.valid()) return false
-        val updated = payerProfiles.filterNot { it.id == profile.id } + profile
+        val others = payerProfiles.filterNot { it.id == profile.id }.map { if (profile.personal && it.personal) it.copy(personal = false) else it }
+        val updated = others + profile
         return try {
             if (!payerStore.write(updated)) false else {
                 payerProfiles = updated
@@ -399,7 +411,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                 state = state.copy(payerProfileId = profile.id, message = "")
                 true
             }
-        } catch (_: Exception) { notice("No se pudieron guardar los datos del titular en este celular."); false }
+        } catch (_: Exception) { notice(if (IsLab) "No se pudieron guardar los datos en este celular." else "No se pudieron guardar los datos del titular en este celular."); false }
     }
 
     fun deletePayer(id: String): Boolean {
@@ -469,7 +481,21 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
 
     fun leavePrexPayment() {
-        if (state.stage == "embeddedPrex") refresh()
+        if (state.stage != "embeddedPrex") return
+        // Without internet the balance can't be read again: back to the last one, the payment session closed.
+        if (IsLab && noInternet()) { leaveOffline(); return }
+        refresh()
+    }
+    /** Lab: «Cancelar» / back while the recharge is being prepared (STM busy opening the payment). */
+    fun cancelPreparing() {
+        if (state.stage !in setOf("openingPayment", "paymentBoundary", "connecting")) return
+        if (noInternet()) { leaveOffline(); return }
+        state = state.copy(busy = false); refresh()
+    }
+    private fun leaveOffline() {
+        clearPaymentSession(); active = false; handler.removeCallbacks(poll)
+        state = state.copy(stage = if (state.balance != null) "balance" else "welcome", busy = false, amount = null, captcha = null,
+            message = "No hay internet en el celular. Te mostramos el último saldo consultado.")
     }
 
     private fun inspectPaymentPage() {
@@ -546,12 +572,16 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
      * chosen there, so there is no «Tu recarga» step. It rides the same one-shot request as Express, but as a normal
      * journey: Prex still asks for the card and nothing is confirmed without the person's «Pagar».
      */
-    fun prepareWithPrex(amount: Long) {
+    fun prepareWithPrex(amount: Long, payerId: String? = null) {
+        if (IsLab && noInternet()) { notice(OFFLINE); return }
         val card = state.selectedCard ?: return
-        if (state.busy || pageStage != "amount") return
+        if (state.busy || pageStage != "amount") { if (IsLab) notice("STM todavía está leyendo tu saldo. Esperá un momento y volvé a intentar."); return }
         if (!Amounts.valid(amount, state.minimum)) { notice("El monto debe alcanzar el mínimo informado por STM."); return }
-        val payer = payerProfiles.find { it.id == state.payerProfileId && it.valid() } ?: payerProfiles.singleOrNull()?.takeIf { it.valid() }
-        if (payer == null) { notice("Agregá el titular de la Prex para seguir."); return }
+        // The person just chosen (Lab 18) wins over the one remembered.
+        val payer = payerId?.let { id -> payerProfiles.find { it.id == id && it.valid() } }
+            ?: payerProfiles.find { it.id == state.payerProfileId && it.valid() } ?: payerProfiles.singleOrNull()?.takeIf { it.valid() }
+        if (payer == null) { notice(if (IsLab) "Agregá tus datos para Prex para seguir." else "Agregá el titular de la Prex para seguir."); return }
+        if (IsLab) choices.payerProfileId = payer.id
         expressRequest = ExpressChoice(card, "1033", payer.id)
         expressPayment = false
         state = state.copy(amount = amount, payerProfileId = payer.id)
@@ -559,6 +589,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
 
     private fun expressPayer(): PayerProfile? {
+        if(IsLab) payerProfiles.filter { it.valid() }.let { valid -> return valid.find { it.personal } ?: valid.singleOrNull() }
         if(choices.successfulProvider=="1033")return payerProfiles.find {it.id==choices.successfulPayer && it.valid()}
         return payerProfiles.find {it.id==state.payerProfileId && it.valid()} ?: payerProfiles.singleOrNull()?.takeIf {it.valid()}
     }
@@ -566,7 +597,10 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     private val expressProvider: String? get()=choices.successfulProvider ?: choices.provider
     val expressProviderName: String get() = if(expressProvider=="1033")"Prex" else "Medio guardado"
     val expressPaymentLabel: String get()=expressProviderName + choices.successfulCardSuffix?.let {" · •••• $it"}.orEmpty()
-    private val expressProviderReady: Boolean get() = expressProvider=="1033" && payerStoreAvailable && expressPayer()!=null
+    private val expressProviderReady: Boolean get() = expressProvider=="1033" && payerStoreAvailable &&
+        (expressPayer()!=null || IsLab && payerProfiles.any { it.valid() })
+    /** Lab: several people saved and none marked as the person's own; Carga Express asks once which data are theirs. */
+    val expressNeedsOwnData: Boolean get() = IsLab && expressPayer()==null && payerProfiles.count { it.valid() } > 1
     val expressAvailable: Boolean get() = accountVerified && (!paymentNeedsReview || IsLab) && !journalUnavailable && expressProviderReady &&
         choices.card==state.selectedCard &&
         state.selectedCard!=null && state.cards.any { it.id==state.selectedCard && it.active } &&
@@ -575,6 +609,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     fun startExpress() { startExpressOrWhy() }
     /** Starts Carga Express, or says (in plain words, for the report) why it cannot right now; null when it started. */
     fun startExpressOrWhy(): String? {
+        if (IsLab && noInternet()) { notice(OFFLINE); return "sin internet" }
         val card=state.selectedCard ?: return "sin boletera elegida"
         val amount=state.minimum ?: return "sin mínimo de recarga"
         if(!accountVerified) return "sesión sin verificar"
@@ -586,7 +621,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         if(!expressAvailable) return "Carga Express no disponible"
         val provider=expressProvider ?: return "sin medio de pago elegido"
         if(provider!="1033") return "el medio de pago no es Prex"
-        val payer=expressPayer() ?: return "sin titular"
+        val payer=expressPayer() ?: return if(expressNeedsOwnData) "elegir tus datos" else "sin titular"
         if(state.cards.none { it.id==card && it.active }) return "boletera no operativa"
         if(!Amounts.valid(amount,state.minimum)) return "importe inválido"
         expressRequest=ExpressChoice(card,provider,payer?.id)
@@ -649,8 +684,9 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         state = state.copy(message = if (IsLab) "" else "Sesión local eliminada. El acceso cifrado se conserva hasta que elijas olvidarlo.")
     }
 
+    private var pausedAt = 0L
     fun pause() {
-        foreground=false
+        foreground=false; pausedAt=System.currentTimeMillis()
         expressTiming.pause(true)
         // Suspend only: the existing authorization remains bound to this one in-memory journey.
         prexPayment.pause()
@@ -660,6 +696,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
     fun resume() {
         foreground=true
+        if (pausedAt > 0) { actionStarted += System.currentTimeMillis() - pausedAt; pausedAt = 0 }
         expressTiming.pause(false)
         prexPayment.resume()
         if (state.stage == "externalPayment") { refresh(); return }
@@ -914,7 +951,17 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                 if (list.isEmpty()) return // Never treat an unparsed/unfinished page as a completed login.
                 clearSecrets()
                 if (!accountVerified) {
-                    try { payerProfiles = payerStore.read(); payerStoreAvailable = true }
+                    try {
+                        payerProfiles = payerStore.read(); payerStoreAvailable = true
+                        // Lab 18: a single profile saved before «Son mis datos» existed is the person's own; with several, the app asks once.
+                        val only = payerProfiles.singleOrNull()
+                        if (IsLab && !choices.personalMigrated) {
+                            val mine = only?.takeIf { !it.personal }?.copy(personal = true)
+                            // Marked only once it is written; with nothing to mark (none, several, or already marked) it is done.
+                            if (mine == null) choices.personalMigrated = true
+                            else if (runCatching { payerStore.write(listOf(mine)) }.getOrDefault(false)) { payerProfiles = listOf(mine); choices.personalMigrated = true }
+                        }
+                    }
                     catch (_: Exception) { payerProfiles = emptyList(); payerStoreAvailable = false }
                 }
                 accountVerified = true
@@ -994,7 +1041,16 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                 )
                 if(expressTiming.phase in setOf(ExpressTiming.Phase.RETURN,ExpressTiming.Phase.RECOVERY))expressTiming.finish(ExpressTiming.End.BALANCE)
                 run {
-                    val record=paymentRecord
+                    var current=paymentRecord
+                    if(IsLab && current!=null && System.currentTimeMillis()-current.startedAt>30*60*1000L) {
+                        choices.accountKey?.let {paymentJournal.clear(it)}
+                        paymentRecord=null;paymentNeedsReview=false;current=null
+                    }
+                    val seen=current
+                    if(IsLab && seen!=null && seen.phase in setOf("confirmed","pending") && seen.card==state.selectedCard &&
+                        seen.balanceBefore!=null && (state.balance ?: Long.MIN_VALUE)>=seen.balanceBefore+seen.amount)
+                        current=seen.copy(phase="credited").also {paymentRecord=it}
+                    val record=current
                     if(record?.phase in setOf("credited","rejected") && record?.card==state.selectedCard) {
                         val account=choices.accountKey
                         val unchanged=record?.phase=="credited" && record.balanceBefore!=null && state.balance==record.balanceBefore
@@ -1016,6 +1072,14 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                             state=state.copy(credited=if(credited && IsLab)record?.amount else null,
                                 message=if(credited && IsLab)"" else if(credited)"Recarga confirmada por STM. Saldo actualizado." else "El pago fue rechazado. Saldo consultado.")
                         }
+                    }
+                    // Lab 18: a payment Prex (or STM's receipt) confirmed, not yet in the balance, is said on the home so
+                    // nobody pays twice; never a doubtful one («pending» stays silent, as the owner asked).
+                    if(IsLab) {
+                        val r=paymentRecord
+                        val way=r?.takeIf { it.card==state.selectedCard && (it.phase=="confirmed" ||
+                            it.phase=="credited" && it.balanceBefore!=null && state.balance==it.balanceBefore) }?.amount
+                        if(state.onTheWay!=way) state=state.copy(onTheWay=way)
                     }
                     showPaymentStatus()
                 }

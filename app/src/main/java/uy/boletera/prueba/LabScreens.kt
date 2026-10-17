@@ -376,7 +376,7 @@ internal class LabCardNames(context: android.content.Context) {
  * pay with (Prex and the payer, tapped only to change). «Continuar con Prex» goes straight to Prex: there is no
  * «Tu recarga» step any more. Nothing is charged until «Pagar» at the end.
  */
-@Composable internal fun LabAmountPanel(state: UiState, open: Boolean, onClose: () -> Unit, payer: PayerProfile?, onPayer: () -> Unit,
+@Composable internal fun LabAmountPanel(state: UiState, open: Boolean, onClose: () -> Unit,
     onChoose: (Long) -> Unit, modifier: Modifier = Modifier, expressShown: Boolean = true) {
     val progress by animateFloatAsState(if (open) 1f else 0f, spring(dampingRatio = 0.8f, stiffness = 380f), label = "amount morph")
     if (progress < 0.01f && !open) return
@@ -399,14 +399,14 @@ internal class LabCardNames(context: android.content.Context) {
             .border(1.dp, LabColors.GlassLine.copy(alpha = LabColors.GlassLine.alpha * ((progress - .7f) / .3f).coerceIn(0f, 1f)), RoundedCornerShape(32.dp))
             .animateContentSize()) {
             Box(Modifier.graphicsLayer { alpha = ((progress - .35f) / .5f).coerceIn(0f, 1f) }) {
-                LabAmountChoices(state, open, payer, onPayer, onChoose)
+                LabAmountChoices(state, open, onChoose)
             }
         }
     }
 }
 
-/** What the amount panel holds: the amounts, «Otro importe», who pays and Continuar (kept apart from the panel's motion). */
-@Composable private fun LabAmountChoices(state: UiState, open: Boolean, payer: PayerProfile?, onPayer: () -> Unit, onChoose: (Long) -> Unit) {
+/** What the amount panel holds: the amounts, «Otro importe» and Continuar (kept apart from the panel's motion). */
+@Composable private fun LabAmountChoices(state: UiState, open: Boolean, onChoose: (Long) -> Unit) {
     val type = MaterialTheme.typography
     val haptic = LocalHapticFeedback.current
     var custom by remember(open) { mutableStateOf(false) }
@@ -454,24 +454,9 @@ internal class LabCardNames(context: android.content.Context) {
             Icon(painterResource(R.drawable.ic_edit), contentDescription = null, tint = LabColors.Primary, modifier = Modifier.size(22.dp))
             Text("Otro importe", style = type.titleMedium.copy(fontSize = 16.sp), color = LabColors.On)
         }
-        // What you pay with: Prex and the payer, tapped only to change. Without a payer it asks for one.
-        Row(Modifier.padding(top = 10.dp).fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp))
-            .clickable(role = Role.Button, onClick = onPayer).padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(LabColors.Primary.copy(alpha = .16f)), contentAlignment = Alignment.Center) {
-                AppGlyph(Glyph.Card, Modifier.size(20.dp), tint = LabColors.Primary)
-            }
-            Column(Modifier.weight(1f)) {
-                Text(buildAnnotatedString { append("Pagás con "); withStyle(SpanStyle(color = LabColors.On, fontWeight = FontWeight.Medium)) { append("Prex") } },
-                    style = type.bodyMedium.copy(fontSize = 14.5.sp), color = LabColors.Muted)
-                if (payer != null) Text("Titular: ${payer.givenName} ${payer.familyName}".trim(), style = type.bodyMedium.copy(fontSize = 14.5.sp), color = LabColors.Muted)
-                else Text("Agregar titular", style = type.bodyMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = LabColors.Primary)
-            }
-            AppGlyph(Glyph.Chevron, Modifier.size(22.dp), tint = LabColors.Muted)
-        }
         Spacer(Modifier.height(14.dp))
-        if (payer != null) LabPrimary("Continuar con Prex", valid && !state.busy, onClick = { amount?.let(onChoose) }, sheet = true)
-        else LabPrimary("Agregar titular y continuar", valid && !state.busy, onClick = onPayer, sheet = true)
+        // Whose card it is (only with two or more people) and the card itself come after (Lab 18).
+        LabPrimary("Continuar", valid && !state.busy, onClick = { amount?.let(onChoose) }, sheet = true)
     }
 }
 

@@ -63,6 +63,10 @@ class JourneyPreferences(context: Context) {
     var payerProfileId: String?
         get() = account?.let { store.getString("$it.payer", null) }
         set(value) { account?.let { store.edit().putString("$it.payer", value).apply() } }
+    /** Lab 18: the profiles saved before «Son mis datos» were looked at once (a single one became the person's own). */
+    var personalMigrated: Boolean
+        get() = store.getBoolean("personal_migrated", false)
+        set(value) { store.edit().putBoolean("personal_migrated", value).apply() }
     fun forgetAll() {
         val edit = store.edit()
         store.all.keys.filter { it.endsWith(".card") || it.endsWith(".provider") || it.endsWith(".resume") || it.endsWith(".payer") || it.endsWith(".express") || it.contains(".success") }.forEach { edit.remove(it) }

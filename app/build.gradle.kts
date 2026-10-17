@@ -28,10 +28,10 @@ android {
         applicationId = if (isLab) "uy.boletera.lab" else "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = if (legacyUpdateBridge) 49 else if (isLab) 77 else 61
+        versionCode = if (legacyUpdateBridge) 49 else if (isLab) 78 else 61
         versionName = when {
             legacyUpdateBridge -> "0.2.31-prueba"
-            isLab -> "0.2.40-lab.17"
+            isLab -> "0.2.40-lab.18"
             isAlpha -> "0.2.40-alpha.5"
             isBeta -> "0.2.40-beta.2"
             else -> "0.2.40"
@@ -44,7 +44,7 @@ android {
         buildConfigField("String", "REPORT_TOKEN", "\"${if (isLab) reportToken else ""}\"")
         buildConfigField("String", "DISPLAY_VERSION", when {
             legacyUpdateBridge -> "\"0.2.31\""
-            isLab -> "\"0.2.40 Lab 17\""
+            isLab -> "\"0.2.40 Lab 18\""
             isAlpha -> "\"0.2.40 Alpha 5\""
             isBeta -> "\"0.2.40 Beta 2\""
             else -> "\"0.2.40\""

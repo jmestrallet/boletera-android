@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.2.40 Lab 18 - Tarjetas de Google, cuenta regresiva y «tus datos»
+
+- Boletera ya no guarda tarjetas (la guardada se borra al actualizar): siempre el autocompletado de Google, que se abre solo en el paso de la tarjeta y ahora ofrece guardar las nuevas.
+- Carga Express: después de elegir la tarjeta, «Confirmá tu pago» cuenta 4… 3… 2… 1 y paga; «Pagar ahora» / «Cancelar»; se frena si salís de la app; si Prex muestra otra tarjeta avisa y no paga sola.
+- «¿De quién es la tarjeta?» solo con dos o más personas; «Son mis datos» (una sola «Mía»), migración automática de un titular guardado.
+- «Recarga en camino» en el inicio cuando Prex confirmó y STM todavía no suma la recarga.
+- Configuración: «Versión» en la 2.ª sección; sección «Datos para Prex» con detalle por persona.
+- Textos: «Preparando tu pago», «Código de seguridad», «Pagar $ X ahora», «A nombre de», sin «titular».
+- Arreglos de la revisión: pagos que no se trababan por una recarga anterior, salida después de «Pagar», «Cancelar» mientras se prepara, avisos sin internet, registro sin nombres.
+
 ## 0.2.40 Lab 17 - Express completa el titular y nunca queda sin salida
 
 - Carga Express completa los datos del titular aunque el tipo de documento de Prex tarde en responder (antes quedaban vacíos y se trababa).

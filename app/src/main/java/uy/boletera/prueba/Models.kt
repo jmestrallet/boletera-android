@@ -24,6 +24,8 @@ data class UiState(
     val paymentStatus: String = "",
     /** Amount STM just confirmed as credited, for Lab's "Recarga hecha"; cleared when seen. */
     val credited: Long? = null,
+    /** Lab 18: a recharge Prex confirmed that STM's balance does not show yet («Recarga de $ X en camino»). */
+    val onTheWay: Long? = null,
     val providers: List<ProviderInfo> = emptyList(), val selectedProvider: String? = null,
     val activePayment: ActivePayment? = null,
     val payerProfileId: String? = null,

@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +23,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -67,8 +67,8 @@ import androidx.compose.ui.unit.sp
         Spacer(Modifier.weight(1f))
         LabPaymentHeader(amount, card, HeroPhase.LOADING)
         Column(Modifier.padding(top = 30.dp, start = 8.dp, end = 8.dp).labEnter(0, base = 90).semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(if (express) "Carga Express" else "Abriendo Prex", style = type.labStep, color = LabColors.On, textAlign = TextAlign.Center)
-            Text(if (express) "Cargando el mínimo con Prex y tus datos guardados." else "Tus datos de titular ya van completos.",
+            Text(if (express) "Carga Express" else "Preparando tu pago", style = type.labStep, color = LabColors.On, textAlign = TextAlign.Center)
+            Text(if (express) "Cargando el mínimo con Prex y tus datos." else "Completamos tus datos en Prex.",
                 style = type.bodyLarge, color = LabColors.Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         }
         if (express) Row(Modifier.padding(top = 14.dp).labEnter(1, base = 90).clip(RoundedCornerShape(18.dp)).background(LabColors.Teal.copy(alpha = .12f)).padding(horizontal = 14.dp, vertical = 7.dp),
@@ -121,7 +121,8 @@ import androidx.compose.ui.unit.sp
  * «Confirmá tu pago» (pago.html): the same header, three lines (with what, who, how it shows in Prex) and «Pagar $ 500»
  * with a lock. It is the last tap before paying, so it says the amount.
  */
-@Composable internal fun LabConfirmPayment(amount: Long?, card: String?, rows: List<Pair<String, String>>, payerName: String?, canPay: Boolean, onPay: () -> Unit, onDetail: (() -> Unit)?) {
+@Composable internal fun LabConfirmPayment(amount: Long?, card: String?, rows: List<Pair<String, String>>, payerName: String?, canPay: Boolean, onPay: () -> Unit, onDetail: (() -> Unit)?,
+    countdown: Int = 0, onCancel: (() -> Unit)? = null, expectedSuffix: String? = null) {
     val type = MaterialTheme.typography
     val method = rows.firstOrNull { it.first.trim().trimEnd(':').equals("Medio de pago", true) }?.second
     // «PREX **** 0849» reads as «Prex ···· 0849».
@@ -132,7 +133,7 @@ import androidx.compose.ui.unit.sp
         Text("Confirmá tu pago", style = type.labStep, color = LabColors.On, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 14.dp).labEnter(0, dy = 0.dp, dx = 28.dp, base = 40).semantics { heading() })
         Column(Modifier.fillMaxWidth().labEnter(1, dy = 0.dp, dx = 28.dp, base = 40).clip(RoundedCornerShape(24.dp)).background(LabColors.GlassTint).border(1.dp, LabColors.GlassLine, RoundedCornerShape(24.dp)).padding(horizontal = 18.dp, vertical = 6.dp)) {
-            listOfNotNull(methodLabel?.let { "Tarjeta" to it }, payerName?.let { "Titular" to it }, "En tu Prex" to "Pago STM").forEachIndexed { i, (label, value) ->
+            listOfNotNull(methodLabel?.let { "Tarjeta" to it }, payerName?.let { "A nombre de" to it }, "En tu Prex" to "Pago STM").forEachIndexed { i, (label, value) ->
                 if (i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(LabColors.GlassLine))
                 Row(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
                     Text(label, style = type.bodyMedium.copy(fontSize = 15.sp), color = LabColors.Muted, modifier = Modifier.weight(1f))
@@ -140,14 +141,86 @@ import androidx.compose.ui.unit.sp
                 }
             }
         }
-        Spacer(Modifier.weight(1f).heightIn(min = 24.dp))
+        // Prex shows a card other than the one chosen: said plainly before anything, and it never pays by itself.
+        val shownSuffix = methodLabel?.takeLast(4)?.takeIf { it.all(Char::isDigit) }
+        val otherCard = expectedSuffix != null && shownSuffix != null && shownSuffix != expectedSuffix
+        if (otherCard) Row(Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(LabColors.Rose.copy(alpha = .12f))
+            .padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AppGlyph(Glyph.Info, Modifier.size(18.dp), tint = LabColors.Rose)
+            Text("Prex muestra otra tarjeta (···· $shownSuffix), no la que elegiste (···· $expectedSuffix). Revisá antes de pagar.",
+                style = type.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp), color = LabColors.On)
+        }
         // «Pagar» shrinks into the green circle that flies up to become the card's own (movimiento.html v2).
         var payRect by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-        Box(Modifier.labEnter(2, dy = 0.dp, dx = 28.dp, base = 40).onGloballyPositioned { payRect = it.boundsInWindow() }) {
-            LabPrimary("Pagar ${Amounts.format(amount)}", canPay, onClick = { payRect?.let(LabCardFlight::badgeFrom); onPay() }, glyph = Glyph.Lock)
+        var paid by remember { mutableStateOf(false) }
+        fun pay() { if (paid || !canPay) return; paid = true; payRect?.let(LabCardFlight::badgeFrom); onPay() }
+        // If Prex did not take the tap (still ready a few seconds later), the button comes back; a second «Pagar» is refused
+        // by the payment itself once one was sent.
+        LaunchedEffect(paid) { if (paid) { kotlinx.coroutines.delay(4000); if (canPay) paid = false } }
+        // Carga Express (owner, 17/10): a ring that fills while it says «Cargando en 4… 3… 2… 1»; then it pays.
+        // «Pagar ahora» does not wait, «Cancelar» stops without paying, and leaving the app stops the count.
+        // It pays by itself only for the card that was sent: Prex must show the same last four. Otherwise it is a plain «Pagar».
+        val automatic = countdown > 0 && shownSuffix != null && !otherCard
+        val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+        var counting by remember(automatic) { mutableStateOf(automatic && lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) }
+        var left by remember { mutableIntStateOf(countdown) }
+        var fill by remember { mutableFloatStateOf(0f) }
+        // Google's «¿Guardar la tarjeta?» or any system sheet over the app: the count waits and starts again after it.
+        val focused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
+        DisposableEffect(lifecycle) {
+            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE && counting) { counting = false; LabLog.add("Express", "cuenta frenada: la app salió de pantalla") }
+            }
+            lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer) }
         }
-        Box(Modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.Center) { if (onDetail != null) LabTextLink("Ver detalle del pago", onDetail, quiet = true) }
+        LaunchedEffect(counting, canPay, focused, countdown) {
+            if (!counting || !canPay || !focused || countdown <= 0) return@LaunchedEffect
+            // Real time from the frame clock, not an animation: «quitar animaciones» must not make it pay at once.
+            val total = countdown * 1000L
+            val start = withFrameMillis { it }
+            while (true) {
+                val elapsed = withFrameMillis { it } - start
+                fill = (elapsed.toFloat() / total).coerceAtMost(1f)
+                left = (countdown - (elapsed / 1000).toInt()).coerceAtLeast(1)
+                if (elapsed >= total) break
+            }
+            counting = false; LabLog.add("Express", "cuenta terminada: paga"); pay()
+        }
+        Box(Modifier.weight(1f).fillMaxWidth().heightIn(min = 24.dp), contentAlignment = Alignment.Center) {
+            if (counting && countdown > 0) LabCountdownRing(left, fill)
+        }
+        Box(Modifier.labEnter(2, dy = 0.dp, dx = 28.dp, base = 40).onGloballyPositioned { payRect = it.boundsInWindow() }) {
+            LabPrimary(when { counting && countdown > 0 -> "Pagar ahora"; otherCard -> "Pagar con ···· $shownSuffix"; else -> "Pagar ${Amounts.format(amount)} ahora" }, canPay && !paid,
+                onClick = { if (counting) LabLog.add("Express", "pagó sin esperar la cuenta"); counting = false; pay() }, glyph = Glyph.Lock)
+        }
+        Box(Modifier.fillMaxWidth().height(52.dp), contentAlignment = Alignment.Center) {
+            if (onCancel != null && !paid) LabTextLink("Cancelar", { counting = false; onCancel() }, quiet = true)
+            else if (onDetail != null) LabTextLink("Ver detalle del pago", onDetail, quiet = true)
+        }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+/** Carga Express' count before paying: a ring that fills with the number in the middle, and what it is doing under it. */
+@Composable private fun LabCountdownRing(left: Int, progress: Float) {
+    val type = MaterialTheme.typography
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.semantics(mergeDescendants = true) {
+        liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }) {
+        Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
+            val track = LabColors.Primary.copy(alpha = .16f)
+            val arc = LabColors.Primary
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val stroke = 6.dp.toPx()
+                val inset = stroke / 2
+                val size = androidx.compose.ui.geometry.Size(this.size.width - stroke, this.size.height - stroke)
+                val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
+                drawArc(track, 0f, 360f, false, topLeft, size, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+                drawArc(arc, -90f, 360f * progress.coerceIn(0f, 1f), false, topLeft, size,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+            }
+            Text("$left", style = type.displaySmall.copy(fontSize = 40.sp, lineHeight = 44.sp), color = LabColors.On)
+        }
+        Text("Cargando en $left…", style = type.bodyLarge.copy(fontSize = 15.sp), color = LabColors.Muted, modifier = Modifier.padding(top = 12.dp))
     }
 }
 
@@ -183,12 +256,13 @@ import androidx.compose.ui.unit.sp
  * inside «Una verificación y seguimos»; the card is typed natively; «Pagar» is the only tap that charges, and from there
  * on there is no way back until the result.
  */
-@Composable internal fun LabEmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, card: String?, onClose: () -> Unit) {
+@Composable internal fun LabEmbeddedPrexScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, card: String?, onClose: () -> Unit, showPayer: Boolean = false) {
     KeepScreenOn()
     var showOriginal by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
     val stage = payment.nativeStage
     LaunchedEffect(stage) { showOriginal = false }
+    LaunchedEffect(showOriginal || stage == "original") { payment.setPageAutofill(showOriginal || stage == "original") }
     // Plan B: if the payer could not be filled (and the check, if any, is already accepted), Prex's own page is shown so
     // the person completes it and goes on; the app never leaves them in front of a check that leads nowhere.
     val payerStuck = stage == "payer" && !payment.payerConflict && payment.payerValues.size == 5 && payment.payerValues.any { it.isBlank() } &&
@@ -218,23 +292,20 @@ import androidx.compose.ui.unit.sp
     LaunchedEffect(stage) { if (stage in listOf("returnBalance", "sessionExpired")) onClose() }
     val amount = pending?.amount
     val express = payment.expressJourney
-    // The saved card: while its fingerprint is open the card step waits; once sent, it waits for Prex. If it did not
-    // open (or Prex refuses it) the normal card step takes over.
-    var sentSaved by remember { mutableStateOf(false) }
-    val usingSaved = (LabExpressCard.opening || LabExpressCard.pending != null || sentSaved) && !payment.savedCardRefused &&
-        !(stage == "card" && payment.verificationRequired && !payment.verificationApproved)
-    // The opened card never outlives this payment.
-    DisposableEffect(Unit) { onDispose { LabExpressCard.pending = null; LabExpressCard.problem = null } }
-    val payerName = payment.chosenPayer?.let { "${it.givenName} ${it.familyName}".trim() }
+    // «A nombre de» only says something when more than one person is saved (Lab 18).
+    val payerName = payment.chosenPayer?.takeIf { showPayer }?.let { if (it.personal) "${it.givenName} ${it.familyName}".trim() else it.label }
     // From «Pagar» on, nothing leaves the payment until the result (A4).
-    val paid = stage == "finalConfirmation" && (payment.completionSubmitted || payment.captchaRetry) ||
+    val paid = payment.authorizationSent || stage == "finalConfirmation" && (payment.completionSubmitted || payment.captchaRetry) ||
         stage in listOf("receipt", "paymentRejected", "paymentPending", "stmSuccess") || payment.returningToWallet
     BackHandler { if (!paid) onClose() }
     val completion = stage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "returnBalance", "sessionExpired") ||
         payment.returningToWallet && stage == "loading"
-    // While the saved card's fingerprint is open, Prex's steps (and its check) stay behind the Express wait.
-    val fingerprintOpen = express && LabExpressCard.opening && !paid
-    val waitStage = stage in listOf("loading", "summary", "payer") && !payment.returningToWallet || fingerprintOpen
+    var stuckAfterPay by remember { mutableStateOf(false) }
+    LaunchedEffect(stage, payment.challenge != null, paid) {
+        stuckAfterPay = false
+        if (paid && stage == "finalConfirmation" && payment.challenge != null) { kotlinx.coroutines.delay(25_000); stuckAfterPay = true }
+    }
+    val waitStage = stage in listOf("loading", "summary", "payer") && !payment.returningToWallet
     // The provider's summary and payer steps carry what was already chosen: they go on by themselves (B7, B9). A check stops it.
     LaunchedEffect(stage, payment.canContinue, payment.challenge, payment.payerValues, payment.verificationApproved, payment.payerConflict) {
         if (stage == "summary" && payment.canContinue) payment.advance(stage)
@@ -270,15 +341,10 @@ import androidx.compose.ui.unit.sp
                     }
                 }
                 when {
-                    payment.message.isNotBlank() -> AppErrorScreen(payment.message, payment = true, paymentAmount = amount, onExit = onClose)
+                    payment.message.isNotBlank() -> AppErrorScreen(payment.message, payment = true, paymentAmount = amount, onExit = onClose, charged = paid)
                     showOriginal || stage == "original" -> Column(Modifier.fillMaxSize()) {
                         if (stage != "original") LabTextLink("Volver", { showOriginal = false }, Modifier.align(Alignment.End), quiet = true)
                         PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.weight(1f).fillMaxWidth())
-                    }
-                    // Waiting for the saved card's fingerprint: only the Express wait shows.
-                    fingerprintOpen -> {
-                        Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
-                        LabPaymentWait(amount, card, express = true, onCancel = null)
                     }
                     // Before paying, a page that stalls offers to keep waiting or go back (after «Pagar» it just keeps processing).
                     // After «Pagar» a stall still has a way out: the balance on the home tells how it ended.
@@ -297,8 +363,9 @@ import androidx.compose.ui.unit.sp
                     // Prex already has other holder data: nothing is overwritten without asking (the shared screen did this too).
                     stage == "payer" && payment.payerConflict -> {
                         Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
-                        LabStatusScreen(HeroPhase.WARN, "Prex tiene otro titular", "Los datos que tiene Prex no coinciden con los de ${payerName ?: "tu titular"}.",
-                            primary = LabAction("Usar ${payerName ?: "mi titular"}", logLabel = "Usar el titular elegido") { payment.applyChosenPayer() },
+                        val chosen = payment.chosenPayer?.let { if (it.personal) "tus datos" else "los datos de ${it.label}" } ?: "tus datos"
+                        LabStatusScreen(HeroPhase.WARN, "Prex tiene otros datos", "Los datos que tiene Prex no coinciden con $chosen.",
+                            primary = LabAction("Usar ${chosen.replaceFirstChar { it.uppercase() }}", logLabel = "Usar los datos elegidos") { payment.applyChosenPayer() },
                             secondary = LabAction("Cancelar", quiet = true, onClick = onClose))
                     }
                     // Solving the check is enough: the app notices it and goes on (the provider's pages are watched daily for changes).
@@ -306,37 +373,27 @@ import androidx.compose.ui.unit.sp
                     // A check before the first «Pagar» is solved and then paid here; after «Pagar» the app confirms by itself.
                     stage == "finalConfirmation" && payment.challenge != null && !paid -> LabVerification(amount, card, afterPay = false, onCancel = onClose, expanded = payment.expandedChallenge,
                         onContinue = LabAction("Pagar ${Amounts.format(amount)}", glyph = Glyph.Lock, enabled = payment.canContinue) { payment.advance(stage) }) { check() }
-                    stage == "finalConfirmation" && payment.challenge != null -> LabVerification(amount, card, afterPay = true, onCancel = null, expanded = payment.expandedChallenge) { check() }
-                    // Express with the saved card: nothing to choose, it is sent as soon as Prex is ready.
-                    stage == "card" && express && usingSaved && !payment.cardError -> {
-                        Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
-                        LaunchedEffect(payment.canContinue, payment.cardBusy, LabExpressCard.pending) {
-                            val saved = LabExpressCard.pending
-                            if (saved != null && payment.canContinue && !payment.cardBusy) { sentSaved = true; LabExpressCard.pending = null; payment.submitSavedCard(saved.pan, saved.expiry, saved.cvv) }
-                        }
-                        LabPaymentWait(amount, card, express = true, onCancel = null)
-                    }
+                    stage == "finalConfirmation" && payment.challenge != null -> LabVerification(amount, card, afterPay = true,
+                        onCancel = if (stuckAfterPay) onClose else null, expanded = payment.expandedChallenge) { check() }
                     stage == "card" -> Column(Modifier.fillMaxSize()) {
                         // Only where the card is on screen: no screenshots or recording (the rest of the payment can be captured to report a problem).
                         SecureScreen()
                         LabPaymentLine(amount, card)
-                        LabSavedCardProblem(LabExpressCard.problem)
+                        // Google's list opens by itself on every card step; Express goes on once Google filled it all.
                         NativeCardForm(payment.cardBusy, payment.canContinue, payment.cardError, payment.expandedChallenge, payment::submitCard,
-                            { if (payment.prepareOriginalReview()) showOriginal = true }, focusCard = express || payment.expressPhase == "done",
+                            { if (payment.prepareOriginalReview()) showOriginal = true }, focusCard = true, autoContinue = express, express = express,
                             verificationRequired = payment.verificationRequired && !payment.verificationApproved, onManualContinue = payment.manualContinueObserver,
                             onVerificationShown = payment::cardVerificationShown, onAutomaticSubmit = payment::submitAutofilledCard,
-                            onOtherCard = { LabRetry.reopenAmount = true; onClose() },
-                            // Offered while no card is saved for Express yet.
-                            offerSave = LabExpressCard.vault?.exists == false,
-                            savedCard = LabExpressCard.vault?.label,
-                            onUseSaved = { LabExpressCard.vault?.unlock { c -> if (c != null) payment.submitCard(c.pan, c.expiry, c.cvv) } }) { check() }
+                            onOtherCard = { LabRetry.reopenAmount = true; onClose() }) { check() }
                     }
-                    stage == "finalConfirmation" && !payment.completionSubmitted -> {
+                    stage == "finalConfirmation" && !payment.completionSubmitted && !payment.authorizationSent -> {
                         Box(Modifier.size(1.dp)) { PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp)) }
                         LabConfirmPayment(amount, card, payment.summaryRows, payerName, payment.canContinue, onPay = { payment.advance(stage) },
-                            onDetail = if (payment.summaryRows.isNotEmpty()) ({ details = true }) else null)
+                            onDetail = if (payment.summaryRows.isNotEmpty()) ({ details = true }) else null,
+                            countdown = if (express) 4 else 0, onCancel = if (express && !payment.authorizationSent) onClose else null,
+                            expectedSuffix = payment.cardSuffix)
                     }
-                    completion -> LabPaymentResult(payment, pending, onOriginal = { if (payment.prepareOriginalReview()) showOriginal = true }) {
+                    completion -> LabPaymentResult(payment, pending, onOriginal = { if (payment.prepareOriginalReview()) showOriginal = true }, onLeave = onClose) {
                         PaymentBrowserView(payment, true, null, browserWidth, browserHeight, Modifier.size(1.dp))
                     }
                     else -> {
@@ -360,38 +417,25 @@ import androidx.compose.ui.unit.sp
 }
 
 /**
- * «Tu tarjeta» (pago.html 3, faltantes.html r3 and x1): the header folded to one line, «Usar una tarjeta guardada» as a
- * visible action, expiry and code on one row, privacy in one line with its lock, and «Continuar» right above the keyboard.
- * Express says «Elegí tu tarjeta» and goes on by itself. The fields and what they do come from [NativeCardForm].
+ * «Tu tarjeta» (pago.html 3, medios-de-pago v4): the header folded to one line, Google's list opened by the form itself,
+ * expiry and code on one row, one line under them (what Google filled, or «Boletera no guarda tu tarjeta»), and
+ * «Continuar» right above the keyboard. Express says only the card is left and goes on by itself once it is filled.
  */
 @Composable internal fun LabCardFields(busy: Boolean, canContinue: Boolean, providerError: Boolean, express: Boolean, waitingCheck: Boolean,
     checkRequired: Boolean, number: @Composable (Modifier) -> Unit, expiry: @Composable (Modifier) -> Unit, code: @Composable (Modifier) -> Unit,
     verification: @Composable () -> Unit, verificationView: androidx.compose.foundation.relocation.BringIntoViewRequester,
-    onSaved: () -> Unit, onContinue: () -> Unit, onOriginal: () -> Unit, onOtherCard: (() -> Unit)? = null,
-    saveForExpress: Boolean? = null, onSaveForExpress: (Boolean) -> Unit = {}, savedCard: String? = null, onUseSaved: (() -> Unit)? = null) {
+    onContinue: () -> Unit, onOriginal: () -> Unit, onOtherCard: (() -> Unit)? = null, filledNote: String? = null) {
     val type = MaterialTheme.typography
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 18.dp)) {
-            Text(if (express) "Elegí tu tarjeta" else "Tu tarjeta", style = type.labStep, color = LabColors.On,
+            Text(if (express) "Solo falta la tarjeta" else "Tu tarjeta", style = type.labStep, color = LabColors.On,
                 modifier = Modifier.padding(horizontal = 4.dp).labEnter(0, dy = 0.dp, dx = 28.dp, base = 50).semantics { heading() })
-            if (express) {
-                Text("Tocá la que tenés guardada y seguimos solos.", style = type.bodyLarge.copy(fontSize = 15.sp), color = LabColors.Muted,
-                    modifier = Modifier.padding(start = 4.dp, top = 6.dp))
-                Row(Modifier.padding(start = 4.dp, top = 12.dp).labEnter(1, dy = 0.dp, dx = 28.dp, base = 50).clip(RoundedCornerShape(18.dp)).background(LabColors.Teal.copy(alpha = .12f)).padding(horizontal = 14.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_bolt), contentDescription = null, tint = LabColors.Teal, modifier = Modifier.size(17.dp))
-                    Text("Carga rápida", style = type.labelLarge.copy(fontSize = 13.5.sp), color = LabColors.Teal)
-                }
-            } else Row(Modifier.padding(start = 2.dp, top = 14.dp, bottom = 4.dp).labEnter(1, dy = 0.dp, dx = 28.dp, base = 50).height(48.dp).clip(RoundedCornerShape(24.dp))
-                .clickable(enabled = !busy, role = androidx.compose.ui.semantics.Role.Button, onClick = if (savedCard != null && onUseSaved != null) onUseSaved else onSaved).testTag("requestCardAutofill"),
-                verticalAlignment = Alignment.CenterVertically) {
-                Row(Modifier.height(40.dp).clip(RoundedCornerShape(20.dp)).background(LabColors.GlassTint).border(1.dp, LabColors.GlassLine, RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AppGlyph(Glyph.Card, Modifier.size(19.dp), tint = LabColors.Primary)
-                    Text(if (savedCard != null && onUseSaved != null) "Usar tu tarjeta $savedCard" else "Usar una tarjeta guardada", style = type.titleSmall.copy(fontSize = 14.5.sp), color = LabColors.On)
-                }
+            if (express) Row(Modifier.padding(start = 4.dp, top = 12.dp).labEnter(1, dy = 0.dp, dx = 28.dp, base = 50).clip(RoundedCornerShape(18.dp)).background(LabColors.Teal.copy(alpha = .12f)).padding(horizontal = 14.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_bolt), contentDescription = null, tint = LabColors.Teal, modifier = Modifier.size(17.dp))
+                Text("Elegí tu tarjeta y el resto se hace solo", style = type.labelLarge.copy(fontSize = 13.5.sp), color = LabColors.Teal)
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             Box(Modifier.labEnter(2, dy = 0.dp, dx = 28.dp, base = 50)) { number(Modifier.fillMaxWidth().heightIn(min = 60.dp)) }
             Row(Modifier.padding(top = 12.dp).labEnter(3, dy = 0.dp, dx = 28.dp, base = 50), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 expiry(Modifier.weight(1f).heightIn(min = 60.dp))
@@ -406,39 +450,23 @@ import androidx.compose.ui.unit.sp
                     style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 10.dp))
             }
             Row(Modifier.padding(start = 4.dp, top = 14.dp).labEnter(4, dy = 0.dp, dx = 28.dp, base = 50), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppGlyph(Glyph.Lock, Modifier.size(16.dp), tint = LabColors.Faint)
-                Text("Boletera no guarda tu tarjeta.", style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Faint)
-            }
-            // Carga Express can use this card next time with only a fingerprint (CardVault).
-            if (saveForExpress != null) Row(Modifier.padding(top = 10.dp).fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp))
-                .toggleable(saveForExpress, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onSaveForExpress).padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Guardar para Carga Express", style = type.titleMedium.copy(fontSize = 16.sp), color = LabColors.On)
-                    Text("Cifrada en este celular; se abre solo con tu huella.", style = type.bodyMedium.copy(fontSize = 13.5.sp), color = LabColors.Muted)
+                if (filledNote != null) {
+                    AppGlyph(Glyph.Check, Modifier.size(16.dp), tint = LabColors.Primary)
+                    Text(filledNote, style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Muted)
+                } else {
+                    AppGlyph(Glyph.Lock, Modifier.size(16.dp), tint = LabColors.Faint)
+                    Text("Boletera no guarda tu tarjeta.", style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Faint)
                 }
-                androidx.compose.material3.Switch(saveForExpress, onCheckedChange = null,
-                    colors = androidx.compose.material3.SwitchDefaults.colors(checkedTrackColor = LabColors.Primary, checkedThumbColor = LabColors.OnPrimary))
             }
             Box(Modifier.fillMaxWidth().padding(top = 12.dp).bringIntoViewRequester(verificationView)) { verification() }
         }
         Box(Modifier.padding(top = 8.dp, bottom = 10.dp).labEnter(5, dy = 0.dp, dx = 28.dp, base = 50)) {
             // Prex's own answer to a refused card stays one tap away; it is the only way to see why.
-            // A refused card cannot be sent again from here yet (Lab 8): try another one from the amounts, or read Prex's answer.
             if (providerError) Column {
                 LabPrimary("Probar con otra tarjeta", onClick = onOtherCard ?: onOriginal)
                 if (onOtherCard != null) LabTextLink("Ver qué respondió Prex", onOriginal, Modifier.align(Alignment.CenterHorizontally), quiet = true)
             }
             else LabPrimary(if (busy) "Enviando…" else "Continuar", enabled = canContinue && !busy, onClick = onContinue)
         }
-    }
-}
-
-/** The saved card did not open: the card is typed this time, and the reason (Android's words) stays for «Enviar reporte». */
-@Composable internal fun LabSavedCardProblem(problem: String?) {
-    if (problem.isNullOrBlank()) return
-    Column(Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(Color(0x1FF2B8B5)).padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text("No pudimos abrir tu tarjeta guardada", style = MaterialTheme.typography.titleSmall, color = LabColors.On)
-        Text("Ingresala esta vez. Motivo: $problem", style = MaterialTheme.typography.bodySmall, color = LabColors.Muted, modifier = Modifier.padding(top = 2.dp))
     }
 }

@@ -293,7 +293,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         val requested=channel
         preferences.edit().putLong("last_attempt.${channel.key}",System.currentTimeMillis()).apply()
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
-        ready = false; release = null; message = "Buscando actualizaciones…"
+        ready = false; release = null; downloadFailed = false; message = "Buscando actualizaciones…"
         work {
             // Lab installs beside this app, so compare against the Lab copy (if any), not against this app.
             val separateLab=requested==UpdateChannel.LAB && labIsSeparate
@@ -337,7 +337,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         if (busy) return
         val destination=apk
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
-        ready = false; message = "Descargando…"; progress = 0
+        ready = false; downloadFailed = false; message = "Descargando…"; progress = 0
         work {
             destination.parentFile!!.mkdirs()
             val partial = File(destination.parentFile, "boletera-${selected.channel.key}.part")

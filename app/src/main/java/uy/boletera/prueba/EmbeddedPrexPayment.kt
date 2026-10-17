@@ -26,6 +26,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         private set
     private var expectedAmount: Long? = null
     private var finalSubmitted = false
+    /** «Pagar» was sent in this journey: from here nothing may leave the payment until its result (A4). */
+    val authorizationSent get() = finalSubmitted
     /**
      * The provider shows its check only after a first «Confirmar», which it refuses without authorizing (seen 15/10/2026).
      * [captchaRetry] says the page is in that state; [retried] makes sure the one extra confirmation happens only once.
@@ -91,6 +93,12 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     var enteredCardIdentity: String? = null
         private set
     private var enteredCardSuffix: String? = null
+    /** The last four of the card sent in this journey (Lab's Express pays by itself only if Prex shows the same card). */
+    val cardSuffix get() = enteredCardSuffix
+    /** Lab: Prex's own page on screen (plan B, «Ver qué respondió Prex») can use Google's autofill; the hidden one never. */
+    fun setPageAutofill(on: Boolean) {
+        if (IsLab && !destroyed) web.importantForAutofill = if (on) View.IMPORTANT_FOR_AUTOFILL_YES else View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+    }
     var verifiedCardSuffix: String? = null
         private set
     var identifyCard: (String) -> String? = { null }
@@ -173,7 +181,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                             val outcomeKey=nativeStage+summaryRows.toString()
                             if(observedOutcome!=outcomeKey) {observedOutcome=outcomeKey;outcomeListener(nativeStage,summaryRows)}
                         }
-                        if(expressJourney && nativeStage=="finalConfirmation" && canContinue &&
+                        if(!IsLab && expressJourney && nativeStage=="finalConfirmation" && canContinue &&
                             expectedCardIdentity!=null && enteredCardIdentity==expectedCardIdentity &&
                             expectedCardSuffix==enteredCardSuffix && summaryRows.any {
                                 it.first.trim().trimEnd(':').equals("Medio de pago",true) && it.second.takeLast(4)==expectedCardSuffix
@@ -238,8 +246,9 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         @Suppress("DEPRECATION")
         settings.saveFormData = false
         isSaveEnabled = false
-        // Keep the user's Android autofill provider, including Google; no app card vault.
-        importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
+        // Keep the user's Android autofill provider, including Google; no app card vault. Lab types the card in its own
+        // fields, so Google must see those and never the hidden page's inputs (they would steal the suggestion and the save).
+        importantForAutofill = if (IsLab) View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS else View.IMPORTANT_FOR_AUTOFILL_YES
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
         webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) { request.deny() }
@@ -395,13 +404,6 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     fun submitCard(pan: String, expiry: String, cvv: String) = submitCard(pan,expiry,cvv,automatic=false)
     fun submitAutofilledCard(pan: String, expiry: String, cvv: String) = submitCard(pan,expiry,cvv,automatic=true)
     /**
-     * Express with the card saved for it (CardVault): that card is the one expected, so the final confirmation goes on
-     * by itself only if the provider shows the same last four digits; otherwise it stops at «Pagar».
-     */
-    /** The saved card was not taken by Prex's form (a check first, an expired card…): the card form takes over. */
-    var savedCardRefused by mutableStateOf(false)
-        private set
-    /**
      * Plan B before paying: Prex's own page, for the person to finish the summary or the payer. Nothing can be paid on
      * these steps, so no review record is written (that record would block the next «Pagar»); the next step comes
      * back to the app's screen. False once the payment step is reached.
@@ -409,11 +411,6 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     fun showPageBeforePaying(): Boolean {
         if(destroyed || finalSubmitted || nativeStage !in setOf("summary","payer")) return false
         stopExpress(); return true
-    }
-    fun submitSavedCard(pan: String, expiry: String, cvv: String) {
-        if(!expressJourney)return
-        expectedCardIdentity=identifyCard(pan); expectedCardSuffix=pan.takeLast(4)
-        submitCard(pan,expiry,cvv,automatic=true)
     }
     private fun submitCard(pan: String, expiry: String, cvv: String, automatic: Boolean) {
         if(destroyed || !visible || suspended || nativeStage!="card" || cardBusy || !canContinue)return
@@ -425,7 +422,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         val version=navigationVersion
         // Literal escaping only; never log this command or retain its arguments in engine state.
         web.evaluateJavascript("window.BoleteraCard && window.BoleteraCard.submit(${org.json.JSONObject.quote(pan)},${org.json.JSONObject.quote(expiry)},${org.json.JSONObject.quote(cvv)},$automatic)") { raw ->
-            if(!destroyed && version==navigationVersion && raw!="true") { cardBusy=false;cardError=true; if(automatic) savedCardRefused=true }
+            if(!destroyed && version==navigationVersion && raw!="true") { cardBusy=false;cardError=true }
         }
     }
 

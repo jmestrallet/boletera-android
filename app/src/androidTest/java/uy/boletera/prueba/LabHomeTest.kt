@@ -30,10 +30,9 @@ class LabHomeTest {
     /** The bolt's help only shows the first times: every test starts as a first time. */
     @org.junit.Before fun freshHints() { InstrumentationRegistry.getInstrumentation().targetContext.getSharedPreferences("lab_hints", 0).edit().clear().commit() }
     private val twoCards = listOf(CardInfo("DEMO1234", true, "Operativa"), CardInfo("DEMO5678", false, "Pte. Anular"))
-    private val ana = PayerProfile("p1", "Yo", "Ana", "Pérez", "12345678", "ana@example.com", "099123456")
     /** The home as MainActivity draws it: content in the blurred layer, chrome and panel on top. */
-    @Composable private fun Home(state: UiState, offline: Boolean = false, express: (() -> Unit)? = {}, panel: Boolean = false, payer: PayerProfile? = ana,
-        onCharge: () -> Unit = {}, onChoose: (Long) -> Unit = {}, onPayer: () -> Unit = {}, onClose: () -> Unit = {}, ring: Boolean = true) {
+    @Composable private fun Home(state: UiState, offline: Boolean = false, express: (() -> Unit)? = {}, panel: Boolean = false,
+        onCharge: () -> Unit = {}, onChoose: (Long) -> Unit = {}, onClose: () -> Unit = {}, ring: Boolean = true) {
         BoleteraTheme("dark") {
             val haze = remember { HazeState() }
             Box(Modifier.fillMaxSize()) {
@@ -46,7 +45,7 @@ class LabHomeTest {
                 }
                 LabHomeChrome(state, haze, blur = VisualEffects.capable(compose.activity), onChangeCard = {}, onSettings = {}, onCharge = onCharge,
                     onExpressCharge = express, expressPreparing = false, expressProvider = "Prex", ring = ring)
-                LabAmountPanel(state, panel, onClose = onClose, payer = payer, onPayer = onPayer, onChoose = onChoose)
+                LabAmountPanel(state, panel, onClose = onClose, onChoose = onChoose)
             }
         }
     }
@@ -92,18 +91,19 @@ class LabHomeTest {
         compose.onNodeWithText("Sin internet · saldo de hoy", substring = true).assertIsDisplayed()
         capture("lab-home-offline.png")
     }
-    @Test fun rechargePillOpensTheAmountPanelWithThePayer() {
+    @Test fun rechargePillOpensTheAmountPanel() {
         var open by mutableStateOf(false)
         var chosen = 0L
         val state = UiState(stage = "balance", selectedCard = "DEMO1234", cards = twoCards, balance = 124000, minimum = 26000, consultedAt = System.currentTimeMillis(), payerProfileId = "p1")
         compose.setContent { Home(state, panel = open, onCharge = { open = true }, onChoose = { chosen = it }, onClose = { open = false }) }
         compose.onNodeWithText("Recargar").performClick()
         compose.onNodeWithText("¿Cuánto cargás?").assertIsDisplayed()
-        compose.onNodeWithText("Titular: Ana Pérez").assertIsDisplayed()
+        // Lab 18: whose card it is comes after, and only with two or more people.
+        compose.onNodeWithText("Titular", substring = true).assertDoesNotExist()
         compose.onAllNodesWithText("Quedás con", substring = true).onFirst().assertExists()
         capture("lab-amount.png")
         compose.onNodeWithText("500").performClick()
-        compose.onNodeWithText("Continuar con Prex").performClick()
+        compose.onNodeWithText("Continuar").performClick()
         assertEquals(50000L, chosen)
     }
     @Test fun typedAmountIsPaintedAndTheMinimumIsSaid() {
@@ -116,14 +116,12 @@ class LabHomeTest {
         compose.onNodeWithText("El mínimo es $ 260").assertDoesNotExist()
         capture("lab-amount-typing.png")
     }
-    @Test fun withoutPayerThePanelAsksForOne() {
-        var asked = 0
-        val state = UiState(stage = "balance", selectedCard = "DEMO1234", cards = twoCards, balance = 124000, minimum = 26000, consultedAt = System.currentTimeMillis())
-        compose.setContent { Home(state, panel = true, payer = null, onPayer = { asked++ }) }
-        compose.onNodeWithText("Agregar titular").assertIsDisplayed()
-        capture("lab-amount-nopayer.png")
-        compose.onNodeWithText("Agregar titular y continuar").performClick()
-        assertEquals(1, asked)
+    @Test fun aConfirmedRechargeNotYetInTheBalanceIsOnItsWay() {
+        val state = UiState(stage = "balance", selectedCard = "DEMO1234", cards = twoCards, balance = 124000, minimum = 26000, consultedAt = System.currentTimeMillis(), onTheWay = 26000)
+        compose.setContent { Home(state) }
+        compose.onNodeWithText("Recarga de $ 260 en camino").assertIsDisplayed()
+        compose.onNodeWithText("STM la suma en unos minutos").assertIsDisplayed()
+        capture("lab-home-on-the-way.png")
     }
     @Test fun ticketGuideOpensWithTheOneHourTicket() {
         compose.setContent { BoleteraTheme("dark") { Box(Modifier.fillMaxSize()) { LabAmbient(); LabTicketGuideSheet {} } } }

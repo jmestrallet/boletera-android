@@ -32,8 +32,8 @@ internal fun errorPresentation(message:String):ErrorPresentation {
     }
 }
 
-@Composable internal fun AppErrorScreen(message:String,reference:String="",payment:Boolean=false,onOpenSite:(()->Unit)?=null,onRetry:(()->Unit)?=null,paymentAmount:Long?=null,onExit:()->Unit) {
-    if(IsLab){LabErrorScreen(message,payment,paymentAmount,onOpenSite,onRetry,onExit);return}
+@Composable internal fun AppErrorScreen(message:String,reference:String="",payment:Boolean=false,onOpenSite:(()->Unit)?=null,onRetry:(()->Unit)?=null,paymentAmount:Long?=null,onExit:()->Unit,charged:Boolean=true) {
+    if(IsLab){LabErrorScreen(message,payment,paymentAmount,onOpenSite,onRetry,onExit,charged);return}
     val info=remember(message){errorPresentation(message)}
     var details by remember(message){mutableStateOf(false)}
     val ink=MaterialTheme.colorScheme.primary
@@ -89,14 +89,15 @@ internal fun errorPresentation(message:String):ErrorPresentation {
  * top is the way back to the balance, so there is no second exit. A cut during a payment says only what happened: the
  * balance is read again on the way back, and nothing here talks about charges.
  */
-@Composable private fun LabErrorScreen(message:String,payment:Boolean,paymentAmount:Long?,onOpenSite:(()->Unit)?,onRetry:(()->Unit)?,onExit:()->Unit) {
+@Composable private fun LabErrorScreen(message:String,payment:Boolean,paymentAmount:Long?,onOpenSite:(()->Unit)?,onRetry:(()->Unit)?,onExit:()->Unit,charged:Boolean=true) {
     val info=remember(message){errorPresentation(message)}
     val (title,line)=labErrorCopy(info.code)
     val context=androidx.compose.ui.platform.LocalContext.current
     val report=LabAction("Enviar reporte",quiet=true){LabReport.send(context,"$title · $message")}
     if(payment) {
         // A payment cut is not an STM error: say what to do (look at the balance) and never invite to pay again blindly.
-        LabStatusScreen(HeroPhase.ERROR,"El pago se interrumpió","Mirá tu saldo en el inicio antes de volver a cargar.",primary=LabAction("Volver al inicio",onClick=onExit),secondary=report)
+        if(!charged) LabStatusScreen(HeroPhase.ERROR,"No pudimos seguir con la recarga","No se cobró nada. Volvé al inicio e intentá de nuevo.",primary=LabAction("Volver al inicio",onClick=onExit),secondary=report)
+        else LabStatusScreen(HeroPhase.ERROR,"El pago se interrumpió","Mirá tu saldo en el inicio antes de volver a cargar.",primary=LabAction("Volver al inicio",onClick=onExit),secondary=report)
         return
     }
     val site=if(onOpenSite!=null && (info.code=="STM CAÍDO" || info.code in siteFallbackCodes))LabAction("Probar en el sitio de STM ↗",onClick=onOpenSite) else null
