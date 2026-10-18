@@ -1145,7 +1145,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                     refresh()
                     // Without internet refresh() stays put: the home is shown with the last balance.
                     if(state.stage=="paymentBoundary") { clearPaymentSession(); active=false; handler.removeCallbacks(poll); state=state.copy(stage="balance",busy=false,amount=null) }
-                    state=state.copy(message="No pudimos preparar el pago. Probá de nuevo.")
+                    state=state.copy(message=StmEngine.LAB_PAYMENT_NOT_STARTED)
                 }
             }
             "signedOut" -> expired()
@@ -1214,6 +1214,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
     companion object {
         const val OFFLINE = "No hay internet en el celular. Conectate a Wi-Fi o datos y volvé a intentar."
+        // Lab 21, chosen by the owner (option B): says what happened, calmly.
+        const val LAB_PAYMENT_NOT_STARTED = "STM no nos dejó empezar el pago. No se cobró nada, podés intentarlo de nuevo."
         const val START ="https://stm.gub.uy/app/mistm/cuenta/"
         const val CARDS = "https://stm.gub.uy/app/mistm/cuenta/pages/tarjetas.xhtml"
     }

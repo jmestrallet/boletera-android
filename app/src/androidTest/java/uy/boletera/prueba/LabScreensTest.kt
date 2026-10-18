@@ -321,6 +321,17 @@ class LabScreensTest {
         compose.onNodeWithText("Recargar igual").performClick(); assertEquals(1, again)
         compose.onNodeWithText("Esperar").performClick(); assertEquals(1, waited)
     }
+    @Test fun paymentNotStartedNoticeFitsOnTheHome() {
+        val bar = androidx.compose.material3.SnackbarHostState()
+        compose.setContent {
+            Frame { Box(Modifier.fillMaxSize()) {
+                androidx.compose.material3.SnackbarHost(bar, Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(16.dp).padding(bottom = 140.dp))
+            } }
+            LaunchedEffect(Unit) { bar.showSnackbar(StmEngine.LAB_PAYMENT_NOT_STARTED, withDismissAction = true, duration = androidx.compose.material3.SnackbarDuration.Indefinite) }
+        }
+        compose.onNodeWithText(StmEngine.LAB_PAYMENT_NOT_STARTED).assertIsDisplayed()
+        capture("lab-payment-not-started.png")
+    }
     @Test fun cardStepLooksLikeTheRest() {
         compose.setContent {
             Frame(back = true) {
