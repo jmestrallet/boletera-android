@@ -147,9 +147,12 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     }
     LaunchedEffect(focusCard,expandedChallenge) {
         if(focusCard&&!expandedChallenge&&!autofillRequested) {
+            // Lab: the fields enter fading in (labEnter, about 360 ms). Asked earlier, Android handed Google the expiry and
+            // the code still transparent, and after its fingerprint Google filled only the number (owner 18/10, report 10).
+            if(IsLab) delay(520)
             autofillRequested=true
             // Request the same virtual field that receives focus and the returned dataset.
-            numberFocus.requestFocus();numberView.bringIntoView();delay(120)
+            numberFocus.requestFocus();numberView.bringIntoView();delay(if(IsLab) 60 else 120)
             val asked=cardAutofill.request()
             if(IsLab)LabLog.add("tarjeta",if(asked)"lista de Google pedida" else "lista de Google: no hay campo de número para pedirla")
             keyboard?.show()

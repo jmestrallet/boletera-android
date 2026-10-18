@@ -1,7 +1,7 @@
 # Lab 18 · todo lo definido desde el 16/10 18:19
 
 ## ESTADO ACTUAL (18/10/2026) — leer primero
-- **Publicadas:** Lab 17 (code 77), Lab 18 (78), Lab 19 (79), Lab 20 (80, b1a1a49), Lab 21 (81, eec3185, 17/10 21:50), **Lab 22 (82, 18/10) = la última** (revisión por módulos + optimización, ver abajo).
+- **Publicadas:** Lab 17 (code 77), Lab 18 (78), Lab 19 (79), Lab 20 (80, b1a1a49), Lab 21 (81, eec3185, 17/10 21:50), Lab 22 (82, 18/10, revisión por módulos + optimización), **Lab 23 (83, 18/10) = la última**: Google completa la tarjeta entera (la lista se pide cuando los 3 campos terminaron de aparecer; antes, a los 0,12 s, Google veía vencimiento y código transparentes y llenaba solo el número — reporte 10) + red de pruebas `verificar.ps1` (correrla antes de cada APK).
 - **18/10 — el dueño dice que con Lab 21 «cada vez la app anda peor, cada vez andan menos cosas».** Respondió que falla todo (pago/tarjeta, Express, entrada/huella/saldo, otras). Se hizo la revisión por módulos (7 agentes Sonnet + coordinador) en el worktree `claude/mystifying-bohr-7a30e8` (basado en lab e568329). **Publicado como Lab 22** (ver «Revisión por módulos 18/10» abajo). Falta que el dueño lo pruebe en uso real con su tarjeta (pago, Express, Google).
 
 ## Revisión por módulos (18/10) — aplicada en el código, sin publicar

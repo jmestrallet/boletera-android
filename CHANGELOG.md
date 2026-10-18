@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.2.40 Lab 23 - Google completa la tarjeta entera
+
+- Tarjeta: la lista de Google se pide recién cuando los tres campos terminaron de aparecer (~0,6 s). Pedida a los 0,12 s, Android le pasaba a Google el vencimiento y el código todavía transparentes (animación de entrada) y, después de su huella, Google completaba solo el número (registro real del dueño, reporte 10: falla 2 de 2 con la lista automática, completa al tocar el campo).
+- Red de pruebas: `verificar.ps1` (npm + pruebas JVM) y la lógica del inicio «registro de pagos + saldo» separada en HomePayment con 27 pruebas que fallan si se deshacen los arreglos de Lab 22.
+
 ## 0.2.40 Lab 22 - Revisión por módulos: lo que dejó de andar en Lab 21
 
 - Inicio: «Recargar» y el rayo ya no quedan muertos después de un corte o de «El pago no llegó a hacerse» (se vuelve a leer el saldo); el refresco al volver a la app (Lab 21) ahora sí corre; el rayo responde al primer «mantener» después de un Express que no arrancó; la hoja de montos no reaparece sola.
