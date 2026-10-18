@@ -526,13 +526,12 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         state = state.copy(busy = false); refresh()
     }
     private fun leaveOffline() {
-        // Lab: a payment Prex confirmed keeps saying «en camino» on the home even though the balance shown is the old one.
-        val way = paymentRecord?.takeIf { IsLab && it.card == state.selectedCard && (it.phase == "confirmed" ||
-            it.phase == "credited" && it.balanceBefore != null && state.balance == it.balanceBefore) }?.amount
+        // Lab: a payment Prex confirmed keeps saying «en camino» on the home even though the balance shown is the old one,
+        // and the minimum is read again (HomePayment, tested on the JVM).
+        val way = HomePayment.offlineOnTheWay(paymentRecord, state.selectedCard, state.balance, IsLab, state.onTheWay)
         clearPaymentSession(); active = false; handler.removeCallbacks(poll)
-        state = state.copy(stage = if (state.balance != null) "balance" else "welcome", busy = false, amount = null, captcha = null, onTheWay = way ?: state.onTheWay,
-            // Lab: the page is left mid-step, so the old minimum would make «Recargar» wait forever; it is read again.
-            minimum = if (IsLab) null else state.minimum,
+        state = state.copy(stage = if (state.balance != null) "balance" else "welcome", busy = false, amount = null, captcha = null,
+            onTheWay = way, minimum = HomePayment.offlineMinimum(IsLab, state.minimum),
             message = "No hay internet en el celular. Te mostramos el último saldo consultado.")
     }
 
@@ -747,12 +746,13 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         if (pausedAt > 0) { actionStarted += System.currentTimeMillis() - pausedAt; pausedAt = 0 }
         expressTiming.pause(false)
         prexPayment.resume()
-        if (state.stage == "externalPayment") { refresh(); return }
-        if (active) { handler.removeCallbacks(poll); handler.post(poll) }
-        // Lab: back on the home, a «Recarga en camino» is read again (so it says when STM added it), and so is a page left
-        // out of step by a cut. The poll keeps running on the home, so this is not an «else» of the line above.
-        if (IsLab && accountVerified && state.stage == "balance" && !state.busy && state.credited == null && !noInternet() &&
-            (state.onTheWay != null && System.currentTimeMillis() - (state.consultedAt ?: 0L) > 60_000 || pageStage != "amount")) refresh()
+        // The decision lives in HomePayment (tested on the JVM). The refresh must not hang from the poll's condition: on the
+        // home the poll keeps running, and Lab 21 never refreshed on coming back because of that.
+        val plan = HomePayment.resumePlan(state.stage, active, IsLab, accountVerified, state.busy, state.credited,
+            noInternet = state.stage == "balance" && noInternet(), onTheWay = state.onTheWay, consultedAt = state.consultedAt,
+            now = System.currentTimeMillis(), pageStage = pageStage)
+        if (plan.restartPoll) { handler.removeCallbacks(poll); handler.post(poll) }
+        if (plan.refresh) refresh()
     }
     fun destroy() {
         destroyed = true; active = false; handler.removeCallbacksAndMessages(null); clearSecrets(); sessionAccess.clear()
@@ -1095,21 +1095,17 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                 )
                 if(expressTiming.phase in setOf(ExpressTiming.Phase.RETURN,ExpressTiming.Phase.RECOVERY))expressTiming.finish(ExpressTiming.End.BALANCE)
                 run {
-                    var current=paymentRecord
-                    if(IsLab && current!=null && System.currentTimeMillis()-current.startedAt>30*60*1000L) {
+                    // What to show is decided in HomePayment (tested on the JVM); this only applies it.
+                    val settled=HomePayment.settle(paymentRecord,state.selectedCard,state.balance,System.currentTimeMillis(),IsLab)
+                    if(settled.forgetStale) {
                         choices.accountKey?.let {paymentJournal.clear(it)}
-                        paymentRecord=null;paymentNeedsReview=false;current=null
+                        paymentRecord=null;paymentNeedsReview=false
                     }
-                    val seen=current
-                    // A payment left without Prex's answer («authorizing») that shows up in the balance also loaded (Lab 21).
-                    if(IsLab && seen!=null && seen.phase in setOf("confirmed","pending","authorizing") && seen.card==state.selectedCard &&
-                        seen.balanceBefore!=null && (state.balance ?: Long.MIN_VALUE)>=seen.balanceBefore+seen.amount)
-                        current=seen.copy(phase="credited").also {paymentRecord=it}
-                    val record=current
-                    if(record?.phase in setOf("credited","rejected") && record?.card==state.selectedCard) {
+                    if(settled.record!=null) paymentRecord=settled.record
+                    val record=settled.record
+                    if(settled.verdict!=HomePayment.Verdict.NONE) {
                         val account=choices.accountKey
-                        val unchanged=record?.phase=="credited" && record.balanceBefore!=null && state.balance==record.balanceBefore
-                        if(unchanged) {
+                        if(settled.verdict==HomePayment.Verdict.AWAIT_BALANCE) {
                             paymentNeedsReview=true
                             if(balanceRefreshRecord!=record!!.startedAt) {balanceRefreshRecord=record.startedAt;balanceRefreshCount=0}
                             if(balanceRefreshTask==null && balanceRefreshCount<3) {
@@ -1122,7 +1118,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                             }
                         } else if(account!=null && paymentJournal.clear(account)) {
                             paymentRecord=null;paymentNeedsReview=false
-                            val credited=record?.phase=="credited"
+                            val credited=settled.verdict==HomePayment.Verdict.CLOSE_CREDITED
                             // Lab shows its own "Recarga hecha" screen instead of a passing message.
                             state=state.copy(credited=if(credited && IsLab)record?.amount else null,
                                 message=if(IsLab)"" else if(credited)"Recarga confirmada por STM. Saldo actualizado." else "El pago fue rechazado. Saldo consultado.")
@@ -1131,9 +1127,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                     // Lab 18: a payment Prex (or STM's receipt) confirmed, not yet in the balance, is said on the home so
                     // nobody pays twice; never a doubtful one («pending» stays silent, as the owner asked).
                     if(IsLab) {
-                        val r=paymentRecord
-                        val way=r?.takeIf { it.card==state.selectedCard && (it.phase=="confirmed" ||
-                            it.phase=="credited" && it.balanceBefore!=null && state.balance==it.balanceBefore) }?.amount
+                        val way=HomePayment.onTheWay(paymentRecord,state.selectedCard,state.balance,IsLab)
                         if(state.onTheWay!=way) state=state.copy(onTheWay=way)
                     }
                     showPaymentStatus()
