@@ -73,7 +73,7 @@ internal class LabAction(val label: String, val glyph: Glyph? = null, val enable
 
 /** Short title and one line for an error screen, from the engine's longer message. */
 internal fun labErrorCopy(code: String): Pair<String, String> = when (code) {
-    "STM CAÍDO" -> "STM no responde" to "La página de STM está caída o muy lenta. No es tu conexión."
+    "STM CAÍDO" -> "STM no responde" to "La página de STM está caída o muy lenta."
     "DATOS DE ACCESO" -> "Revisá tus datos" to "El documento o la contraseña de gub.uy no coinciden."
     "CONEXIÓN SEGURA" -> "Conexión no segura" to "No pudimos verificar la seguridad de la conexión. Probá más tarde."
     "CONEXIÓN" -> "Se cortó la conexión" to "Fijate tu internet y probá de nuevo."
