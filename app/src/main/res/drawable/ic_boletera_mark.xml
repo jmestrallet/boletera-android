@@ -1,6 +1,6 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="72dp" android:height="72dp" android:viewportWidth="72" android:viewportHeight="72">
     <!-- La zona visible del ícono de inicio (18–90 de 108), para el bloque de marca dentro de la app. -->
-    <group android:translateX="-18" android:translateY="-18">
+    <group android:translateX="-16" android:translateY="-18">
         <group android:translateX="52" android:translateY="54" android:rotation="-10">
             <path android:fillColor="#FFFFFF" android:fillType="evenOdd"
                 android:pathData="M-16.5,-14 H16.5 A5.5,5.5 0 0,1 22,-8.5 V1.936 A10.5,10.5 0 0,0 8.133,14 H-16.5 A5.5,5.5 0 0,1 -22,8.5 V-8.5 A5.5,5.5 0 0,1 -16.5,-14 Z
