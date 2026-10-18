@@ -762,7 +762,9 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
 
     private fun clearSecrets() { document = null; password = null; secretsExpireAt = 0L }
-    private fun stmHost(host: String?) = host != null && (host == "stm.gub.uy" || host.endsWith(".stm.gub.uy") || host == "iduruguay.gub.uy" || host.endsWith(".iduruguay.gub.uy"))
+    // The sign-in passes through the Intendencia's server (ih.montevideo.gub.uy): when it is down, that is STM's outage too,
+    // not the person's connection (owner 18/10: it dropped every connection and the app blamed the phone's internet).
+    private fun stmHost(host: String?) = host != null && (host == "stm.gub.uy" || host.endsWith(".stm.gub.uy") || host == "iduruguay.gub.uy" || host.endsWith(".iduruguay.gub.uy") || host == "ih.montevideo.gub.uy")
     /** No network at all (airplane mode, Wi-Fi and data off): say so at once instead of waiting for a timeout. */
     internal fun noInternet(): Boolean = try {
         val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
