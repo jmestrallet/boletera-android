@@ -1214,8 +1214,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
     companion object {
         const val OFFLINE = "No hay internet en el celular. Conectate a Wi-Fi o datos y volvé a intentar."
-        // Lab 21, chosen by the owner (option B): says what happened, calmly.
-        const val LAB_PAYMENT_NOT_STARTED = "STM no nos dejó empezar el pago. No se cobró nada, podés intentarlo de nuevo."
+        // Lab 21, worded with the owner (17/10): says what happened, calmly, without blaming anyone.
+        const val LAB_PAYMENT_NOT_STARTED = "El pago no llegó a hacerse. No se te cobró nada, probá de nuevo."
         const val START ="https://stm.gub.uy/app/mistm/cuenta/"
         const val CARDS = "https://stm.gub.uy/app/mistm/cuenta/pages/tarjetas.xhtml"
     }
