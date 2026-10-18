@@ -1,5 +1,47 @@
 # Lab 18 · todo lo definido desde el 16/10 18:19
 
+## ESTADO ACTUAL (17/10/2026 noche) — leer primero
+- **Publicadas:** Lab 17 (code 77), Lab 18 (78, commit 287916f), Lab 19 (79, d7a6cfb), **Lab 20 (80, b1a1a49)** = la última.
+- **Lab 21 EN CURSO (autorizada por el dueño el 17/10 noche: «hacemos la nueva versión, subimos la update»):** casi toda la revisión de abajo ya está escrita en el código (sin commit). Faltaba al compactar: compilar, 2 agentes Sonnet sobre el diff, pruebas (npm, Lab 35, Alpha 20) en el OnePlus, APK, commit, release. Pendiente para después: reintento de tarjeta rechazada sin volver al monto (sin tarjeta real no se puede probar; hoy «Probar con otra tarjeta» vuelve al monto) y cédula de 7 dígitos en la app no-Lab. La pantalla «titular» y el CVV borrado SÍ entraron (el dueño preguntó por qué quedaban afuera: no había motivo).
+- **Hoja «Un pago quedó sin respuesta»** (aprobada): solo al Recargar/Express si hay pago de esa boletera en «authorizing/pending» de menos de 30 min; «Recargar igual» / «Esperar».
+- **Flujo de siempre para publicar:** maqueta/capturas reales → implementar → 2-3 agentes Sonnet → pruebas (npm 83, Lab 35 y Alpha 20 en el OnePlus) → `build.ps1 -Channel lab` → probar APK en el OnePlus → commit + push lab + `gh release create v0.2.40-lab.N --prerelease` (notas en `.tools/release-0.2.40-lab.N.md`, subir versionCode/nombre en app/build.gradle.kts y build.ps1, CHANGELOG, LabWhatsNewItems).
+- **OnePlus de pruebas (libre):** por USB se cae; usar Wi-Fi `adb connect 192.168.1.13:5555`. Despertar antes de probar (`input keyevent KEYCODE_WAKEUP`), cerrar diálogos (`am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS`). En ese teléfono las pruebas con animación de entrada necesitan `compose.mainClock.advanceTimeBy(1500)` antes de mirar. Ayudante para tocar por texto: scratchpad `tap.py`.
+- **Memoria de la PC:** al terminar, cerrar todo lo propio (`gradle --stop`, procesos java gradle/kotlin, `adb kill-server` si no corre scrcpy, Edge headless, emulador). El dueño lo pide para liberar RAM.
+- **Tono de textos:** explicar, «por ahora», no órdenes secas, nunca más largo que antes (lista aprobada en docs/maquetas/lab20/textos.html). Prex: «Por ahora…» en primera vez, monto y tarjeta.
+
+## Revisión de toda la app (17/10 noche) — APLICADA en Lab 21 salvo lo indicado arriba
+**Agente Sonnet · pago y Express:**
+1. Sin salida después de «Pagar» si Prex muestra una página que la app no reconoce («original»): sin flecha ni «Volver»; el «Prex está tardando» queda debajo. Arreglo: «Volver al inicio» cuando ya se pagó y la página es «original» (o Atrás a los 25 s), y subir la rama `slowStep && paid` arriba de `original` (LabPayment ~333-359).
+2. Un pago que quedó «autorizando/pendiente» no deja rastro en el inicio y se puede pagar de nuevo enseguida (sobre todo con Express). Propuesta: una hoja de confirmación al recargar si hay uno de menos de 30 min para esa tarjeta, y sumar «authorizing» a la promoción por saldo (StmEngine ~1045-1083). Ojo con la regla «nada de pagos dudosos»: consultar al dueño la forma.
+3. Errores de STM antes de abrir Prex dicen «El pago se interrumpió» (como si se hubiera cobrado): `blockedScreen` no pasa `charged=false` (MainActivity ~411, AppErrorScreen 35/100).
+4. Tarjeta rechazada sin reintento: un código mal escrito obliga a empezar todo; permitir «Continuar» de nuevo al editar (LabPayment 472, NativeCardForm 87).
+5. Después de un rechazo, al volver, dice 1-3 s «Procesando tu pago»: mostrar «Volviendo al inicio» (LabStatus 100).
+6. Los relojes de espera siguen corriendo con la app en segundo plano y pueden pasar a la página de Prex y frenar Express (LabPayment 278-315).
+7. «Recargar» no avisa sin internet hasta muy tarde: chequear al tocar Recargar (MainActivity onCharge).
+8. «Recarga en camino» no se actualiza al volver a la app y se borra a los 30 min aunque STM no la haya sumado.
+9. Estados que quedan colgados tras vencer la sesión (LabRetry.reopenAmount, rechargeShortcut); reset() deja staleAfterResume/payerWhy.
+10. Detalles: «Usar Tus datos» (mayúscula), pista de Express «con Prex · •••• 0849» engañosa ahora que elige Google, aviso repetido «El pago fue rechazado» en el inicio, CVV borrado si la verificación aparece justo al enviar.
+- **Regla ON_STOP de la tarjeta (Lab 21):** el agente propone una mejor: al salir de pantalla borrar siempre el código de seguridad, NO cancelar a Google, y borrar número y vencimiento si la app no vuelve en 20 s (contados desde la salida, no desde que se abrió la lista). Así no quedan datos de tarjeta guardados si salís de verdad.
+
+**Codex (job task-mvczobm7-r2ms97, terminado):**
+- Mi explicación del salto («se arma la WebView de Prex») era INCORRECTA: la WebView ya existe desde que abre la app.
+- Página original de Prex sin bloqueo de capturas (SecureScreen solo en el paso tarjeta) → CONFIRMADO en código.
+- Si se paga tocando el botón dentro de la página original y se corta la conexión, puede decir «No se cobró nada» sin saberlo (plausible).
+- La contraseña se guarda antes de verificarla: un error de tipeo pisa la buena y la huella reintenta la mala (riesgo de bloqueo gub.uy).
+- Entrar sin internet con «guardar» apagado: «Entrando…» para siempre.
+- «Recarga no confirmada» sin botón habilitado puede quedar sin salida.
+- Aviso de actualización que llega tarde puede salir encima de la huella.
+- El reporte copiado/compartido no lleva el registro de uso (solo el envío directo).
+- Regla de 60 s de Lab 21 guarda la tarjeta aunque bloquees el celular → hay que achicarla.
+
+**Agente Sonnet · entrada/inicio/Configuración (terminado):**
+- **Pista fuerte del salto de 10 px (CONFIRMADO en código):** `LabPaymentWait` está dos veces (MainActivity:460 y LabPayment:410). Al pasar de una a otra, el texto de abajo vuelve a entrar subiendo exactamente 10 dp (labEnter dy=10). Arreglo: no repetir la entrada si es continuación.
+- Atrás durante «Cambiando de boletera» cierra la sesión (CONFIRMADO: cae en engine.cancel()).
+- «Último saldo» de otra cuenta mientras conecta tras cerrar sesión y entrar con otro usuario.
+- Errores de actualización invisibles en Configuración; «GitHub limitó…» se muestra como otro error.
+- Sin internet al abrir con sesión guardada → pantalla de error en vez de «Sin internet».
+- Menores: «Enviar reporte» en contraseña incorrecta; aviso de primera vez no vuelve tras «olvidar celular» hasta reiniciar; hojas abiertas tras sesión vencida; pantalla vieja «paymentBoundary» dice «titular» en Lab; botones sin rol accesible; botón de 64 dp corta textos con letra grande.
+
 ## Estado: Lab 18 publicada (17/10/2026)
 Todo lo de los puntos 1, 2, 4 y 5 está en Lab 18. Pruebas: lógica de pago 82, pantallas de Lab 35 y Alpha 20 (en el OnePlus), internas y lint; dos agentes Sonnet revisaron y sus hallazgos se arreglaron (registro sin nombres, «Cancelar» después de pagar, otra tarjeta en Prex avisa y no paga sola, cuenta regresiva que espera al aviso de Google, versiones no-Lab sin cambios).
 
@@ -10,7 +52,15 @@ Queda para después (punto 3, pendientes de agentes no hechos): entrada (spinner
 - «Datos para Prex»: cambiar entre Cédula y Pasaporte ya no borra el número; cada uno guarda el suyo mientras el formulario está abierto.
 - Tarjeta: si Google completa los tres datos, sigue sola a «Confirmá tu pago» también en la recarga común (ahí se ve la tarjeta); si falta el código, espera en el código.
 
-## Para Lab 20 (sin publicar)
+## Para Lab 21 (escrito sin compilar ni probar; el dueño pidió no reabrir nada para liberar RAM)
+- Autocompletado a medias (solo el número, la primera vez, cuando Google pidió su huella): la pantalla de huella de Google
+  hace que Android avise «salió de pantalla» y la app borraba los campos y cancelaba el pedido de Google. Ahora, si eso pasa
+  dentro del minuto de abrir la lista de Google, no se borra ni se cancela (NativeCardForm, autofillAskedAt).
+- Salto de ~10 px de la tarjeta al pasar de «Preparando tu pago» a la pantalla de pago: un freno del celular al crear la página
+  de Prex rompía la continuidad (tarjeta que reinicia su animación / no se desliza). Márgenes 0,6 s → 1,5 s y 450 ms → 1,5 s
+  (LabCardHero, LabMotion). Causa probable, no confirmada: verificar en el OnePlus.
+
+## Lab 20 (publicada 17/10)
 - Prex se nombra una sola vez, donde se elige la tarjeta: «Tu tarjeta / Elegí tu tarjeta Prex.» (en Express: «Solo falta la tarjeta / Elegí tu tarjeta Prex.»). Se saca «Se paga con tu tarjeta Prex» del panel (era la fila «Pagás con…» que se había decidido sacar). Espera: «Preparando tu pago · Un momento», pie «Conexión segura»; Express «Cargando el mínimo a tu STM». No se sabe con certeza si la opción «Prex» de STM acepta otras tarjetas; se asume que no.
 
 ## 0 · Ya publicado en Lab 17 (16/10 19:13)

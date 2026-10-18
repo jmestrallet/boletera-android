@@ -258,7 +258,9 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                     "La descarga no corresponde a la versión elegida.",
                     "La firma de la descarga no coincide con Boletera.",
                     "La descarga está incompleta o no coincide con la publicada." -> error.message!!
-                    else -> if(error is java.io.IOException)"No se pudo completar la actualización. Revisá la conexión y volvé a intentar."
+                    // GitHub's own limit says what it is instead of «No se pudo preparar…» (Lab 21).
+                    else -> if(error.message?.startsWith("GitHub")==true) error.message!!
+                        else if(error is java.io.IOException)"No se pudo completar la actualización. Revisá la conexión y volvé a intentar."
                         else "No se pudo preparar la actualización. Buscá actualizaciones y volvé a intentar."
                 }
                 publish { message = detail; downloadFailed = true }

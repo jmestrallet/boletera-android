@@ -199,6 +199,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     fun savedAccess(value: Boolean) { state = state.copy(hasSavedAccess = value) }
     fun trySavedSession(): Boolean {
         if(savedSessionAttempted || state.stage!="welcome" || state.busy || !state.hasSavedAccess)return false
+        // Lab 21: without internet the entry says «Sin internet» (through the fingerprint path) instead of an error screen.
+        if(IsLab && noInternet())return false
         savedSessionAttempted=true
         if(!choices.restoreSessionAccount() || CookieManager.getInstance().getCookie(START).isNullOrBlank())return false
         restorePaymentRecord()
@@ -253,10 +255,14 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         val account=choices.accountKey ?: return
         val pending=state.activePayment ?: return
         val previous=paymentRecord ?: PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance)
-        val phase=when(stage) {"receipt"->"confirmed";"paymentRejected"->"rejected";"paymentPending"->"pending";"stmSuccess"->"credited";else->return}
+        // Lab 21: STM's «Recarga no confirmada» over a payment still waiting for Prex's answer closes it as refused.
+        val phase=when(stage) {"receipt"->"confirmed";"paymentRejected"->"rejected";"paymentPending"->"pending";"stmSuccess"->"credited"
+            "stmNotConfirmed"->if(IsLab && previous.phase=="authorizing")"rejected" else return
+            else->return}
         val transaction=rows.firstOrNull {paymentLabel(it.first)=="transaccion"}?.second.orEmpty()
-        if(previous.transaction.isNotBlank() && transaction.isNotBlank() && previous.transaction!=transaction) {
-            if(!IsLab) journalUnavailable=true
+        // Lab writes the outcome anyway (a stale record must not ask «sin respuesta» later); other apps stop to review.
+        if(!IsLab && previous.transaction.isNotBlank() && transaction.isNotBlank() && previous.transaction!=transaction) {
+            journalUnavailable=true
             paymentNeedsReview=true;return
         }
         val record=previous.copy(phase=phase,transaction=transaction.ifBlank {previous.transaction})
@@ -301,6 +307,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         if (noInternet()) { notice(OFFLINE); return }
         expressTiming.clear()
         clearSecrets()
+        switchingTo = null
         sessionAccess.clear()
         if (rememberForSession) try { sessionAccess.remember(doc, pass) } catch (_: Exception) { sessionAccess.clear() }
         silentRelogin = false; silentReloginAttempted = false
@@ -596,7 +603,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
 
     private val expressProvider: String? get()=choices.successfulProvider ?: choices.provider
     val expressProviderName: String get() = if(expressProvider=="1033")"Prex" else "Medio guardado"
-    val expressPaymentLabel: String get()=expressProviderName + choices.successfulCardSuffix?.let {" · •••• $it"}.orEmpty()
+    // Lab: the card is chosen in Google's list each time, so the hint names no last four (Lab 21).
+    val expressPaymentLabel: String get()=expressProviderName + (if(IsLab) "" else choices.successfulCardSuffix?.let {" · •••• $it"}.orEmpty())
     private val expressProviderReady: Boolean get() = expressProvider=="1033" && payerStoreAvailable &&
         (expressPayer()!=null || IsLab && payerProfiles.any { it.valid() })
     /** Lab: several people saved and none marked as the person's own; Carga Express asks once which data are theirs. */
@@ -605,6 +613,15 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         choices.card==state.selectedCard &&
         state.selectedCard!=null && state.cards.any { it.id==state.selectedCard && it.active } &&
         Amounts.valid(state.minimum,state.minimum)
+
+    /**
+     * Lab 21 (owner, 17/10): a payment of the last 30 minutes for this card that never got Prex's answer (a cut right after
+     * «Pagar», or a final page the app did not recognise). Only asked about when paying again; the home never shows it.
+     */
+    /** This payment already reached Prex's «Pagar» (its record is past «reviewing»): an error must not say nothing was charged. */
+    internal fun paymentStarted(payment: ActivePayment?): Boolean = payment != null && paymentRecord?.let { it.startedAt == payment.createdAt && it.phase != "reviewing" } == true
+    internal val unansweredPayment: PaymentRecord? get() = paymentRecord?.takeIf { IsLab && it.phase in setOf("authorizing","pending") &&
+        it.card == state.selectedCard && System.currentTimeMillis() - it.startedAt in 0 until 30 * 60 * 1000L }
 
     fun startExpress() { startExpressOrWhy() }
     /** Starts Carga Express, or says (in plain words, for the report) why it cannot right now; null when it started. */
@@ -701,6 +718,9 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         prexPayment.resume()
         if (state.stage == "externalPayment") { refresh(); return }
         if (active) { handler.removeCallbacks(poll); handler.post(poll) }
+        // Lab: a «Recarga en camino» is read again on coming back, so the home says when STM added it.
+        else if (IsLab && accountVerified && state.stage == "balance" && !state.busy && state.onTheWay != null && !noInternet() &&
+            System.currentTimeMillis() - (state.consultedAt ?: 0L) > 60_000) refresh()
     }
     fun destroy() {
         destroyed = true; active = false; handler.removeCallbacksAndMessages(null); clearSecrets(); sessionAccess.clear()
@@ -1047,7 +1067,8 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                         paymentRecord=null;paymentNeedsReview=false;current=null
                     }
                     val seen=current
-                    if(IsLab && seen!=null && seen.phase in setOf("confirmed","pending") && seen.card==state.selectedCard &&
+                    // A payment left without Prex's answer («authorizing») that shows up in the balance also loaded (Lab 21).
+                    if(IsLab && seen!=null && seen.phase in setOf("confirmed","pending","authorizing") && seen.card==state.selectedCard &&
                         seen.balanceBefore!=null && (state.balance ?: Long.MIN_VALUE)>=seen.balanceBefore+seen.amount)
                         current=seen.copy(phase="credited").also {paymentRecord=it}
                     val record=current
@@ -1070,7 +1091,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                             val credited=record?.phase=="credited"
                             // Lab shows its own "Recarga hecha" screen instead of a passing message.
                             state=state.copy(credited=if(credited && IsLab)record?.amount else null,
-                                message=if(credited && IsLab)"" else if(credited)"Recarga confirmada por STM. Saldo actualizado." else "El pago fue rechazado. Saldo consultado.")
+                                message=if(IsLab)"" else if(credited)"Recarga confirmada por STM. Saldo actualizado." else "El pago fue rechazado. Saldo consultado.")
                         }
                     }
                     // Lab 18: a payment Prex (or STM's receipt) confirmed, not yet in the balance, is said on the home so
@@ -1114,8 +1135,17 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                     } else {
                         expressPayment=false
                         expressTiming.move(ExpressTiming.Phase.REVIEW)
-                        notice("STM cambió las opciones disponibles. Revisá esta recarga para continuar.")
+                        if(!IsLab) notice("STM cambió las opciones disponibles. Revisá esta recarga para continuar.")
                     }
+                }
+                // Lab never shows the old «Tu recarga» screen (it still says «titular»): if the payment did not start
+                // from here, back to the home with a short notice (Lab 21).
+                if(IsLab && state.stage=="paymentBoundary") {
+                    expressPayment=false
+                    refresh()
+                    // Without internet refresh() stays put: the home is shown with the last balance.
+                    if(state.stage=="paymentBoundary") { clearPaymentSession(); active=false; handler.removeCallbacks(poll); state=state.copy(stage="balance",busy=false,amount=null) }
+                    state=state.copy(message="No pudimos preparar el pago. Probá de nuevo.")
                 }
             }
             "signedOut" -> expired()
@@ -1135,7 +1165,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
     /** Retry only navigation to the account. Amounts, providers and financial confirmations are discarded. */
     private fun recoverSession() {
-        activityOpened=false
+        activityOpened=false; switchingTo=null
         expressTiming.move(ExpressTiming.Phase.RECOVERY)
         if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
         paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
@@ -1155,7 +1185,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     }
 
     private fun expired() {
-        activityOpened=false
+        activityOpened=false; switchingTo=null
         expressTiming.finish(ExpressTiming.End.CANCELLED)
         if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
         paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")

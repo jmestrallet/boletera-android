@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.2.40 Lab 21 - Revisión completa: tarjeta de Google, entrada y salidas del pago
+
+- Tarjeta: al salir de la pantalla se borra el código de seguridad pero no se corta el autocompletado de Google; número y vencimiento se borran si no volvés en 20 s (la huella de Google ya no deja solo el número).
+- La espera «Preparando tu pago» ya no vuelve a entrar al pasar a Prex (el texto subía 10 px de nuevo).
+- Entrada: si STM rechaza la contraseña guardada se olvida el acceso con huella (no reintenta y no bloquea gub.uy); sin internet avisa en vez de quedar en «Entrando…»; Atrás durante «Cambiando de boletera» ya no cierra la sesión; el último saldo se borra al cerrar sesión.
+- Pago: la página original de Prex sin capturas y con «Volver al inicio» después de pagar; «Recarga no confirmada» con salida a los 8 s; errores de STM antes de Prex dicen «No se cobró nada»; después de un rechazo dice «Volviendo al inicio»; las esperas no cuentan con la app en segundo plano.
+- Pago sin respuesta de Prex en los últimos 30 min: al recargar de nuevo pregunta «Recargar igual» (aprobado por el dueño, nunca en el inicio).
+- Lab ya no muestra nunca la pantalla vieja «Tu recarga» (decía «titular»): si el pago no arranca, vuelve al inicio con «No pudimos preparar el pago. Probá de nuevo.»; el código de seguridad se mantiene si aparece una verificación justo al enviar.
+- Revisión de 2 agentes sobre estos cambios: la huella tras «Ahora no» en el aviso de actualización, «Cancelar» durante «Volviendo a entrar», rechazo que dejaba el pago como «sin respuesta», esperas con salida.
+- Varios: «Recargar» sin internet avisa al tocar; «Recarga en camino» se actualiza al volver; pista de Express sin los últimos 4; errores de actualización visibles en Configuración; el aviso de actualización no sale sobre la huella ni sobre «Antes de entrar»; reporte copiado/compartido con el registro; botones con rol accesible.
+
 ## 0.2.40 Lab 20 - Textos más claros y «por ahora, solo Prex»
 
 - Textos de Lab revisados con el dueño (docs/maquetas/lab20/textos.html): explican en vez de ordenar, ninguno más largo que antes.

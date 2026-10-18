@@ -99,7 +99,8 @@ internal object LabCardFlight {
 
     fun arrive(id: Any, rect: Rect, spot: CardSpot, phase: HeroPhase) {
         live.firstOrNull { it.id == id }?.let { it.rect = rect; it.spot = spot; it.phase = phase; return }
-        val from = live.lastOrNull() ?: gone?.takeIf { SystemClock.uptimeMillis() - it.second < 450 }?.first
+        // 1.5 s: on a slow phone the next screen can take that long to arrive; the card then slides instead of jumping.
+        val from = live.lastOrNull() ?: gone?.takeIf { SystemClock.uptimeMillis() - it.second < 1500 }?.first
         val slot = Slot(id, rect, spot, phase); live += slot; gone = null
         if (from != null) fly(from.rect, from.spot, slot)
     }

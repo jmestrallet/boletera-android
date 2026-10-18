@@ -24,9 +24,9 @@ internal data class LabNews(@DrawableRes val icon: Int, val title: String, val l
 
 /** What Lab 7 brings, shown once after updating. Up to four; the full detail stays on GitHub. */
 internal val LabWhatsNewItems = listOf(
-    LabNews(R.drawable.ic_info, "Textos más claros", "La app explica qué pasa en vez de dar órdenes."),
-    LabNews(R.drawable.ic_payments, "Por ahora, solo Prex", "Te lo dice al empezar y al elegir la tarjeta."),
-    LabNews(R.drawable.ic_check, "Prex, solo donde importa", "Ya no da por hecho que elegiste Prex antes de tiempo."),
+    LabNews(R.drawable.ic_credit_card, "Google completa la tarjeta entera", "Aunque te pida la huella antes de llenarla."),
+    LabNews(R.drawable.ic_fingerprint, "Contraseña cuidada", "Si STM la rechaza, la huella no la vuelve a probar."),
+    LabNews(R.drawable.ic_check, "Siempre hay salida", "Ningún paso del pago te deja sin volver al inicio."),
 )
 
 /** The release notes as news: «Título — línea» (or «Título: línea») becomes a phrase and its line, with an icon by topic. */
@@ -125,5 +125,23 @@ internal fun labNewsFrom(notes: List<String>): List<LabNews> = notes.take(4).map
         LabAccessSteps(Modifier.padding(start = 8.dp, end = 8.dp, top = 20.dp, bottom = 22.dp), accent = LabColors.Primary)
         LabPrimary("Ya entré a STM con mi usuario gub.uy", onClick = onReady, sheet = true)
         LabTextLink("Es mi primera vez: abrir STM ↗", onFirstTime, Modifier.align(Alignment.CenterHorizontally))
+    }
+}
+
+/**
+ * Lab 21 (owner, 17/10): paying again shortly after a payment that never got Prex's answer (a cut right after «Pagar»).
+ * Rare by design; it is only asked here, never shown on the home. If it loaded, the balance says it.
+ */
+@Composable internal fun LabUnansweredSheet(amount: Long, startedAt: Long, onAgain: () -> Unit, onWait: () -> Unit) {
+    val minutes = ((System.currentTimeMillis() - startedAt) / 60_000).coerceAtLeast(1)
+    val ago = if (minutes == 1L) "Hace 1 minuto" else "Hace $minutes minutos"
+    LabSheet(onWait) {
+        Text("Un pago quedó sin respuesta", style = MaterialTheme.typography.labSheet, color = LabColors.On,
+            modifier = Modifier.padding(horizontal = 8.dp).semantics { heading() })
+        Text("$ago pagaste ${Amounts.format(amount)} y no supimos si Prex lo aprobó. Si se cobró, lo vas a ver en tu saldo.",
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp), color = LabColors.Muted,
+            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 22.dp))
+        LabPrimary("Recargar igual", onClick = onAgain, sheet = true)
+        LabTextLink("Esperar", onWait, Modifier.align(Alignment.CenterHorizontally), quiet = true)
     }
 }

@@ -33,9 +33,22 @@ internal object LabReport {
         append("\n(No incluye tu documento, tu contraseña ni datos de tarjeta.)")
     }
 
+    /** The report with the usage record too, for copying or sharing (the direct send adds it as comments). Lab 21. */
+    fun full(what: String): String {
+        val log = runCatching { LabLog.read() }.getOrDefault("").trim()
+        val header = "\n\nRegistro de uso (últimas 24 h):\n"
+        return text(what) + if (log.isNotEmpty()) header + log.takeLast(60_000) else ""
+    }
+
     fun share(context: Context, what: String) {
-        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, "Reporte de Boletera").putExtra(Intent.EXTRA_TEXT, text(what))
-        runCatching { context.startActivity(Intent.createChooser(send, "Enviar reporte").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        val main = Handler(Looper.getMainLooper())
+        Thread {
+            val body = full(what)
+            main.post {
+                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, "Reporte de Boletera").putExtra(Intent.EXTRA_TEXT, body)
+                runCatching { context.startActivity(Intent.createChooser(send, "Enviar reporte").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
+        }.start()
     }
 
     /** POSTs [json]; the answer's text when GitHub took it, else null. */

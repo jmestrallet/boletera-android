@@ -85,7 +85,7 @@ import androidx.compose.ui.semantics.contentDescription
 @Composable internal fun LabCircle(onClick: () -> Unit, content: @Composable () -> Unit) {
     val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Box(Modifier.size(48.dp).labPress(press).clip(RoundedCornerShape(24.dp)).background(LabColors.GlassTint).border(1.dp, LabColors.GlassLine, RoundedCornerShape(24.dp))
-        .clickable(press, indication = androidx.compose.material3.ripple(), onClick = onClick), contentAlignment = Alignment.Center) { content() }
+        .clickable(press, indication = androidx.compose.material3.ripple(), role = androidx.compose.ui.semantics.Role.Button, onClick = onClick), contentAlignment = Alignment.Center) { content() }
 }
 
 /** The one main action: 64 dp on a screen, 60 dp inside a sheet ([sheet]). */
@@ -96,7 +96,7 @@ import androidx.compose.ui.semantics.contentDescription
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     // With large text a long label wraps to two lines and the button grows; it never cuts the words.
     Row(Modifier.fillMaxWidth().heightIn(min = height).labPress(interaction).clip(RoundedCornerShape(height / 2)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
-        .clickable(interaction, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled) { LabLog.tap(logLabel); haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() },
+        .clickable(interaction, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled, role = androidx.compose.ui.semantics.Role.Button) { LabLog.tap(logLabel); haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onClick() },
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         if (glyph != null) { AppGlyph(glyph, Modifier.size(22.dp), tint = LabColors.OnPrimary); Spacer(Modifier.width(10.dp)) }
         Text(label, style = MaterialTheme.typography.titleMedium.let { if (sheet) it.copy(fontSize = 17.sp) else it }, color = LabColors.OnPrimary,

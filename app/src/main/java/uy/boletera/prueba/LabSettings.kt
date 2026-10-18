@@ -50,7 +50,6 @@ private val RowLine = Color.White.copy(alpha = .09f)
     val vibration = remember(context) { AppHaptics(context) }
     var vibrationOn by remember { mutableStateOf(vibration.enabled) }
     var copied by remember { mutableStateOf(false) }
-    LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1800); copied = false } }
     var forgetting by remember { mutableStateOf(false) }
     var searched by remember { mutableStateOf(false) }
     LaunchedEffect(copied) { if (copied) { delay(1800); copied = false } }
@@ -82,6 +81,9 @@ private val RowLine = Color.White.copy(alpha = .09f)
                             Box(Modifier.fillMaxWidth(progress / 100f).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(LabColors.Primary))
                         }
                     } else SettingRow(R.drawable.ic_science, "Versión ${BuildConfig.DISPLAY_VERSION}", when {
+                        // A download or install that failed says why, instead of staying on «disponible» (Lab 21).
+                        !updates.busy && updates.message.isNotBlank() && (updates.downloadFailed ||
+                            updates.message.startsWith("Falta habilitar") || updates.message.startsWith("Android no pudo")) -> updates.message
                         updates.ready -> "$next lista para instalar"
                         release != null -> "$next disponible"
                         updates.busy -> "Buscando…"
@@ -146,10 +148,17 @@ private val RowLine = Color.White.copy(alpha = .09f)
                         AppGlyph(Glyph.Chevron, Modifier.size(22.dp), tint = LabColors.Faint)
                     }
                     Divider()
+                    // The record is read off the main thread (it can be long); the clipboard is set back on it.
                     val copy = {
-                        context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(
-                            android.content.ClipData.newPlainText("Boletera · ayuda", LabReport.text("Reporte desde Configuración")))
-                        copied = true
+                        val main = android.os.Handler(android.os.Looper.getMainLooper())
+                        Thread {
+                            val text = LabReport.full("Reporte desde Configuración")
+                            main.post {
+                                context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(
+                                    android.content.ClipData.newPlainText("Boletera · ayuda", text))
+                                copied = true
+                            }
+                        }.start()
                     }
                     if (onDemo != null) {
                         SettingRow(R.drawable.ic_bolt, "Modo demo", "Probá Carga Express y el pago sin cargar plata", onClick = onDemo) {

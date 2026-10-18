@@ -95,6 +95,11 @@ internal fun labErrorCopy(code: String): Pair<String, String> = when (code) {
     val rows = payment.summaryRows
     val detail = if (rows.isNotEmpty()) LabAction("Ver detalle del pago", quiet = true) { details = true } else null
     val free = payment.canContinue && !payment.completionSubmitted
+    // After a refusal the way home says so («Procesando tu pago» flashed while STM answered, Lab 21).
+    var leaving by remember { mutableStateOf(false) }
+    // STM's «Recarga no confirmada» without its button working still has a way out after a while (Lab 21).
+    var stuck by remember { mutableStateOf(false) }
+    LaunchedEffect(stage, leaving) { stuck = false; if (stage == "stmNotConfirmed" || leaving) { kotlinx.coroutines.delay(8000); stuck = true } }
     Box(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
         Box(Modifier.size(1.dp)) { browser() }
         val crediting = stage in listOf("stmSuccess", "returnBalance", "sessionExpired") || payment.returningToWallet && stage == "loading" ||
@@ -104,13 +109,14 @@ internal fun labErrorCopy(code: String): Pair<String, String> = when (code) {
         val processing = LabStatusScreenArgs("Procesando tu pago", "Prex está confirmando el pago de $amount.")
         when {
             // After a refusal STM shows «Recarga no confirmada»; the app answers it by itself and goes back to the home.
-            stage == "stmNotConfirmed" -> LabStatusScreen(HeroPhase.LOADING, "Volviendo al inicio", "Un momento.", null, null)
+            stage == "stmNotConfirmed" || leaving && stage != "paymentRejected" ->
+                LabStatusScreen(HeroPhase.LOADING, "Volviendo al inicio", "Un momento.", if (stuck) LabAction("Volver al inicio", onClick = onLeave) else null, null)
             stage == "finalConfirmation" || crediting || stage == "receipt" ->
                 LabStatusScreen(HeroPhase.LOADING, processing.title, processing.line, null, null)
             // The provider gives no reason («Existen datos incorrectos» also means no funds), so both causes are named.
             stage == "paymentRejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex no aceptó el pago", "Puede faltar saldo en tu Prex o un dato de la tarjeta.",
-                LabAction("Probar de nuevo") { LabRetry.reopenAmount = true; if (free) payment.advance(stage) else onLeave() },
-                LabAction("Volver al inicio", quiet = true) { if (free) payment.advance(stage) else onLeave() })
+                LabAction("Probar de nuevo") { LabRetry.reopenAmount = true; leaving = true; if (free) payment.advance(stage) else onLeave() },
+                LabAction("Volver al inicio", quiet = true) { leaving = true; if (free) payment.advance(stage) else onLeave() })
             stage == "paymentPending" -> LabStatusScreen(HeroPhase.LOADING, processing.title, "Prex todavía está confirmando el pago de $amount.",
                 LabAction("Volver al inicio") { if (free) payment.advance(stage) else onLeave() }, null)
             else -> LabStatusScreen(HeroPhase.LOADING, processing.title, processing.line, null, null)

@@ -106,5 +106,6 @@ internal fun errorPresentation(message:String):ErrorPresentation {
         onRetry!=null -> LabAction("Volver a intentar",onClick=onRetry)
         else -> LabAction("Volver al inicio",onClick=onExit)
     }
-    LabStatusScreen(HeroPhase.ERROR,title,line,primary=primary,secondary=report,link=site)
+    // A wrong password is not a failure of the app: nothing to report (Lab 21).
+    LabStatusScreen(HeroPhase.ERROR,title,line,primary=primary,secondary=if(info.code=="DATOS DE ACCESO")null else report,link=site)
 }

@@ -89,7 +89,9 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
         keyboard?.hide();focus.clearFocus()
         val send=(if(manual&&!checkVerification)onSubmit else onAutomaticSubmit?:onSubmit)
         send(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
-        cvv="";attempted=false
+        // Lab keeps the code while the card step is on screen: a check that appears right at sending no longer makes the
+        // person type it again. Leaving the step (or the app for 20 s) still wipes it.
+        if(!IsLab)cvv="";attempted=false
     }
     fun fill(field: Int, value: String): Boolean {
         if(busy)return false
@@ -107,10 +109,13 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
         focus.clearFocus();keyboard?.hide()
         scope.launch { delay(200);verificationView.bringIntoView();onVerificationShown() }
     }
-    LaunchedEffect(filledFields,pan,expiry,cvv,busy,canContinue,providerError,expandedChallenge,verificationRequired,pendingContinue,focusCard) {
+    // A fill that lands while the app is still behind Google's screen waits until it is back in front (Lab).
+    val lifeState by lifecycle.currentStateFlow.collectAsState()
+    val inFront=!IsLab || lifeState.isAtLeast(Lifecycle.State.RESUMED)
+    LaunchedEffect(filledFields,pan,expiry,cvv,busy,canContinue,providerError,expandedChallenge,verificationRequired,pendingContinue,focusCard,inFront) {
         if(providerError)filledFields=0
         if(providerError||!focusCard)pendingContinue=false
-        if(((filledFields==7 && !autoConsumed && autoContinue)||pendingContinue) && !busy && !providerError && !expandedChallenge &&
+        if(((filledFields==7 && !autoConsumed && autoContinue)||pendingContinue) && inFront && !busy && !providerError && !expandedChallenge &&
             CardInput.panValid(pan) && CardInput.expiryValid(expiry) && CardInput.cvvValid(cvv)) {
             // Typing alone never requests a submission. Express may retain an explicit IME Done
             // while verification is pending; recheck in the provider before sending that request.
@@ -147,9 +152,27 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     LaunchedEffect(expandedChallenge) { if(expandedChallenge) {focus.clearFocus();keyboard?.hide()} }
     DisposableEffect(lifecycle,autofill) {
         fun clear() { filledFields=0;pendingContinue=false;if(!committed)autofill?.cancel();pan="";expiry="";cvv="";attempted=false;focus.clearFocus() }
-        val observer=LifecycleEventObserver { _, event -> if(event==Lifecycle.Event.ON_STOP) clear() }
+        // Lab: Google's fingerprint screen also stops the app, and cancelling there left only the number filled (owner 17/10).
+        // So a stop wipes the security code at once but keeps Google's fill alive; number and expiry go if the app is not
+        // back within 20 s of that stop (locking the phone or leaving for real still wipes the card).
+        var stoppedAt=0L
+        var wipe: kotlinx.coroutines.Job?=null
+        val observer=LifecycleEventObserver { _, event ->
+            when {
+                event==Lifecycle.Event.ON_STOP && IsLab -> {
+                    cvv="";filledFields=filledFields and 3;pendingContinue=false;stoppedAt=android.os.SystemClock.elapsedRealtime()
+                    wipe?.cancel();wipe=scope.launch { delay(20_000);clear() }
+                }
+                event==Lifecycle.Event.ON_STOP -> clear()
+                event==Lifecycle.Event.ON_START && IsLab && stoppedAt>0L -> {
+                    wipe?.cancel();wipe=null
+                    if(android.os.SystemClock.elapsedRealtime()-stoppedAt>=20_000)clear()
+                    stoppedAt=0L
+                }
+            }
+        }
         lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer);clear() }
+        onDispose { wipe?.cancel();lifecycle.removeObserver(observer);clear() }
     }
     if(expandedChallenge) {
         Column(Modifier.fillMaxSize()) {
@@ -162,7 +185,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     // Lab: Google's list hides when the person taps elsewhere or types; a tap on the empty number brings it back.
     val numberTouch=remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     LaunchedEffect(numberTouch) {
-        numberTouch.interactions.collect { if(IsLab && it is androidx.compose.foundation.interaction.PressInteraction.Release && pan.isEmpty() && !busy) cardAutofill.request() }
+        numberTouch.interactions.collect { if(IsLab && it is androidx.compose.foundation.interaction.PressInteraction.Release && pan.isEmpty() && !busy) { cardAutofill.request() } }
     }
     val numberField: @Composable (Modifier)->Unit = { modifier ->
         OutlinedTextField(value=pan,onValueChange={filledFields=0;pendingContinue=false;committed=false;pan=it.filter { c -> c in '0'..'9' }.take(16)},

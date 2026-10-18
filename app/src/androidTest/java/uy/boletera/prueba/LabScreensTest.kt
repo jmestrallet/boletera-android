@@ -311,6 +311,16 @@ class LabScreensTest {
         compose.onNodeWithText("Si lo activás, José Mestrallet deja de ser «tus datos»").assertIsDisplayed()
         capture("lab-payer-detail.png")
     }
+    @Test fun unansweredPaymentAsksBeforePayingAgain() {
+        var again = 0; var waited = 0
+        compose.setContent { Frame { LabUnansweredSheet(50000, System.currentTimeMillis() - 5 * 60_000, onAgain = { again++ }, onWait = { waited++ }) } }
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onNodeWithText("Un pago quedó sin respuesta").assertIsDisplayed()
+        compose.onNodeWithText("Hace 5 minutos", substring = true).assertIsDisplayed()
+        capture("lab-unanswered.png")
+        compose.onNodeWithText("Recargar igual").performClick(); assertEquals(1, again)
+        compose.onNodeWithText("Esperar").performClick(); assertEquals(1, waited)
+    }
     @Test fun cardStepLooksLikeTheRest() {
         compose.setContent {
             Frame(back = true) {

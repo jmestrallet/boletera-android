@@ -63,21 +63,28 @@ import androidx.compose.ui.unit.sp
  * The one wait of a payment (B9: «Preparando tu recarga» and «Abriendo Prex» are the same moment): the header with the card
  * loading, what is happening, and only «Cancelar». Express says it is the quick recharge.
  */
+/** The wait is drawn first by the main screen and then again by the payment screen: the second one is the same moment. */
+private object LabWaitMemo { var live = 0; var leftAt = 0L }
+
 @Composable internal fun LabPaymentWait(amount: Long?, card: String?, express: Boolean, onCancel: (() -> Unit)?) {
     val type = MaterialTheme.typography
+    // A continuation does not enter again: its text rose 10 dp a second time («se mueve 10 píxeles», owner 17/10).
+    val continued = remember { LabWaitMemo.live > 0 || android.os.SystemClock.uptimeMillis() - LabWaitMemo.leftAt < 1500 }
+    DisposableEffect(Unit) { LabWaitMemo.live++; onDispose { LabWaitMemo.live--; LabWaitMemo.leftAt = android.os.SystemClock.uptimeMillis() } }
+    fun Modifier.enter(order: Int) = if (continued) this else labEnter(order, base = 90)
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.weight(1f))
         LabPaymentHeader(amount, card, HeroPhase.LOADING)
-        Column(Modifier.padding(top = 30.dp, start = 8.dp, end = 8.dp).labEnter(0, base = 90).semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.padding(top = 30.dp, start = 8.dp, end = 8.dp).enter(0).semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (express) "Carga Express" else "Preparando tu pago", style = type.labStep, color = LabColors.On, textAlign = TextAlign.Center)
             Text(if (express) "Cargando el mínimo a tu STM." else "Un momento.",
                 style = type.bodyLarge, color = LabColors.Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         }
-        if (express) Row(Modifier.padding(top = 14.dp).labEnter(1, base = 90).clip(RoundedCornerShape(18.dp)).background(LabColors.Teal.copy(alpha = .12f)).padding(horizontal = 14.dp, vertical = 7.dp),
+        if (express) Row(Modifier.padding(top = 14.dp).enter(1).clip(RoundedCornerShape(18.dp)).background(LabColors.Teal.copy(alpha = .12f)).padding(horizontal = 14.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_bolt), contentDescription = null, tint = LabColors.Teal, modifier = Modifier.size(17.dp))
             Text("Carga rápida", style = type.labelLarge.copy(fontSize = 13.5.sp), color = LabColors.Teal)
-        } else Row(Modifier.padding(top = 14.dp).labEnter(1, base = 90), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        } else Row(Modifier.padding(top = 14.dp).enter(1), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AppGlyph(Glyph.Lock, Modifier.size(16.dp), tint = LabColors.Faint)
             Text("Conexión segura", style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Faint)
         }
@@ -275,8 +282,11 @@ import androidx.compose.ui.unit.sp
     // the person completes it and goes on; the app never leaves them in front of a check that leads nowhere.
     val payerStuck = stage == "payer" && !payment.payerConflict && payment.payerValues.size == 5 && payment.payerValues.any { it.isBlank() } &&
         (payment.challenge == null && !payment.verificationRequired || payment.verificationApproved)
-    LaunchedEffect(payerStuck) {
-        if (!payerStuck) return@LaunchedEffect
+    // The waits below count only with the app in front: coming back after a while never finds Prex's page instead (Lab 21).
+    val lifeState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    val inFront = lifeState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+    LaunchedEffect(payerStuck, inFront) {
+        if (!payerStuck || !inFront) return@LaunchedEffect
         // Long enough for the payer module's own retries of the document-type list (4 × 1.2 s).
         kotlinx.coroutines.delay(7000)
         payment.pageShape { LabLog.add("forma", "titular sin completar · $it") }
@@ -286,7 +296,7 @@ import androidx.compose.ui.unit.sp
     // Watchdog for every step before the card: one that stays still with nothing for the person to do leaves the
     // page's shape in the record at 6 s and, at 10 s, Prex's own page is shown so the person can go on.
     val waitingForPerson = payment.challenge != null && !payment.verificationApproved || stage in setOf("card", "original") ||
-        payment.message.isNotBlank() || payment.slowStep || payment.payerConflict || showOriginal
+        payment.message.isNotBlank() || payment.slowStep || payment.payerConflict || showOriginal || !inFront
     LaunchedEffect(stage, waitingForPerson, payment.canContinue, payment.completionSubmitted, payment.payerValues, payment.expressPhase) {
         // A «Continuar» already sent is Prex's to answer: its own 30 s limit (slowStep) covers it, never this one.
         if (waitingForPerson || payment.completionSubmitted || stage !in setOf("summary", "payer", "loading") || payment.returningToWallet) return@LaunchedEffect
@@ -306,6 +316,9 @@ import androidx.compose.ui.unit.sp
     val paid = payment.authorizationSent || stage == "finalConfirmation" && (payment.completionSubmitted || payment.captchaRetry) ||
         stage in listOf("receipt", "paymentRejected", "paymentPending", "stmSuccess", "stmNotConfirmed") || payment.returningToWallet
     BackHandler { if (!paid) onClose() }
+    var originalAtPay by remember { mutableStateOf(false) }
+    LaunchedEffect(showOriginal) { if (showOriginal && stage in listOf("card", "finalConfirmation")) originalAtPay = true }
+    LaunchedEffect(stage) { if (stage == "original") originalAtPay = true }
     val completion = stage in listOf("finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "stmNotConfirmed", "returnBalance", "sessionExpired") ||
         payment.returningToWallet && stage == "loading"
     var stuckAfterPay by remember { mutableStateOf(false) }
@@ -349,9 +362,14 @@ import androidx.compose.ui.unit.sp
                     }
                 }
                 when {
-                    payment.message.isNotBlank() -> AppErrorScreen(payment.message, payment = true, paymentAmount = amount, onExit = onClose, charged = paid)
+                    // Prex's own page can hold its «Pagar»: once shown from the card on, «nothing was charged» is never assumed (Lab 21).
+                    payment.message.isNotBlank() -> AppErrorScreen(payment.message, payment = true, paymentAmount = amount, onExit = onClose, charged = paid || originalAtPay)
                     showOriginal || stage == "original" -> Column(Modifier.fillMaxSize()) {
+                        // Prex's page can show the card typed: no screenshots there either (Lab 21).
+                        SecureScreen()
                         if (stage != "original") LabTextLink("Volver", { showOriginal = false }, Modifier.align(Alignment.End), quiet = true)
+                        // After «Pagar» a page the app does not know still has a way out; the balance tells how it ended.
+                        else if (paid || originalAtPay) LabTextLink("Volver al inicio", onClose, Modifier.align(Alignment.End), quiet = true)
                         PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.weight(1f).fillMaxWidth())
                     }
                     // Before paying, a page that stalls offers to keep waiting or go back (after «Pagar» it just keeps processing).
@@ -374,7 +392,7 @@ import androidx.compose.ui.unit.sp
                         val chosen = payment.chosenPayer?.let { if (it.personal) "tus datos" else "los datos de ${it.label}" } ?: "tus datos"
                         val theirs = payment.chosenPayer?.takeIf { !it.personal }?.let { "los de ${it.label}" } ?: "los tuyos"
                         LabStatusScreen(HeroPhase.WARN, "Prex tiene otros datos", "No coinciden con $theirs. Podés usar $theirs.",
-                            primary = LabAction("Usar ${chosen.replaceFirstChar { it.uppercase() }}", logLabel = "Usar los datos elegidos") { payment.applyChosenPayer() },
+                            primary = LabAction("Usar $chosen", logLabel = "Usar los datos elegidos") { payment.applyChosenPayer() },
                             secondary = LabAction("Cancelar", quiet = true, onClick = onClose))
                     }
                     // Solving the check is enough: the app notices it and goes on (the provider's pages are watched daily for changes).

@@ -183,6 +183,9 @@ class MainActivity : FragmentActivity() {
         }
         var automaticUnlockHandled by rememberSaveable { mutableIntStateOf(-1) }
         var authenticating by remember { mutableStateOf(false) }
+        // Lab: this sign-in uses the access saved with the fingerprint; if STM says the password is wrong it is forgotten,
+        // so the fingerprint never keeps retrying a wrong password (and gub.uy never locks the account for it).
+        var vaultAttempt by remember { mutableStateOf(false) }
         fun unlockSavedAccess() {
             if (authenticating || engine.state.busy || engine.state.stage != "welcome") return
             if (engine.noInternet()) { engine.notice(StmEngine.OFFLINE); return }
@@ -191,7 +194,7 @@ class MainActivity : FragmentActivity() {
             vault.unlock { doc, pass ->
                 authenticating = false
                 if (!isDestroyed && !isFinishing && engine.state.stage=="welcome" && engine.state.accessRequestId==accessId) {
-                    if (doc != null && pass != null) engine.connect(doc, pass, rememberForSession = true)
+                    if (doc != null && pass != null) { vaultAttempt = true; engine.connect(doc, pass, rememberForSession = true) }
                     else if (vault.invalidated) { engine.savedAccess(false); engine.notice(FINGERPRINTS_CHANGED) }
                     else engine.notice(UNLOCK_NOT_CONFIRMED)
                 }
@@ -209,7 +212,9 @@ class MainActivity : FragmentActivity() {
                 val current=engine.state
                 if (automaticUnlockHandled != current.accessRequestId) {
                     automaticUnlockHandled = current.accessRequestId
-                    if (vault.exists && current.stage == "welcome" && !engine.trySavedSession()) {
+                    val savedSession = vault.exists && current.stage == "welcome" && engine.trySavedSession()
+                    if (savedSession) vaultAttempt = true
+                    if (vault.exists && current.stage == "welcome" && !savedSession) {
                         if (IsLab && updates.prompt) unlockAfterUpdate = true else unlockSavedAccess()
                     }
                 }
@@ -218,8 +223,11 @@ class MainActivity : FragmentActivity() {
         LaunchedEffect(unlockAfterUpdate, updates.prompt, updates.busy, updates.reviewRequested, updates.installRequested) {
             // «Actualizar» and then «Más tarde» (or Android's installer cancelled) also ends here: the fingerprint is asked.
             if (unlockAfterUpdate && !updates.prompt && !updates.busy && !updates.reviewRequested && !updates.installRequested) {
-                unlockAfterUpdate = false
-                lifecycle.withResumed { if (engine.state.stage == "welcome") unlockSavedAccess() }
+                // Android's installer takes a moment to cover the app after «Actualizar»: the fingerprint waits for it
+                // (and comes once the person is back, if the install was cancelled). The flag is cleared only after the
+                // wait: clearing it first restarted this effect and the fingerprint was never asked.
+                kotlinx.coroutines.delay(1500)
+                lifecycle.withResumed { if (unlockAfterUpdate) { unlockAfterUpdate = false; if (engine.state.stage == "welcome") unlockSavedAccess() } }
             }
         }
         var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -250,8 +258,15 @@ class MainActivity : FragmentActivity() {
         var labPayerForm by remember { mutableStateOf<LabPayerForm?>(null) }
         var labPayerDetail by remember { mutableStateOf<String?>(null) }
         fun ownMissing() = engine.payerProfiles.none { it.personal }
+        // Lab 21: a payment left without Prex's answer is asked about once, only when paying again.
+        var unansweredAsk by remember { mutableStateOf<Pair<PaymentRecord, () -> Unit>?>(null) }
+        var unansweredOk by remember { mutableLongStateOf(0L) }
+        fun afterUnanswered(go: () -> Unit) {
+            val r = engine.unansweredPayment
+            if (r == null || unansweredOk == r.startedAt) go() else unansweredAsk = r to go
+        }
         /** Lab: after the amount, the person whose card it is (asked only with two or more), then Prex. */
-        fun labPay(amount: Long) {
+        fun labPay(amount: Long): Unit = afterUnanswered {
             val people = engine.payerProfiles.filter { it.valid() }
             when {
                 people.isEmpty() -> labPayerForm = LabPayerForm(null, askMine = true, startMine = true, action = "Continuar") { engine.prepareWithPrex(amount, engine.state.payerProfileId) }
@@ -261,6 +276,7 @@ class MainActivity : FragmentActivity() {
         }
         fun requestExpress() {
             if(!engine.expressAvailable || engine.state.busy)return
+            if(IsLab && engine.unansweredPayment.let { it!=null && unansweredOk!=it.startedAt }) { afterUnanswered(::requestExpress); return }
             if(IsLab) {
                 val why=engine.startExpressOrWhy()
                 if(why=="elegir tus datos") { askOwnData=true; return }
@@ -285,6 +301,12 @@ class MainActivity : FragmentActivity() {
             if(updates.automaticNotice) {
                 if(snackbar.showSnackbar("Hay una nueva versión de Boletera.",actionLabel="Ver",withDismissAction=true,duration=SnackbarDuration.Long)==SnackbarResult.ActionPerformed)showSettings=true
                 updates.dismissAutomaticNotice()
+            }
+        }
+        LaunchedEffect(state.message) {
+            if(IsLab && vaultAttempt && state.message.startsWith("Documento o contraseña incorrectos")) {
+                vaultAttempt=false; vault.forget(); engine.savedAccess(false)
+                LabLog.add("entrada", "contraseña guardada rechazada por STM: se olvida el acceso con huella")
             }
         }
         // Lab: sign-in problems stay written on the entry (with the card in red) until the next attempt, instead of a passing snackbar.
@@ -318,6 +340,8 @@ class MainActivity : FragmentActivity() {
                 // Forgetting the phone is not a new install: the news already read stay read.
                 val seen=helpPreferences.getString("whats_new_seen",null)
                 helpPreferences.edit().clear().putString("whats_new_seen",seen).apply();vault.forget(); lastBalances.clear()
+                // Like a first open: the notice «Antes de entrar» comes back right away (Lab 21).
+                if(IsLab) firstAccessIntro=true
                 for (name in listOf("lab_card_names","lab_hints")) context.getSharedPreferences(name, android.content.Context.MODE_PRIVATE).edit().clear().apply(); engine.savedAccess(false); engine.logout()
                 // Lab says it with the clean entry itself; a notice there would paint the entry red as if signing in failed.
                 if(!IsLab) engine.notice("Acceso guardado, perfiles, preferencias y sesión local eliminados.")
@@ -345,7 +369,11 @@ class MainActivity : FragmentActivity() {
         LaunchedEffect(state.sessionExpired, state.recoveringSession) {
             if(state.sessionExpired || state.recoveringSession) {
                 showAmount=false; showPayerPicker=false; showPayerEditor=false
-                whoPaysFor=null; labPayerForm=null; labPayerDetail=null; askOwnData=false
+                whoPaysFor=null; labPayerForm=null; labPayerDetail=null; askOwnData=false; unansweredAsk=null
+                if(IsLab) {
+                    showCardsSheet=false; namingCard=null; showTicketGuide=false
+                    if(state.sessionExpired) { showWhatsNew=false; LabRetry.reopenAmount=false }
+                }
                 showSettings=false; document=""; password=""; revealPassword=false; manual=false
             }
         }
@@ -394,6 +422,8 @@ class MainActivity : FragmentActivity() {
         fun back() {
             document=""; password=""
             if(engine.returnFromCardPicker())return
+            // A switch of boletera has nothing to go back to: Back waits for it instead of signing out.
+            if(IsLab && engine.switchingTo!=null && state.stage=="connecting" && !state.recoveringSession) return
             // Leaving the home is leaving the app, like any app: the session stays, the next open is straight in.
             if(IsLab && stage=="balance") { activity?.moveTaskToBack(true); return }
             // After an error with a live session, back is the way to the balance, not a sign-out.
@@ -413,6 +443,8 @@ class MainActivity : FragmentActivity() {
                 // fingerprint access signs in again, or back to the sign-in.
                 onRetry=if(state.activePayment!=null)null else ({ if(IsLab && engine.sessionVerified)engine.refresh() else { engine.cancel(); if(vault.exists)unlockSavedAccess() } }),
                 paymentAmount=state.activePayment?.amount,
+                // Lab: this screen comes before Prex opened (STM's own steps), so nothing was charged.
+                charged=!IsLab || engine.paymentStarted(state.activePayment),
                 onExit={
                     if(state.activePayment!=null || (IsLab && engine.sessionVerified))engine.refresh() else {
                         val accessError=errorPresentation(state.message).code=="DATOS DE ACCESO"
@@ -578,22 +610,27 @@ class MainActivity : FragmentActivity() {
            }
            // Lab: the cards open as a sheet over the balance, from the list already read (no STM round trip to show them).
            if(labHome)LabHomeChrome(state,haze,blur=VisualEffects.enabled(context,effectsMode),onChangeCard={showCardsSheet=true},onSettings={showSettings=true},
-               onCharge={showAmount=true},onExpressCharge=onExpressCharge,expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel)
+               onCharge={ if(IsLab && engine.noInternet()) engine.notice(StmEngine.OFFLINE) else showAmount=true },onExpressCharge=onExpressCharge,expressPreparing=engine.expressPreparing,expressProvider=engine.expressPaymentLabel)
            // Lab sign-in: document and password rise in a panel over the entry; sending closes it so the card shows the progress.
            if(IsLab && stage=="welcome")LabSignInSheet(open=manual,document=document,
                onDocument={document=it.filter(Char::isDigit).take(8);labEntryError="";if(labHeroResult==HeroPhase.ERROR)labHeroResult=HeroPhase.IDLE},
                password=password,onPassword={password=it;labEntryError="";if(labHeroResult==HeroPhase.ERROR)labHeroResult=HeroPhase.IDLE},
                reveal=revealPassword,onReveal={revealPassword=!revealPassword},save=save,onSave={save=it},canSave=vault.available,
                enabled=!authenticating&&!state.busy,onClose={manual=false},onSubmit={
-                   manual=false; labLoggingIn=true
+                   manual=false
+                   // Without internet nothing starts: the entry says it instead of «Entrando…» forever (Lab 21).
+                   if(engine.noInternet()) { password="";revealPassword=false;engine.notice(StmEngine.OFFLINE) } else {
+                   labLoggingIn=true
                    // The document stays so a mistyped password only needs the password again.
                    val doc=document; val pass=password; password="";revealPassword=false
+                   fun start(remember: Boolean) { vaultAttempt=remember; engine.connect(doc,pass,rememberForSession=remember); if(engine.state.stage!="connecting")labLoggingIn=false }
                    if(save) {
                        authenticating=true
                        vault.save(doc,pass) { ok -> authenticating=false;engine.savedAccess(vault.exists)
                            if(!ok)engine.notice("No se guardó el acceso con huella. Entrás igual; podés guardarlo la próxima vez.")
-                           engine.connect(doc,pass,rememberForSession=ok) }
-                   } else engine.connect(doc,pass)
+                           start(ok) }
+                   } else start(false)
+                   }
                })
            // Lab: the moment a recharge is credited, over the home, until "Listo".
            val credited=state.credited
@@ -639,7 +676,7 @@ class MainActivity : FragmentActivity() {
             confirmButton={TextButton(onClick={closeBetaIntro();updates.selectChannel(UpdateChannel.BETA);showSettings=true}){Text("Ver Boletera Beta")}},
             dismissButton={TextButton(onClick=::closeBetaIntro){Text("Ahora no")}})
         if(showSettings && IsLab)LabSettingsScreen(updates,state.hasSavedAccess,canLogout=state.stage!="welcome",engine.helpDiagnostic,effectsMode,
-            onEffectsMode={effectsMode=it;VisualEffects.setMode(context,it)},onLogout={showSettings=false;engine.logout()},onForget={showSettings=false;forgetPhone()},
+            onEffectsMode={effectsMode=it;VisualEffects.setMode(context,it)},onLogout={showSettings=false;lastBalances.clear();engine.logout()},onForget={showSettings=false;forgetPhone()},
             onTicketGuide={showSettings=false;showTicketGuide=true},onInstall=updates::requestReview,onClose={showSettings=false},
             onDemo={showSettings=false;LabDemo.set(context,true)},
             payers=if(state.stage!="welcome")engine.payerProfiles else null,onPayer={labPayerDetail=it.id},
@@ -657,6 +694,9 @@ class MainActivity : FragmentActivity() {
             onMine={p->askOwnData=false;if(engine.savePayer(p.copy(personal=true)))requestExpress()},
             onNone={askOwnData=false;labPayerForm=LabPayerForm(null,askMine=false,startMine=true,action="Continuar"){requestExpress()}},
             onClose={askOwnData=false})
+        unansweredAsk?.let { (record, go) ->
+            LabUnansweredSheet(record.amount, record.startedAt, onAgain={ unansweredAsk=null; unansweredOk=record.startedAt; go() }, onWait={ unansweredAsk=null })
+        }
         labPayerForm?.let { form ->
             LabPayerScreen(form.existing,form.askMine,form.action,startMine=form.startMine,
                 onSave={p->engine.savePayer(p).also{ok->if(ok){labPayerForm=null;form.then?.invoke()}}},onClose={labPayerForm=null})
@@ -669,7 +709,9 @@ class MainActivity : FragmentActivity() {
         // Lab: a version found on opening, offered on the entry or the home (never in the middle of a payment).
         val promptRelease=updates.release
         if(IsLab && updates.prompt && promptRelease!=null && !updates.reviewRequested && !showSettings && state.stage in setOf("welcome","balance") &&
-            !showAmount && state.credited==null && !manual && !showAccessGuide && labPayerForm==null && whoPaysFor==null && !askOwnData)
+            !showAmount && state.credited==null && !manual && !showAccessGuide && labPayerForm==null && whoPaysFor==null && !askOwnData && unansweredAsk==null &&
+            // Never over the fingerprint or a sign-in in course, nor over the first-time notice (Lab 21).
+            !authenticating && !labLoggingIn && !(state.stage=="welcome" && firstAccessIntro && !state.hasSavedAccess))
             LabUpdatePrompt(promptRelease,updates.progress,updates.busy,onUpdate=updates::acceptPrompt,onLater=updates::skipPrompt,
                 problem=if(updates.downloadFailed && !updates.busy)updates.message else null)
         if(updates.reviewRequested && updates.ready && !updates.busy && IsLab) updates.release.let { r ->

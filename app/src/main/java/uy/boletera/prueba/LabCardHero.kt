@@ -83,7 +83,9 @@ internal object LabCardClock {
     var previous: HeroPhase? = null
     fun start(phase: HeroPhase, now: Float): Float {
         // A card that was off screen for a while starts its state fresh (a new «Conectando» morphs from «+» again).
-        if (this.phase != phase || now - seen > .6f) { previous = if (now - seen > .6f) null else this.phase; this.phase = phase; since = now }
+        // 1.5 s, not less: building the next screen (the hidden Prex page) can freeze a slow phone for half a second, and the
+        // waiting card must not restart (it dropped and rose again, «se mueve 10 píxeles», owner 17/10).
+        if (this.phase != phase || now - seen > 1.5f) { previous = if (now - seen > 1.5f) null else this.phase; this.phase = phase; since = now }
         seen = now; return since
     }
 }
@@ -101,7 +103,7 @@ internal object LabCardClock {
     LaunchedEffect(still) { if (!still) while (true) androidx.compose.animation.core.withInfiniteAnimationFrameMillis { now = LabCardClock.seconds(it); LabCardClock.frame = now } }
     var origin by remember { mutableFloatStateOf(-1f) }
     // Keyed on phase so a new phase never draws one frame with the previous phase's clock.
-    var phaseStart by remember(phase) { mutableFloatStateOf(if (LabCardClock.phase == phase && LabCardClock.frame - LabCardClock.seen < .6f) LabCardClock.since else -1f) }
+    var phaseStart by remember(phase) { mutableFloatStateOf(if (LabCardClock.phase == phase && LabCardClock.frame - LabCardClock.seen < 1.5f) LabCardClock.since else -1f) }
     // The first frames after launch are slow; start the clock once they are out of the way so the card glides instead of jumping.
     LaunchedEffect(Unit) { repeat(3) { androidx.compose.animation.core.withInfiniteAnimationFrameMillis { origin = LabCardClock.seconds(it) } } }
     LaunchedEffect(phase) { androidx.compose.animation.core.withInfiniteAnimationFrameMillis { phaseStart = LabCardClock.start(phase, LabCardClock.seconds(it)) } }
