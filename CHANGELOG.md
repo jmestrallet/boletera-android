@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.2.40 Lab 22 - Revisión por módulos: lo que dejó de andar en Lab 21
+
+- Inicio: «Recargar» y el rayo ya no quedan muertos después de un corte o de «El pago no llegó a hacerse» (se vuelve a leer el saldo); el refresco al volver a la app (Lab 21) ahora sí corre; el rayo responde al primer «mantener» después de un Express que no arrancó; la hoja de montos no reaparece sola.
+- Tarjeta: «Continuar» con datos incompletos dice qué falta («Te faltó completar el número de la tarjeta.», «Falta el vencimiento.») y vuelve a abrir la lista de Google; si Prex no recibe la tarjeta lo dice; el registro anota qué faltó, sin valores.
+- Carga Express: ya no se pasa a manual después de una verificación de más de 20 s; «recargando al volver» sin parpadeo.
+- Fin del pago: «Procesando tu pago» sin botón de Prex/STM tiene «Volver al inicio» a los 15 s; sin internet después de pagar se ve «Recarga en camino» si Prex confirmó; Atrás en «Conectando» tras pagar no cierra la sesión; un registro de pagos ilegible ya no bloquea los pagos.
+- Entrada: entra sola o pide la huella después de que Android cierra la app; Atrás al entrar no muestra «No pudimos entrar»; llave del celular perdida → «Cambiaron las huellas»; la huella no choca con el instalador de una actualización; «Volver a intentar» sin huella abre el panel.
+- Varios: avisos visibles sobre Configuración; búsqueda de versión fallida no se pinta como descarga; la hoja «Lab X está lista» no tapa el pago ni otras hojas; apodo y orden de personas al editar; demo sin tocar la pista real del rayo; botones que no cortan texto con letra grande; si Android cierra las páginas por memoria la app se reabre en vez de cerrarse.
+- Optimización sin cambios visibles: la capa del vuelo de la tarjeta ya no redibuja la pantalla 60 veces por segundo en reposo; la cuenta regresiva y la apertura no reconstruyen toda la pantalla en cada cuadro; menos llamadas al sistema y al Keystore al redibujar.
+- Revisión de 3 agentes: se revirtió tratar «Recarga no confirmada» como rechazo (sacaba el aviso contra doble pago); cambios de huella y orden de personas solo en Lab.
+
 ## 0.2.40 Lab 21 - Revisión completa: tarjeta de Google, entrada y salidas del pago
 
 - Tarjeta: al salir de la pantalla se borra el código de seguridad pero no se corta el autocompletado de Google; número y vencimiento se borran si no volvés en 20 s (la huella de Google ya no deja solo el número).

@@ -46,6 +46,9 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         private set
     var cardError by mutableStateOf(false)
         private set
+    /** Lab: «Continuar» was tapped but the card never reached Prex's page (the page was not ready); the screen says so. */
+    var cardNotSent by mutableStateOf(false)
+        private set
     var expressPhase by mutableStateOf("off")
         private set
     var challenge by mutableStateOf<CaptchaRect?>(null)
@@ -117,6 +120,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
      */
     var staleAfterResume by mutableStateOf(false)
         private set
+    private var staleSince = 0L
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var cardCheckboxReady=false
     private val checkboxTap by lazy {CheckboxTapper(web) {stage ->
@@ -135,7 +139,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     val decoded = org.json.JSONTokener(raw).nextValue() as? String
                     if (decoded != null) {
                         val state = org.json.JSONObject(decoded)
-                        staleAfterResume = false
+                        // The old crop stays hidden for a moment after coming back: the answer alone comes in a few ms, before Google redraws.
+                        if (staleAfterResume && (!IsLab || clock() - staleSince >= 700)) staleAfterResume = false
                         // «Recarga no confirmada» is only handled by Lab; the other apps keep showing STM's page as before.
                         nativeStage = state.optString("stage", "loading").let { if (it == "stmNotConfirmed" && !IsLab) "original" else it }
                         if(nativeStage!="card")cardCheckboxReady=false
@@ -219,7 +224,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     }
                 }
             }
-            handler.postDelayed(this, if(busy || expressPhase=="advancing" || cardBusy || completionSubmitted || returningToWallet) 200 else 800)
+            handler.postDelayed(this, if(busy || expressPhase=="advancing" || cardBusy || completionSubmitted || returningToWallet || staleAfterResume) 200 else 800)
         }
     }
     private val completionScript = context.assets.open("prex-completion.js").bufferedReader().use { it.readText() }
@@ -323,6 +328,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, error: WebResourceResponse) {
                 if (request.isForMainFrame && request.url.toString()==view.url) deferFailure("El proveedor no pudo mostrar este paso. La solicitud sigue por revisar.")
             }
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean = rendererGone(view)
         }
     }
 
@@ -418,7 +424,15 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         stopExpress(); return true
     }
     private fun submitCard(pan: String, expiry: String, cvv: String, automatic: Boolean) {
-        if(destroyed || !visible || suspended || nativeStage!="card" || cardBusy || !canContinue)return
+        if(destroyed || !visible || suspended || nativeStage!="card" || cardBusy || !canContinue) {
+            // Never a silent «Continuar»: the person sees that the card did not go (Lab), and the record says why.
+            if(IsLab && !destroyed && !cardBusy) {
+                cardNotSent=true
+                LabLog.add("tarjeta","no se envió: ${if(!visible)"pantalla oculta" else if(suspended)"app en segundo plano" else if(nativeStage!="card")"Prex ya no está en la tarjeta" else "Prex no puede seguir"}")
+            }
+            return
+        }
+        cardNotSent=false
         enteredCardIdentity=identifyCard(pan)
         enteredCardSuffix=pan.takeLast(4)
         cardBusy=true;cardError=false;canContinue=false
@@ -427,7 +441,11 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         val version=navigationVersion
         // Literal escaping only; never log this command or retain its arguments in engine state.
         web.evaluateJavascript("window.BoleteraCard && window.BoleteraCard.submit(${org.json.JSONObject.quote(pan)},${org.json.JSONObject.quote(expiry)},${org.json.JSONObject.quote(cvv)},$automatic)") { raw ->
-            if(!destroyed && version==navigationVersion && raw!="true") { cardBusy=false;cardError=true }
+            if(!destroyed && version==navigationVersion && raw!="true") {
+                cardBusy=false
+                // Lab: the page refused the send without trying (not a card refusal): a lasting notice instead of an error that the next poll erases.
+                if(IsLab) {cardNotSent=true;LabLog.add("tarjeta","la página de Prex no tomó el envío (no estaba lista)")} else cardError=true
+            }
         }
     }
 
@@ -474,7 +492,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     fun resume() {
         if(suspended) {progressSince+=clock()-suspendedAt;failureSince+=clock()-suspendedAt}
         // Back from the background: redraw the page now and wait for its answer before showing the check again.
-        if(suspended && challenge!=null) { staleAfterResume=true; web.invalidate(); web.requestLayout() }
+        if(suspended && challenge!=null) { staleAfterResume=true; staleSince=clock(); web.invalidate(); web.requestLayout() }
         suspended=false
         if(!destroyed)web.evaluateJavascript("window.BoleteraExpress?.suspend(${!visible})",null)
         if(visible && originalLink!=null) {handler.removeCallbacks(profileStatus);handler.post(profileStatus)}
@@ -492,6 +510,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         web.evaluateJavascript("window.BoleteraVerification?.nativeMask($enabled)",null)
     }
     private fun checkProgress() {
+        // The loader over the check never outlives a page that does not answer.
+        if(staleAfterResume && clock()-staleSince>=4000) staleAfterResume=false
         if(pendingFailure!=null && clock()-failureSince>=2000) {
             val failure=pendingFailure!!;pendingFailure=null;transientFailureShown=true;fail(failure)
         }
@@ -525,6 +545,10 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         canContinue = false
         cardBusy = false
         cardError = false
+        cardNotSent = false
+        staleAfterResume = false
+        payerWhy = ""
+        failureStage = ""
         expressAmount = null
         expressPhase = "off"
         challenge = null

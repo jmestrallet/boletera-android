@@ -135,7 +135,9 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
 /** Top bar, bottom bar and Express, drawn over the blurred home. */
 @Suppress("DEPRECATION")
 @Composable internal fun LabHomeChrome(state: UiState, haze: HazeState, blur: Boolean, onChangeCard: () -> Unit, onSettings: () -> Unit, onCharge: () -> Unit,
-    onExpressCharge: (() -> Unit)?, expressPreparing: Boolean, expressProvider: String, ring: Boolean = true) {
+    onExpressCharge: (() -> Unit)?, expressPreparing: Boolean, expressProvider: String, ring: Boolean = true,
+    /** Recargar tapped while STM's minimum was never read (and nothing is loading): reads the page again instead of ignoring the tap. */
+    onNotReady: (() -> Unit)? = null) {
     val view = LocalView.current
     // The Lab home is always dark: keep the system bars dark while it is on screen, then restore the theme's.
     DisposableEffect(Unit) {
@@ -195,13 +197,18 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Lab (A3): a previous payment never leaves Recargar grey without a reason.
                 val enabled = !state.busy && state.minimum != null
+                // Grey but alive when the minimum is missing and nothing is loading: a tap reads the page again (never a dead button).
+                val tappable = enabled || (!state.busy && onNotReady != null)
                 val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                 // [ring]: the glass ring around the pill (inicio.html), or the plain 64 dp pill like every other main button.
                 Box(Modifier.weight(1f).height(76.dp).then(if (ring) Modifier.labGlass(haze, RoundedCornerShape(38.dp), blur).padding(6.dp) else Modifier),
                     contentAlignment = Alignment.Center) {
                     // It answers the finger: sinks a little and darkens while held, with Android's ripple from where it was touched.
                     Row(Modifier.fillMaxWidth().height(if (ring) 64.dp else 64.dp).labPress(press).clip(RoundedCornerShape(32.dp)).background(if (enabled) LabColors.Primary else LabColors.Primary.copy(alpha = 0.38f))
-                        .clickable(press, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = enabled, role = Role.Button) { LabLog.tap("Recargar"); haptic.performHapticFeedback(HapticFeedbackType.ContextClick); onCharge() },
+                        .clickable(press, indication = androidx.compose.material3.ripple(color = LabColors.OnPrimary), enabled = tappable, role = Role.Button) {
+                            LabLog.tap(if (enabled) "Recargar" else "Recargar (sin mínimo: se vuelve a leer)"); haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            if (enabled) onCharge() else onNotReady?.invoke()
+                        },
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                         Icon(painterResource(R.drawable.ic_add), contentDescription = null, tint = LabColors.OnPrimary, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.width(8.dp))
@@ -209,7 +216,7 @@ internal const val LAB_ONE_HOUR_FARE = 5200L
                     }
                 }
                 if (onExpressCharge != null) LabExpressButton(state.minimum, enabled = !state.busy, preparing = expressPreparing, providerName = expressProvider,
-                    onPressing = { pressing = it }, onStart = { expressUses++; hints.edit().putInt("express_uses", expressUses).apply(); onExpressCharge() })
+                    onPressing = { pressing = it }, onStart = { expressUses++; if (!LabDemo.on) hints.edit().putInt("express_uses", expressUses).apply(); onExpressCharge() })
             }
         }
     }
@@ -275,7 +282,11 @@ private val ExpressTicks = longArrayOf(0, 380, 640, 820, 950, 1040, 1105, 1150)
             }
         }
     }
-    LaunchedEffect(pressed) { if (!pressed && !preparing) fired = false }
+    // Also when the preparing ends with the home still on screen (a start that did not go through): otherwise «fired» stayed
+    // true and the next hold did nothing at all.
+    LaunchedEffect(pressed, preparing) { if (!pressed && !preparing) fired = false }
+    // The light leaves when the recharge really starts to prepare, not for a start that only ends in a notice.
+    LaunchedEffect(preparing) { if (preparing) LabExpressLight.fire() }
     val press = when {
         shot >= 0f && shot < .09f -> .9f + (1.12f - .9f) * (1 - (1 - shot / .09f).pow(3))
         shot >= .09f -> 1.12f + (1f - 1.12f) * (1 - (1 - ((shot - .09f) / .33f).coerceIn(0f, 1f)).pow(3))
@@ -287,7 +298,7 @@ private val ExpressTicks = longArrayOf(0, 380, 640, 820, 950, 1040, 1105, 1150)
     val halo = if (shot >= 0f) .75f * white * (1 - ((shot - .28f) / .28f).coerceIn(0f, 1f)) else if (still) 0f else .42f * charge * charge
     val configuration = LocalViewConfiguration.current
     val hold = remember(configuration) { object : ViewConfiguration by configuration { override val longPressTimeoutMillis = maxOf(EXPRESS_HOLD_MILLIS, configuration.longPressTimeoutMillis) } }
-    fun start() { if (enabled && !preparing && !fired) { LabLog.tap("rayo: Carga Express disparada"); fired = true; haptic.performHapticFeedback(HapticFeedbackType.Confirm); LabExpressLight.fire(); onStart() } }
+    fun start() { if (enabled && !preparing && !fired) { LabLog.tap("rayo: Carga Express disparada"); fired = true; haptic.performHapticFeedback(HapticFeedbackType.Confirm); onStart() } }
     CompositionLocalProvider(LocalViewConfiguration provides hold) {
         Box(Modifier.size(76.dp).onGloballyPositioned { LabExpressLight.from = it.boundsInRoot().center }.graphicsLayer { scaleX = press; scaleY = press; translationX = tremorX.dp.toPx(); translationY = tremorY.dp.toPx() }
             .combinedClickable(interactionSource = interaction, indication = null, enabled = enabled && !preparing, onClick = {},

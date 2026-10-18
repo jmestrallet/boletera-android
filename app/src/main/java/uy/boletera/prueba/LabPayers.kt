@@ -118,10 +118,11 @@ internal fun List<PayerProfile>.ordered() = sortedByDescending { it.personal }
 /**
  * «Datos para Prex» (C): the first time, or to add or edit someone. While no data are marked as the person's own the top
  * asks «¿Son tus datos?» (it starts on «Sí»); other people get a name to be saved with. [actionLabel] is «Continuar» in
- * the middle of a recharge and «Guardar» from Configuración. [onSave] answers whether it was saved.
+ * the middle of a recharge and «Guardar» from Configuración. [onSave] answers whether it was saved; when it was not,
+ * [failure] may say why (this screen covers the snackbar, so the engine's notice would never be seen).
  */
 @Composable internal fun LabPayerScreen(existing: PayerProfile?, askMine: Boolean, actionLabel: String, onSave: (PayerProfile) -> Boolean, onClose: () -> Unit,
-    startMine: Boolean = askMine) {
+    startMine: Boolean = askMine, failure: () -> String = { "" }) {
     val type = MaterialTheme.typography
     val id = remember(existing?.id) { existing?.id ?: java.util.UUID.randomUUID().toString() }
     var mine by remember(id) { mutableStateOf(existing?.personal ?: startMine) }
@@ -134,7 +135,8 @@ internal fun List<PayerProfile>.ordered() = sortedByDescending { it.personal }
     val document = if (documentType == "CI") cedula else passport
     var email by remember(id) { mutableStateOf(existing?.email.orEmpty()) }
     var phone by remember(id) { mutableStateOf(existing?.phone.orEmpty()) }
-    var label by remember(id) { mutableStateOf(existing?.takeIf { !it.personal && it.label != it.fullName }?.label.orEmpty()) }
+    // A label equal to the name or to the given name is the default, not a nickname: it follows the name when this is edited.
+    var label by remember(id) { mutableStateOf(existing?.takeIf { !it.personal && it.label != it.fullName && it.label != it.givenName }?.label.orEmpty()) }
     var validate by remember(id) { mutableStateOf(false) }
     var error by remember(id) { mutableStateOf("") }
     val documentValid = if (documentType == "CI") Regex("[0-9]{7,8}").matches(document) else document.isNotBlank()
@@ -200,7 +202,7 @@ internal fun List<PayerProfile>.ordered() = sortedByDescending { it.personal }
                     Text(error.ifBlank { invalid }, style = type.bodySmall.copy(fontSize = 13.sp), color = LabErrorText, modifier = Modifier.padding(start = 8.dp, bottom = 8.dp))
                 LabPrimary(actionLabel, onClick = {
                     validate = true; error = ""
-                    if (profile.valid()) { if (onSave(profile)) onClose() else error = "No se pudieron guardar los datos. Probá de nuevo." }
+                    if (profile.valid()) { if (onSave(profile)) onClose() else error = failure().ifBlank { "No se pudieron guardar los datos. Probá de nuevo." } }
                 })
             }
         }

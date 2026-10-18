@@ -109,7 +109,7 @@
       const input = form.querySelector(`input[formcontrolname="${name}"]`);
       return !attempted.has(input) && input.value && normalize(input.value) !== normalize(value);
     })) { state = 'conflict'; reason = 'Prex ya tiene otros datos'; return; }
-    if (!chooseDocumentType(type, desiredType, force)) { if (state !== 'conflict') state = 'waiting'; return; }
+    if (!chooseDocumentType(type, desiredType, force)) { if (state !== 'conflict' || force) state = 'waiting'; return; }
     for (const [name, value] of Object.entries(values)) {
       const input = form.querySelector(`input[formcontrolname="${name}"]`);
       if ((!force && attempted.has(input)) || input.disabled || input.readOnly || !['text','email','tel','number'].includes(input.type)) continue;

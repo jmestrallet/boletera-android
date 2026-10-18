@@ -51,8 +51,8 @@ internal class LabAction(val label: String, val glyph: Glyph? = null, val enable
             if (link != null) LabInlineLink(link.label, link.onClick, Modifier.padding(top = 4.dp).labEnter(2, dy = 8.dp, base = 40))
         }
         Spacer(Modifier.height(20.dp))
-        Box(Modifier.height(64.dp).fillMaxWidth().labEnter(2, base = 40)) { if (primary != null) LabPrimary(primary.label, primary.enabled, onClick = primary.onClick, glyph = primary.glyph, logLabel = primary.logLabel) }
-        Box(Modifier.height(52.dp).labEnter(3, base = 40), contentAlignment = Alignment.Center) { if (secondary != null) LabTextLink(secondary.label, secondary.onClick, quiet = secondary.quiet, logLabel = secondary.logLabel) }
+        Box(Modifier.heightIn(min = 64.dp).fillMaxWidth().labEnter(2, base = 40)) { if (primary != null) LabPrimary(primary.label, primary.enabled, onClick = primary.onClick, glyph = primary.glyph, logLabel = primary.logLabel) }
+        Box(Modifier.heightIn(min = 52.dp).labEnter(3, base = 40), contentAlignment = Alignment.Center) { if (secondary != null) LabTextLink(secondary.label, secondary.onClick, quiet = secondary.quiet, logLabel = secondary.logLabel) }
         Spacer(Modifier.height(16.dp))
     }
 }
@@ -97,9 +97,20 @@ internal fun labErrorCopy(code: String): Pair<String, String> = when (code) {
     val free = payment.canContinue && !payment.completionSubmitted
     // After a refusal the way home says so («Procesando tu pago» flashed while STM answered, Lab 21).
     var leaving by remember { mutableStateOf(false) }
-    // STM's «Recarga no confirmada» without its button working still has a way out after a while (Lab 21).
+    // STM's «Recarga no confirmada» without its button working still has a way out after a while (Lab 21). So do a receipt
+    // or STM's «Recarga exitosa» whose own button is not found (the site changed: nothing would ever move on) and a
+    // confirmation nobody answers: the balance on the home tells how it ended.
     var stuck by remember { mutableStateOf(false) }
-    LaunchedEffect(stage, leaving) { stuck = false; if (stage == "stmNotConfirmed" || leaving) { kotlinx.coroutines.delay(8000); stuck = true } }
+    LaunchedEffect(stage, leaving) {
+        stuck = false
+        val wait = when {
+            stage == "stmNotConfirmed" || leaving -> 8000L
+            stage == "receipt" || stage == "stmSuccess" -> 15_000L
+            stage == "finalConfirmation" -> 35_000L
+            else -> 0L
+        }
+        if (wait > 0) { kotlinx.coroutines.delay(wait); stuck = true }
+    }
     Box(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
         Box(Modifier.size(1.dp)) { browser() }
         val crediting = stage in listOf("stmSuccess", "returnBalance", "sessionExpired") || payment.returningToWallet && stage == "loading" ||
@@ -110,9 +121,9 @@ internal fun labErrorCopy(code: String): Pair<String, String> = when (code) {
         when {
             // After a refusal STM shows «Recarga no confirmada»; the app answers it by itself and goes back to the home.
             stage == "stmNotConfirmed" || leaving && stage != "paymentRejected" ->
-                LabStatusScreen(HeroPhase.LOADING, "Volviendo al inicio", "Un momento.", if (stuck) LabAction("Volver al inicio", onClick = onLeave) else null, null)
+                LabStatusScreen(HeroPhase.LOADING, "Volviendo al inicio", "Un momento.", null, if (stuck) LabAction("Volver al inicio", quiet = true, onClick = onLeave) else null)
             stage == "finalConfirmation" || crediting || stage == "receipt" ->
-                LabStatusScreen(HeroPhase.LOADING, processing.title, processing.line, null, null)
+                LabStatusScreen(HeroPhase.LOADING, processing.title, processing.line, null, if (stuck) LabAction("Volver al inicio", quiet = true, onClick = onLeave) else null)
             // The provider gives no reason («Existen datos incorrectos» also means no funds), so both causes are named.
             stage == "paymentRejected" -> LabStatusScreen(HeroPhase.ERROR, "Prex no aceptó el pago", "Puede faltar saldo en tu Prex o un dato de la tarjeta.",
                 LabAction("Probar de nuevo") { LabRetry.reopenAmount = true; leaving = true; if (free) payment.advance(stage) else onLeave() },

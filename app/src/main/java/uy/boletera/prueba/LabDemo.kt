@@ -84,7 +84,8 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
         }
     }
     BackHandler(enabled = stage !in setOf("welcome", "processing")) {
-        when (stage) { "home" -> stage = "welcome"; "done" -> { credited = null; stage = "home" }; else -> stage = "home" }
+        // Back while «Conectando con STM» is shown goes where its «Cancelar» goes (the entry), never past it into the home.
+        when (stage) { "home" -> stage = "welcome"; "connecting" -> stage = "welcome"; "done" -> { credited = null; stage = "home" }; else -> stage = "home" }
     }
     BackHandler(enabled = showAmount) { showAmount = false }
     BackHandler(enabled = signIn) { signIn = false }
@@ -130,7 +131,7 @@ private val DemoPayer = PayerProfile("demo", "Ana", "Ana", "Pérez", "", "", "")
             }
             if (stage == "home") {
                 LabHomeChrome(state, haze, blur = false, onChangeCard = { showCards = true }, onSettings = { showSheet = true }, onCharge = { showAmount = true },
-                    onExpressCharge = { express() }, expressPreparing = false, expressProvider = "Prex")
+                    onExpressCharge = { LabExpressLight.fire(); express() }, expressPreparing = false, expressProvider = "Prex")
                 LabAmountPanel(state, open = showAmount, onClose = { showAmount = false }, onChoose = { pay(it, quick = false) })
             }
             if (stage == "welcome") LabSignInSheet(open = signIn, document = "12345678", onDocument = {}, password = "muestra-demo", onPassword = {},

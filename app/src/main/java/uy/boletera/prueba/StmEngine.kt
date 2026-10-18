@@ -15,6 +15,22 @@ import androidx.compose.runtime.setValue
 import org.json.JSONObject
 import org.json.JSONTokener
 
+private var rendererRestartAt = 0L
+/**
+ * Android can end the pages' renderer on its own (low memory, with the app behind): left unhandled, that closes the
+ * whole app. The pages cannot be used again, so the screen is rebuilt; the session cookies and the payment journal stay.
+ */
+internal fun rendererGone(view: WebView): Boolean {
+    val now = android.os.SystemClock.elapsedRealtime()
+    if (now - rendererRestartAt > 5000) {
+        rendererRestartAt = now
+        LabLog.add("app", "las páginas se cerraron: se reabre la app")
+        val activity = view.context as? android.app.Activity
+        view.post { if (activity != null && !activity.isFinishing && !activity.isDestroyed) activity.recreate() }
+    }
+    return true
+}
+
 /** Browser automation is local, serial and restricted to the official origins. */
 @SuppressLint("SetJavaScriptEnabled")
 class StmEngine(private val context: Context) {
@@ -177,6 +193,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
             override fun onPageFinished(view: WebView, url: String?) {
                 if (url != null && allowedPage(url) && active) inspect()
             }
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean = rendererGone(view)
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel(); fail("No se pudo verificar la conexión segura. No continuamos.")
             }
@@ -213,7 +230,14 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
 
     private fun restorePaymentRecord() {
         journalUnavailable=false
-        paymentRecord=try {choices.accountKey?.let(paymentJournal::read)} catch(_:Exception) {journalUnavailable=true;null}
+        paymentRecord=try {choices.accountKey?.let(paymentJournal::read)} catch(e:Exception) {
+            // Lab: a record that can never be read again (lost key, damaged data) is cleared instead of blocking every payment;
+            // a passing keystore error still keeps the lock.
+            val unreadable=e is javax.crypto.BadPaddingException || e is org.json.JSONException || e is IllegalArgumentException ||
+                e is java.security.UnrecoverableKeyException || e is android.security.keystore.KeyPermanentlyInvalidatedException
+            if(!(IsLab && unreadable && choices.accountKey?.let { a -> runCatching { paymentJournal.clear(a) }.getOrDefault(false) }==true))journalUnavailable=true
+            null
+        }
         paymentNeedsReview=journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
     }
 
@@ -409,8 +433,10 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         if (IsLab && !payerStoreAvailable) { notice("Los datos para Prex guardados en este celular no se pueden leer. Borralos con «Olvidar este celular» y cargalos de nuevo."); return false }
         if (IsLab && (!accountVerified || state.busy)) { notice("STM todavía está leyendo tu saldo. Esperá un momento y volvé a intentar."); return false }
         if (!accountVerified || state.busy || state.activePayment != null || !payerStoreAvailable || !profile.valid()) return false
-        val others = payerProfiles.filterNot { it.id == profile.id }.map { if (profile.personal && it.personal) it.copy(personal = false) else it }
-        val updated = others + profile
+        // Editing keeps the person's place in the list; only a new one goes last.
+        val unmarked = payerProfiles.map { if (it.id != profile.id && profile.personal && it.personal) it.copy(personal = false) else it }
+        val updated = if (IsLab && unmarked.any { it.id == profile.id }) unmarked.map { if (it.id == profile.id) profile else it }
+            else unmarked.filterNot { it.id == profile.id } + profile
         return try {
             if (!payerStore.write(updated)) false else {
                 payerProfiles = updated
@@ -500,8 +526,13 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         state = state.copy(busy = false); refresh()
     }
     private fun leaveOffline() {
+        // Lab: a payment Prex confirmed keeps saying «en camino» on the home even though the balance shown is the old one.
+        val way = paymentRecord?.takeIf { IsLab && it.card == state.selectedCard && (it.phase == "confirmed" ||
+            it.phase == "credited" && it.balanceBefore != null && state.balance == it.balanceBefore) }?.amount
         clearPaymentSession(); active = false; handler.removeCallbacks(poll)
-        state = state.copy(stage = if (state.balance != null) "balance" else "welcome", busy = false, amount = null, captcha = null,
+        state = state.copy(stage = if (state.balance != null) "balance" else "welcome", busy = false, amount = null, captcha = null, onTheWay = way ?: state.onTheWay,
+            // Lab: the page is left mid-step, so the old minimum would make «Recargar» wait forever; it is read again.
+            minimum = if (IsLab) null else state.minimum,
             message = "No hay internet en el celular. Te mostramos el último saldo consultado.")
     }
 
@@ -718,9 +749,10 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         prexPayment.resume()
         if (state.stage == "externalPayment") { refresh(); return }
         if (active) { handler.removeCallbacks(poll); handler.post(poll) }
-        // Lab: a «Recarga en camino» is read again on coming back, so the home says when STM added it.
-        else if (IsLab && accountVerified && state.stage == "balance" && !state.busy && state.onTheWay != null && !noInternet() &&
-            System.currentTimeMillis() - (state.consultedAt ?: 0L) > 60_000) refresh()
+        // Lab: back on the home, a «Recarga en camino» is read again (so it says when STM added it), and so is a page left
+        // out of step by a cut. The poll keeps running on the home, so this is not an «else» of the line above.
+        if (IsLab && accountVerified && state.stage == "balance" && !state.busy && state.credited == null && !noInternet() &&
+            (state.onTheWay != null && System.currentTimeMillis() - (state.consultedAt ?: 0L) > 60_000 || pageStage != "amount")) refresh()
     }
     fun destroy() {
         destroyed = true; active = false; handler.removeCallbacksAndMessages(null); clearSecrets(); sessionAccess.clear()
@@ -813,7 +845,9 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                     else {
                         clearSecrets(); expressRequest = null; expressPayment=false
                         expressTiming.move(ExpressTiming.Phase.REVIEW)
-                        state = state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
+                        // Lab's home has no «Consultar»: it says what to do there, and «Recargar» reads the page again.
+                        state = if (IsLab && state.stage == "balance") state.copy(busy = false, amount = null, message = "STM no respondió como esperábamos. No se hizo nada; deslizá hacia abajo para probar de nuevo.")
+                            else state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
                     }
                 }
                 },1200)
@@ -1144,7 +1178,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                     expressPayment=false
                     refresh()
                     // Without internet refresh() stays put: the home is shown with the last balance.
-                    if(state.stage=="paymentBoundary") { clearPaymentSession(); active=false; handler.removeCallbacks(poll); state=state.copy(stage="balance",busy=false,amount=null) }
+                    if(state.stage=="paymentBoundary") { clearPaymentSession(); active=false; handler.removeCallbacks(poll); state=state.copy(stage="balance",busy=false,amount=null,minimum=null) }
                     state=state.copy(message=StmEngine.LAB_PAYMENT_NOT_STARTED)
                 }
             }

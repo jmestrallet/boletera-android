@@ -55,7 +55,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     expandedChallenge: Boolean, onSubmit: (String,String,String)->Unit, onOriginal: ()->Unit,
     focusCard: Boolean = false, verificationRequired: Boolean = false, onManualContinue: () -> Unit = {}, onVerificationShown: () -> Unit = {},
     onAutomaticSubmit: ((String,String,String)->Unit)? = null, onOtherCard: (() -> Unit)? = null,
-    autoContinue: Boolean = true, express: Boolean = false,
+    autoContinue: Boolean = true, express: Boolean = false, notSent: Boolean = false,
     verification: @Composable ()->Unit = {}) {
     var pan by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
@@ -82,12 +82,16 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
     // once committed, leaving the screen must not cancel that.
     var committed by remember { mutableStateOf(false) }
     fun submit(manual: Boolean = false, checkVerification: Boolean = false) {
-        if(busy || !canContinue || providerError || expandedChallenge)return
+        if(busy || !canContinue || providerError || expandedChallenge) {
+            if(IsLab && manual)LabLog.add("tarjeta","Continuar sin efecto: ${if(busy)"enviándose" else if(!canContinue)"Prex no puede seguir" else if(providerError)"error de Prex" else "verificación abierta"}")
+            return
+        }
         if(manual)onManualContinue()
         autoConsumed=true;filledFields=0;pendingContinue=false
         if(IsLab) {autofill?.commit();committed=true} else autofill?.cancel()
         keyboard?.hide();focus.clearFocus()
         val send=(if(manual&&!checkVerification)onSubmit else onAutomaticSubmit?:onSubmit)
+        if(IsLab)LabLog.add("tarjeta",if(manual&&!checkVerification)"Continuar: se envía a Prex" else "se envía sola a Prex")
         send(pan,expiry.take(2)+"/"+expiry.takeLast(2),cvv)
         // Lab keeps the code while the card step is on screen: a check that appears right at sending no longer makes the
         // person type it again. Leaving the step (or the app for 20 s) still wipes it.
@@ -102,6 +106,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
             2->expiry=if(digits.length==6)digits.take(2)+digits.takeLast(2) else digits.take(4)
             4->cvv=digits.take(4)
         }
+        if(IsLab)LabLog.add("tarjeta","Google completó ${when(field){1->"el número";2->"el vencimiento";else->"el código"}}")
         filledFields=filledFields or field
         return true
     }
@@ -130,6 +135,12 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
             else->return false
         }
         attempted=true
+        // Lab: with nothing filled, «Continuar» brings Google's list back (it is the main way in) and the record says what was missing.
+        if(IsLab) {
+            val missing=when { !CardInput.panValid(pan)->if(pan.isEmpty())"número vacío" else "número incompleto"; !CardInput.expiryValid(expiry)->"vencimiento"; else->"código" }
+            val asked=pan.isEmpty()&&!busy&&cardAutofill.request()
+            LabLog.add("tarjeta","Continuar sin datos completos: falta $missing${if(asked)" · se pidió la lista de Google" else ""}")
+        }
         target.first.requestFocus();keyboard?.show()
         scope.launch { target.second.bringIntoView();delay(300);target.second.bringIntoView() }
         return true
@@ -139,7 +150,8 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
             autofillRequested=true
             // Request the same virtual field that receives focus and the returned dataset.
             numberFocus.requestFocus();numberView.bringIntoView();delay(120)
-            cardAutofill.request()
+            val asked=cardAutofill.request()
+            if(IsLab)LabLog.add("tarjeta",if(asked)"lista de Google pedida" else "lista de Google: no hay campo de número para pedirla")
             keyboard?.show()
         }
     }
@@ -161,6 +173,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
             when {
                 event==Lifecycle.Event.ON_STOP && IsLab -> {
                     cvv="";filledFields=filledFields and 3;pendingContinue=false;stoppedAt=android.os.SystemClock.elapsedRealtime()
+                    LabLog.add("tarjeta","salió de pantalla: se borra el código; el resto, si no vuelve en 20 s")
                     wipe?.cancel();wipe=scope.launch { delay(20_000);clear() }
                 }
                 event==Lifecycle.Event.ON_STOP -> clear()
@@ -195,7 +208,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
                     keyboardActions=KeyboardActions(onNext={if(!focusMissing())keyboard?.hide()}),
                     isError=attempted&&!CardInput.panValid(pan),
-                    supportingText=if(attempted&&!CardInput.panValid(pan)) {{Text(if(IsLab)"El número no parece correcto." else "Revisá el número de tarjeta.")}} else null)
+                    supportingText=if(attempted&&!CardInput.panValid(pan)) {{Text(if(IsLab)(if(pan.isEmpty())"Te faltó completar el número de la tarjeta." else "El número no parece correcto.") else "Revisá el número de tarjeta.")}} else null)
     }
     val expiryField: @Composable (Modifier)->Unit = { modifier ->
         OutlinedTextField(value=expiry,onValueChange={ filledFields=0;pendingContinue=false;committed=false;val digits=it.filter { c->c in '0'..'9' };expiry=if(digits.length==6)digits.take(2)+digits.takeLast(2) else digits.take(4) },
@@ -205,7 +218,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Next),
                         keyboardActions=KeyboardActions(onNext={if(!focusMissing())keyboard?.hide()}),
                         isError=attempted&&!CardInput.expiryValid(expiry),
-                        supportingText=if(attempted&&!CardInput.expiryValid(expiry)) {{Text(if(IsLab)"Fecha vencida o no válida." else "Usá mes y año vigentes.")}} else null)
+                        supportingText=if(attempted&&!CardInput.expiryValid(expiry)) {{Text(if(IsLab)(if(expiry.isEmpty())"Falta el vencimiento." else "Fecha vencida o no válida.") else "Usá mes y año vigentes.")}} else null)
     }
     val cvvField: @Composable (Modifier)->Unit = { modifier ->
         OutlinedTextField(value=cvv,onValueChange={filledFields=0;pendingContinue=false;committed=false;cvv=it.filter { c->c in '0'..'9' }.take(4)},
@@ -226,7 +239,7 @@ private class CardGrouping(private val group: Int, private val separator: Char) 
             if(CardInput.cvvValid(cvv)) "Tarjeta ···· ${pan.takeLast(4)} lista." else "Tarjeta ···· ${pan.takeLast(4)}. Escribí el código de seguridad."
             else null
         LabCardFields(busy,canContinue,providerError,express,pendingContinue,verificationRequired,numberField,expiryField,cvvField,verification,verificationView,
-            onContinue={ if(!focusMissing())submit(manual=true) },onOriginal={ autofill?.cancel();onOriginal() },onOtherCard=onOtherCard,filledNote=filledNote)
+            onContinue={ if(!focusMissing())submit(manual=true) },onOriginal={ autofill?.cancel();onOriginal() },onOtherCard=onOtherCard,filledNote=filledNote,notSent=notSent)
         return
     }
     Column(Modifier.fillMaxSize()) {

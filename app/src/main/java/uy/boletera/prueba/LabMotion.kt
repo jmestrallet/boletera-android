@@ -158,9 +158,11 @@ private fun springAt(t: Float, z: Float = .74f, w: Float = 19f): Float {
     var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(still) {
         if (!still) while (true) withInfiniteAnimationFrameMillis {
-            LabCardFlight.now = LabCardClock.seconds(it); tick++
+            LabCardFlight.now = LabCardClock.seconds(it)
             // The trip ends here, once per frame and outside drawing; the landed slot is redrawn with its card.
+            // With nothing flying the layer is not redrawn: it used to repaint the whole screen every frame (battery).
             LabCardFlight.flight?.let { f ->
+                tick++
                 if (f.start < 0f) f.start = LabCardFlight.now
                 else if (LabCardFlight.progress(f) >= LabCardFlight.LENGTH) LabCardFlight.flight = null
             }

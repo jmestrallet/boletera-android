@@ -199,7 +199,7 @@ private object LabWaitMemo { var live = 0; var leftAt = 0L }
             counting = false; LabLog.add("Express", "cuenta terminada: paga"); pay()
         }
         Box(Modifier.weight(1f).fillMaxWidth().heightIn(min = 24.dp), contentAlignment = Alignment.Center) {
-            if (counting && countdown > 0) LabCountdownRing(left, fill, paused = !focused)
+            if (counting && countdown > 0) LabCountdownRing(left, { fill }, paused = !focused)
         }
         Box(Modifier.labEnter(2, dy = 0.dp, dx = 28.dp, base = 40).onGloballyPositioned { payRect = it.boundsInWindow() }) {
             LabPrimary(when { counting && countdown > 0 -> "Pagar ahora"; otherCard -> "Pagar con ···· $shownSuffix"; else -> "Pagar ${Amounts.format(amount)} ahora" }, canPay && !paid,
@@ -214,7 +214,7 @@ private object LabWaitMemo { var live = 0; var leftAt = 0L }
 }
 
 /** Carga Express' count before paying: a ring that fills with the number in the middle, and what it is doing under it. */
-@Composable private fun LabCountdownRing(left: Int, progress: Float, paused: Boolean = false) {
+@Composable private fun LabCountdownRing(left: Int, progress: () -> Float, paused: Boolean = false) {
     val type = MaterialTheme.typography
     // Read once per second as one phrase (not the digit and the line twice).
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clearAndSetSemantics {
@@ -229,7 +229,7 @@ private object LabWaitMemo { var live = 0; var leftAt = 0L }
                 val size = androidx.compose.ui.geometry.Size(this.size.width - stroke, this.size.height - stroke)
                 val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
                 drawArc(track, 0f, 360f, false, topLeft, size, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
-                drawArc(arc, -90f, 360f * progress.coerceIn(0f, 1f), false, topLeft, size,
+                drawArc(arc, -90f, 360f * progress().coerceIn(0f, 1f), false, topLeft, size,
                     style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
             }
             Text("$left", style = type.displaySmall.copy(fontSize = 40.sp, lineHeight = 44.sp), color = LabColors.On)
@@ -408,7 +408,7 @@ private object LabWaitMemo { var live = 0; var leftAt = 0L }
                         LabPaymentLine(amount, card)
                         // Google's list opens by itself on every card step; once Google filled all three it goes on to «Confirmá tu pago» (owner, 17/10).
                         NativeCardForm(payment.cardBusy, payment.canContinue, payment.cardError, payment.expandedChallenge, payment::submitCard,
-                            { if (payment.prepareOriginalReview()) showOriginal = true }, focusCard = true, autoContinue = true, express = express,
+                            { if (payment.prepareOriginalReview()) showOriginal = true }, focusCard = true, autoContinue = true, express = express, notSent = payment.cardNotSent,
                             verificationRequired = payment.verificationRequired && !payment.verificationApproved, onManualContinue = payment.manualContinueObserver,
                             onVerificationShown = payment::cardVerificationShown, onAutomaticSubmit = payment::submitAutofilledCard,
                             onOtherCard = { LabRetry.reopenAmount = true; onClose() }) { check() }
@@ -451,7 +451,7 @@ private object LabWaitMemo { var live = 0; var leftAt = 0L }
 @Composable internal fun LabCardFields(busy: Boolean, canContinue: Boolean, providerError: Boolean, express: Boolean, waitingCheck: Boolean,
     checkRequired: Boolean, number: @Composable (Modifier) -> Unit, expiry: @Composable (Modifier) -> Unit, code: @Composable (Modifier) -> Unit,
     verification: @Composable () -> Unit, verificationView: androidx.compose.foundation.relocation.BringIntoViewRequester,
-    onContinue: () -> Unit, onOriginal: () -> Unit, onOtherCard: (() -> Unit)? = null, filledNote: String? = null) {
+    onContinue: () -> Unit, onOriginal: () -> Unit, onOtherCard: (() -> Unit)? = null, filledNote: String? = null, notSent: Boolean = false) {
     val type = MaterialTheme.typography
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 18.dp)) {
@@ -470,6 +470,10 @@ private object LabWaitMemo { var live = 0; var leftAt = 0L }
                 providerError -> Row(Modifier.padding(start = 4.dp, end = 4.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     AppGlyph(Glyph.Info, Modifier.size(17.dp), tint = LabColors.Rose)
                     Text("Prex no aceptó esta tarjeta. Probá con otra o revisá los datos.", style = type.bodySmall.copy(fontSize = 13.sp, lineHeight = 19.sp), color = LabColors.Rose)
+                }
+                notSent && !checkRequired -> Row(Modifier.padding(start = 4.dp, end = 4.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    AppGlyph(Glyph.Info, Modifier.size(17.dp), tint = LabColors.Rose)
+                    Text("No pudimos mandarla a Prex. Probá de nuevo en un momento.", style = type.bodySmall.copy(fontSize = 13.sp, lineHeight = 19.sp), color = LabColors.Rose)
                 }
                 waitingCheck || checkRequired -> Text(if (waitingCheck) "Completá la verificación y seguimos solos." else "Completá la tarjeta y la verificación para seguir.",
                     style = type.bodySmall.copy(fontSize = 13.sp), color = LabColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 10.dp))

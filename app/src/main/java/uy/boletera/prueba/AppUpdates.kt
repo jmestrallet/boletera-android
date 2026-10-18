@@ -249,10 +249,12 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         return try { context.startActivity(intent);true } catch (_: Exception) { false }
     }
     private fun publish(action: () -> Unit) { main.post { if (!closed) action() } }
-    private fun work(action: () -> Unit) {
+    /** [checking]: the work is a look for a new version, not a download (Lab words its failure for that and keeps it out of [downloadFailed]). */
+    private fun work(checking: Boolean = false, action: () -> Unit) {
         busy = true
         worker.execute {
             try { action() } catch (error: Exception) {
+                val labCheck=checking && installedChannel==UpdateChannel.LAB
                 val detail=when(error.message) {
                     "La descarga no es compatible con la app instalada." -> "La versión publicada no es compatible con la instalada. Buscá una actualización más reciente."
                     "La descarga no corresponde a la versión elegida.",
@@ -260,10 +262,14 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                     "La descarga está incompleta o no coincide con la publicada." -> error.message!!
                     // GitHub's own limit says what it is instead of «No se pudo preparar…» (Lab 21).
                     else -> if(error.message?.startsWith("GitHub")==true) error.message!!
+                        // A failed look for a version is not a failed update (Lab 22): it says what it was doing.
+                        else if(labCheck)(if(error is java.io.IOException)"No pudimos buscar actualizaciones. Cuando vuelva la conexión, probá de nuevo." else "No pudimos buscar actualizaciones. Probá de nuevo en un rato.")
                         else if(error is java.io.IOException)"No se pudo completar la actualización. Revisá la conexión y volvé a intentar."
                         else "No se pudo preparar la actualización. Buscá actualizaciones y volvé a intentar."
                 }
-                publish { message = detail; downloadFailed = true }
+                LabLog.add("actualización", "falló ${if(checking)"la búsqueda" else "la descarga"}: ${error.javaClass.simpleName} · $detail")
+                // An automatic look that failed (no internet on opening) must not paint Configuración as a failed download.
+                publish { message = detail; downloadFailed = !labCheck }
             } finally { publish { busy = false } }
         }
     }
@@ -296,7 +302,8 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         preferences.edit().putLong("last_attempt.${channel.key}",System.currentTimeMillis()).apply()
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
         ready = false; release = null; downloadFailed = false; message = "Buscando actualizaciones…"
-        work {
+        LabLog.add("actualización", if(automatic)"buscando una versión nueva (al abrir)" else "buscando una versión nueva (a pedido)")
+        work(checking = true) {
             // Lab installs beside this app, so compare against the Lab copy (if any), not against this app.
             val separateLab=requested==UpdateChannel.LAB && labIsSeparate
             val labInstalled=if(separateLab)labVersion() else null
@@ -318,6 +325,8 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
                 if(found==null)prompt=false
                 if(automatic && found!=null && installedChannel==UpdateChannel.LAB &&
                     (found.critical || preferences.getString("skipped.${requested.key}",null)!=found.version)) prompt=true
+                LabLog.add("actualización", if(found==null)"no hay versión nueva" else
+                    "hay ${UpdatePolicy.display(found.version)}${if(found.critical)" (crítica)" else ""}${if(prompt)" · se ofrece al abrir" else ""}")
                 message = if(separateLab) {
                     if(found!=null)"Boletera Lab ${UpdatePolicy.display(found.version)} está lista. Se instala aparte: esta app no cambia."
                     else if(labInstalled!=null)"Tenés la última Boletera Lab."
@@ -340,6 +349,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         val destination=apk
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
         ready = false; downloadFailed = false; message = "Descargando…"; progress = 0
+        LabLog.add("actualización", "descarga empezada")
         work {
             destination.parentFile!!.mkdirs()
             val partial = File(destination.parentFile, "boletera-${selected.channel.key}.part")
@@ -356,11 +366,15 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     /** «Ahora no» skips this version (a newer one asks again); a critical one asks again on the next opening. */
     fun skipPrompt() {
         prompt=false
+        // Closing the sheet while its download runs is not «no quiero»: the version is not skipped and the review comes when it is ready.
+        if(busy) { LabLog.add("actualización", "aviso cerrado con la descarga en curso"); return }
+        LabLog.add("actualización", "aviso: ahora no")
         release?.let { if(!it.critical) preferences.edit().putString("skipped.${channel.key}",it.version).apply() }
     }
     internal fun downloadReady() {
         prompt = false
         ready = true; installRequested = false; reviewRequested = true
+        LabLog.add("actualización", "descarga lista")
         message = "Descarga lista. Revisá las novedades antes de instalar."
     }
     fun requestReview() {
@@ -368,10 +382,12 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     }
     fun dismissReview() {
         reviewRequested = false; installRequested = false
+        LabLog.add("actualización", "instalar: más tarde")
         message = "Descarga lista. Podés instalarla desde Ajustes cuando quieras."
     }
     fun acceptReview() {
         if (!ready || busy || !reviewRequested) return
+        LabLog.add("actualización", "instalar aceptado")
         reviewRequested = false; installRequested = true
     }
     fun onForeground(context: Context) {
@@ -380,6 +396,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         checkAutomatic()
         if (!awaitingInstallPermission) return
         awaitingInstallPermission = false
+        LabLog.add("actualización", "vuelta de la pantalla del permiso de instalación")
         if (context.packageManager.canRequestPackageInstalls() && ready) installRequested = true
         else message = "Falta habilitar la instalación desde Boletera. Podés volver a intentarlo."
     }
@@ -389,13 +406,18 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         try {
             if (!context.packageManager.canRequestPackageInstalls()) {
                 awaitingInstallPermission = true
+                LabLog.add("actualización", "falta el permiso de instalación: se abre su pantalla")
                 message = "Activá «Permitir desde esta fuente» y volvé. El instalador se abrirá automáticamente."
                 context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
                 return
             }
             context.startActivity(UpdateFiles.installIntent(context, apk))
+            LabLog.add("actualización", "instalador de Android abierto")
             message = "Confirmá la instalación en Android. Si la cancelás, podés volver a intentarlo."
-        } catch (_: Exception) { awaitingInstallPermission = false; message = "Android no pudo abrir el instalador. Volvé a intentar." }
+        } catch (error: Exception) {
+            awaitingInstallPermission = false; message = "Android no pudo abrir el instalador. Volvé a intentar."
+            LabLog.add("actualización", "el instalador no abrió: ${error.javaClass.simpleName}")
+        }
     }
     override fun onCleared() { closed = true; worker.shutdownNow(); main.removeCallbacksAndMessages(null) }
 }

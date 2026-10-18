@@ -188,7 +188,7 @@ private fun Modifier.intro(v: State<Float>) = graphicsLayer { alpha = v.value.co
                 !authenticating && !state.busy && !working, onUnlock, Glyph.Fingerprint)
             else LabPrimary(if (working) "Entrando…" else if (failed) "Volver a intentar" else "Ingresar", !state.busy && !working, onManual)
         }
-        Box(Modifier.height(52.dp).intro(intro[3]), contentAlignment = Alignment.Center) {
+        Box(Modifier.heightIn(min = 52.dp).intro(intro[3]), contentAlignment = Alignment.Center) {
             if (savedAccess) LabTextLink("Ingresar con contraseña", onManual)
             // Only someone who never got in can be on a first access.
             else LabTextLink("¿Es tu primer ingreso a STM?", onAccessGuide)
