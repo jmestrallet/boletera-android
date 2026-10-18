@@ -2,6 +2,7 @@
 
 ## ESTADO ACTUAL (17/10/2026 noche) — leer primero
 - **Publicadas:** Lab 17 (code 77), Lab 18 (78), Lab 19 (79), Lab 20 (80, b1a1a49), **Lab 21 (81, eec3185, 17/10 21:50)** = la última.
+- **18/10 — el dueño dice que con Lab 21 «cada vez la app anda peor, cada vez andan menos cosas».** Pidió un chat nuevo que analice toda la app por módulos (un agente por módulo que revisa y arregla, más un coordinador que une). Antes de tocar nada: preguntarle qué falla concretamente y leer sus reportes en jmestrallet/boletera-reportes.
 - **Lab 21 publicada** con toda la revisión. Pendiente para después: reintento de tarjeta rechazada sin volver al monto (sin tarjeta real no se puede probar) y cédula de 7 dígitos en la app no-Lab. Confirmar con el dueño en uso real: Google completa la tarjeta entera tras su huella; la espera ya no salta.
 - **Para la próxima Lab (sin publicar, en lab):** ícono corrido 2 a la derecha (opción A del dueño 18/10, en las 3 apps); aviso cuando el pago no arranca = «El pago no llegó a hacerse, probá nuevamente.» (texto final del dueño, 18/10). Lab 21 salió con «No pudimos preparar el pago. Probá de nuevo.». Falta su OK a la hoja «Un pago quedó sin respuesta».
 - **Hoja «Un pago quedó sin respuesta»** (aprobada): solo al Recargar/Express si hay pago de esa boletera en «authorizing/pending» de menos de 30 min; «Recargar igual» / «Esperar».
