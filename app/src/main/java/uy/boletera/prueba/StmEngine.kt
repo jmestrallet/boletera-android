@@ -1215,7 +1215,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
     companion object {
         const val OFFLINE = "No hay internet en el celular. Conectate a Wi-Fi o datos y volvé a intentar."
         // Lab 21, worded with the owner (17/10): says what happened, calmly, without blaming anyone.
-        const val LAB_PAYMENT_NOT_STARTED = "No se llegó a realizar el pago, probá nuevamente."
+        const val LAB_PAYMENT_NOT_STARTED = "El pago no llegó a hacerse, probá nuevamente."
         const val START ="https://stm.gub.uy/app/mistm/cuenta/"
         const val CARDS = "https://stm.gub.uy/app/mistm/cuenta/pages/tarjetas.xhtml"
     }
