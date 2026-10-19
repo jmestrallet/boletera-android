@@ -249,7 +249,9 @@ class MainActivity : FragmentActivity() {
         var showPaymentReview by remember {mutableStateOf(false)}
         val helpPreferences=remember { getSharedPreferences("feature_help",MODE_PRIVATE) }
         // First launch explains STM's one-time authorization before the first login attempt, not after it fails.
-        var firstAccessIntro by remember { mutableStateOf(!helpPreferences.getBoolean("stm_first_access_v1",false)) }
+        var firstAccessIntro by remember { mutableStateOf(!helpPreferences.getBoolean("stm_first_access_v1",false) &&
+            // Someone who already signed in (Alpha 5 never wrote that flag) is not on a first open (0.3.0 Alpha 1).
+            !(IsLab && getSharedPreferences("journey_choices",MODE_PRIVATE).contains("session_account"))) }
         fun closeFirstAccessIntro(openStm: Boolean) {
             helpPreferences.edit().putBoolean("stm_first_access_v1",true).apply()
             firstAccessIntro=false

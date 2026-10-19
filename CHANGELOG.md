@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.3.0 Alpha 1 - La nueva Boletera llega a Alpha
+
+- Boletera Alpha pasa a tener todo lo de Boletera Lab hasta Lab 24 (diseño nuevo, Carga Express, tarjeta de Google con huella, «Datos para Prex», «Ver la página», registro y reportes directos, modo demo). Sigue siendo la Alpha: «Boletera Alpha», ícono azul, mismo paquete y datos; se actualiza sobre Alpha 5. Lab sigue aparte.
+- En el código: `IsLab` = experiencia nueva (Lab y Alpha); `IsLabApp` = la app Lab en sí. Estable y Beta no cambian.
+- La Alpha nueva solo busca versiones Alpha (un canal elegido en Alpha 5 se descarta: no podría instalarse); no tiene selector de canal ni «Abrir Boletera Lab».
+- versionCode 62 (Estable/Beta en 61): la próxima Alpha necesita 63 o más, y Estable/Beta 63 o más para instalarse sobre esta Alpha.
+- Quien ya entró en Alpha 5 no ve el aviso «Antes de entrar» de la primera vez.
+- Revisión de 2 agentes Sonnet: actualización desde Alpha 5 sin datos perdidos ni cierres; identidad Lab/Alpha sin textos de Lab en Alpha.
+
 ## 0.2.40 Lab 24 - Ver la página y gub.uy a la vista
 
 - «Ver la página» en las pantallas de error de Lab: la página real de STM o gub.uy en vivo, para usarla (sin pago activo); la de Prex, después de un error de pago, solo para mirar (no se puede tocar: podría pagarse sin seguimiento). Atrás o «Volver» la cierran.

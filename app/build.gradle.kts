@@ -28,11 +28,13 @@ android {
         applicationId = if (isLab) "uy.boletera.lab" else "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = if (legacyUpdateBridge) 49 else if (isLab) 84 else 61
+        // 0.3.0 Alpha 1 shares the package with Estable and Beta (code 61): one above, so it updates Alpha 5. From here on the
+        // next Alpha needs 63 or more, and Estable/Beta 63 or more too if they must install over this Alpha (no downgrades).
+        versionCode = if (legacyUpdateBridge) 49 else if (isLab) 84 else if (isAlpha) 62 else 61
         versionName = when {
             legacyUpdateBridge -> "0.2.31-prueba"
             isLab -> "0.2.40-lab.24"
-            isAlpha -> "0.2.40-alpha.5"
+            isAlpha -> "0.3.0-alpha.1"
             isBeta -> "0.2.40-beta.2"
             else -> "0.2.40"
         }
@@ -41,11 +43,12 @@ android {
         // committed) and is read at build time; without it «Enviar reporte» falls back to the share sheet.
         val reportToken = rootProject.file(".tools/reports-token.txt").takeIf { it.exists() }?.readText()?.trim().orEmpty()
             .filter { it.isLetterOrDigit() || it == '_' }
-        buildConfigField("String", "REPORT_TOKEN", "\"${if (isLab) reportToken else ""}\"")
+        // Alpha has the new experience since 0.3.0 Alpha 1 and reports straight too (owner 19/10).
+        buildConfigField("String", "REPORT_TOKEN", "\"${if (isLab || isAlpha) reportToken else ""}\"")
         buildConfigField("String", "DISPLAY_VERSION", when {
             legacyUpdateBridge -> "\"0.2.31\""
             isLab -> "\"0.2.40 Lab 24\""
-            isAlpha -> "\"0.2.40 Alpha 5\""
+            isAlpha -> "\"0.3.0 Alpha 1\""
             isBeta -> "\"0.2.40 Beta 2\""
             else -> "\"0.2.40\""
         })
@@ -53,7 +56,7 @@ android {
         // Lab gets a violet launcher tile so it is never mistaken for the everyday app.
         resValue("color", "app_icon_background", if (isLab) "#7C4DFF" else "#1A73D9")
         resValue("color", "app_icon_background_end", if (isLab) "#4527A0" else "#0B4A94")
-        manifestPlaceholders["appTheme"] = if (isLab) "@style/AppTheme.Lab" else "@style/AppTheme"
+        manifestPlaceholders["appTheme"] = if (isLab || isAlpha) "@style/AppTheme.Lab" else "@style/AppTheme"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }

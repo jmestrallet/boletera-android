@@ -23,7 +23,14 @@ import androidx.compose.ui.unit.sp
 internal data class LabNews(@DrawableRes val icon: Int, val title: String, val line: String)
 
 /** What Lab 7 brings, shown once after updating. Up to four; the full detail stays on GitHub. */
-internal val LabWhatsNewItems = listOf(
+internal val LabWhatsNewItems get() = if (IsLabApp) LabAppNews else AlphaNews
+/** 0.3.0 Alpha 1: Alpha becomes the new Boletera (owner 19/10). */
+private val AlphaNews = listOf(
+    LabNews(R.drawable.ic_science, "Una Boletera nueva", "Diseño nuevo de punta a punta."),
+    LabNews(R.drawable.ic_bolt, "Carga Express", "Mantené el rayo y se carga el mínimo solo."),
+    LabNews(R.drawable.ic_credit_card, "Tu tarjeta de Google", "Pagás con tu huella. Boletera no guarda tarjetas."),
+)
+private val LabAppNews = listOf(
     LabNews(R.drawable.ic_visibility, "Ver la página", "Si algo falla, mirás qué muestra STM o Prex."),
     LabNews(R.drawable.ic_login, "gub.uy a la vista", "Si el ingreso se traba, te muestra qué te pide."),
     LabNews(R.drawable.ic_credit_card, "Google completa la tarjeta entera", "Aunque te pida la huella antes de llenarla."),

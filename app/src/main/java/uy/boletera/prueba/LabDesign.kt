@@ -33,8 +33,13 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-/** Boletera Lab: the owner's experimental build, installed next to Boletera. */
-internal val IsLab: Boolean get() = BuildConfig.DISTRIBUTION_CHANNEL == "lab"
+/**
+ * The new Boletera experience (design, Express, «Ver la página», the use record): born in Boletera Lab and, since
+ * 0.3.0 Alpha 1 (owner 19/10), also Boletera Alpha. Which app it is (name, icon, updates) is [IsLabApp] and the channel.
+ */
+internal val IsLab: Boolean get() = BuildConfig.DISTRIBUTION_CHANNEL == "lab" || BuildConfig.DISTRIBUTION_CHANNEL == "alpha"
+/** Boletera Lab itself: the owner's experimental app, installed next to Boletera. */
+internal val IsLabApp: Boolean get() = BuildConfig.DISTRIBUTION_CHANNEL == "lab"
 
 /** The Lab home is dark by design, independent of the app theme. */
 internal object LabColors {

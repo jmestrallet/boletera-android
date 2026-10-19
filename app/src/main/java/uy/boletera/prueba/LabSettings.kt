@@ -88,7 +88,7 @@ private val RowLine = Color.White.copy(alpha = .09f)
                         release != null -> "$next disponible"
                         updates.busy -> "Buscando…"
                         searched -> updates.message
-                        else -> "Boletera Lab · experimental"
+                        else -> if (IsLabApp) "Boletera Lab · experimental" else "Boletera Alpha · en desarrollo"
                     }, painted = painted) {
                         when {
                             updates.ready -> SmallAction("Instalar", painted = true, onClick = onInstall)

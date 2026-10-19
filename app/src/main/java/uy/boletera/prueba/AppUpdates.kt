@@ -228,8 +228,12 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     private val main = Handler(Looper.getMainLooper())
     private var closed = false
     private val apk get() = File(getApplication<Application>().cacheDir, "updates/boletera-${channel.key}.apk")
-    /** Lab only knows itself; the other apps offer the four channels, Lab installing beside them. */
-    val channels: List<UpdateChannel> = if(installedChannel==UpdateChannel.LAB) listOf(UpdateChannel.LAB) else UpdateChannel.entries
+    /**
+     * The new experience (Lab, and Alpha since 0.3.0 Alpha 1) only knows its own channel: its Configuración has no channel
+     * picker, and a channel chosen in Alpha 5 (Beta, Estable) would leave it offering a version it cannot install. The
+     * classic apps offer the four channels, Lab installing beside them.
+     */
+    val channels: List<UpdateChannel> = if(IsLab) listOf(installedChannel) else UpdateChannel.entries
     private val labIsSeparate get() = installedChannel!=UpdateChannel.LAB
     init {
         val priorArtifact=preferences.getString("installed_artifact",null)
@@ -254,7 +258,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         busy = true
         worker.execute {
             try { action() } catch (error: Exception) {
-                val labCheck=checking && installedChannel==UpdateChannel.LAB
+                val labCheck=checking && IsLab
                 val detail=when(error.message) {
                     "La descarga no es compatible con la app instalada." -> "La versión publicada no es compatible con la instalada. Buscá una actualización más reciente."
                     "La descarga no corresponde a la versión elegida.",
@@ -321,9 +325,9 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
             publish {
                 if(channel!=requested)return@publish
                 release = found
-                automaticNotice = automatic && found!=null && installedChannel!=UpdateChannel.LAB
+                automaticNotice = automatic && found!=null && !IsLab
                 if(found==null)prompt=false
-                if(automatic && found!=null && installedChannel==UpdateChannel.LAB &&
+                if(automatic && found!=null && IsLab &&
                     (found.critical || preferences.getString("skipped.${requested.key}",null)!=found.version)) prompt=true
                 LabLog.add("actualización", if(found==null)"no hay versión nueva" else
                     "hay ${UpdatePolicy.display(found.version)}${if(found.critical)" (crítica)" else ""}${if(prompt)" · se ofrece al abrir" else ""}")
@@ -392,7 +396,7 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     }
     fun onForeground(context: Context) {
         // A critical version already downloaded but not installed asks again on every opening.
-        if(installedChannel==UpdateChannel.LAB && ready && release?.critical==true && !reviewRequested && !installRequested && !awaitingInstallPermission) reviewRequested=true
+        if(IsLab && ready && release?.critical==true && !reviewRequested && !installRequested && !awaitingInstallPermission) reviewRequested=true
         checkAutomatic()
         if (!awaitingInstallPermission) return
         awaitingInstallPermission = false
