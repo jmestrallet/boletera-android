@@ -13,6 +13,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable internal fun PaymentCompletionScreen(payment: EmbeddedPrexPayment, pending: ActivePayment?, onOriginal: () -> Unit, browser: @Composable () -> Unit) {
     val stage=payment.nativeStage
+    // Lab tells the end of a payment with the card; the confirmation step keeps the shared layout until the payment flow is redesigned.
+    if(IsLab && (stage!="finalConfirmation" || payment.completionSubmitted)) { LabPaymentResult(payment,pending,onOriginal,browser=browser); return }
     if(stage in listOf("stmSuccess","returnBalance","sessionExpired") || payment.returningToWallet && stage=="loading" ||
         payment.expressJourney && (stage=="receipt" || stage=="finalConfirmation" && payment.completionSubmitted)) {
         Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
@@ -72,7 +74,7 @@ import androidx.compose.ui.unit.dp
             }
             if(payment.completionSubmitted)Text(if(confirming)"Esperando la respuesta de Prex…" else "Volviendo a STM…",style=MaterialTheme.typography.bodyMedium,color=Muted)
         }
-        Surface(color=Paper,shadowElevation=6.dp) {
+        Surface(color=Paper,shadowElevation=if(IsLab)0.dp else 6.dp) {
             Column(Modifier.fillMaxWidth().padding(horizontal=24.dp,vertical=12.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 Primary(if(confirming)"Confirmar pago" else "Volver a mi boletera",payment.canContinue) {payment.advance(stage)}
                 TextButton(onClick=onOriginal) {Text("Ver página original")}

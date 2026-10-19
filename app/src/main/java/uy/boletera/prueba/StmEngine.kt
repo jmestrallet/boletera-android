@@ -15,6 +15,22 @@ import androidx.compose.runtime.setValue
 import org.json.JSONObject
 import org.json.JSONTokener
 
+private var rendererRestartAt = 0L
+/**
+ * Android can end the pages' renderer on its own (low memory, with the app behind): left unhandled, that closes the
+ * whole app. The pages cannot be used again, so the screen is rebuilt; the session cookies and the payment journal stay.
+ */
+internal fun rendererGone(view: WebView): Boolean {
+    val now = android.os.SystemClock.elapsedRealtime()
+    if (now - rendererRestartAt > 5000) {
+        rendererRestartAt = now
+        LabLog.add("app", "las páginas se cerraron: se reabre la app")
+        val activity = view.context as? android.app.Activity
+        view.post { if (activity != null && !activity.isFinishing && !activity.isDestroyed) activity.recreate() }
+    }
+    return true
+}
+
 /** Browser automation is local, serial and restricted to the official origins. */
 @SuppressLint("SetJavaScriptEnabled")
 class StmEngine(private val context: Context) {
@@ -34,12 +50,16 @@ class StmEngine(private val context: Context) {
     private var polling = false
     private var pageStage = ""
     private var passwordStepSeen = false
+    /** Lab: the password was already sent in this sign-in; gub.uy asking for it again is shown, never answered again. */
+    private var passwordSent = false
     private var navigationGeneration = 0
     private var secretsExpireAt = 0L
     private var sessionRequest = 0
     private val stageTrail = ArrayDeque<String>()
     private var interruptedAccess = false
     private var accountVerified = false
+    /** STM already accepted this session: retrying or going back re-reads with it instead of signing in again. */
+    val sessionVerified: Boolean get() = accountVerified
     private var accessRequestId = 0
     private var recoveringSession = false
     private val recoverySteps = mutableSetOf<String>()
@@ -61,6 +81,8 @@ class StmEngine(private val context: Context) {
         private set
     private var payerStoreAvailable = true
     private var choosingCard = false
+    /** The card list is shown only when the person asked for it or must choose; passing through it to reach the usual card is invisible. */
+    val cardPickerWanted: Boolean get() = choosingCard || state.selectedCard == null || state.cards.none { it.id == choices.card && it.active }
     private var activityOpened = false
     private var awaitingNavigation = false
     private val paymentBrowser = PaymentBrowser(context)
@@ -71,8 +93,69 @@ class StmEngine(private val context: Context) {
     private var expressRequest: ExpressChoice? = null
     private var expressPayment = false
     private val expressTiming = ExpressTiming(android.os.SystemClock::elapsedRealtime)
-    internal val helpDiagnostic: String get() = listOf(state.diagnostic,expressTiming.report()).filter {it.isNotBlank()}.joinToString("\n\n")
+    /** Shape of the last STM page the activity journey could not read: digits masked, no values. */
+    private var activityShape = ""
+    internal val helpDiagnostic: String get() = listOf(state.diagnostic,activityShape,expressTiming.report(),expressNotStarted).filter {it.isNotBlank()}.joinToString("\n\n")
+    /** The other apps keep the shape they always sent; Lab sends more of the page, never a typed value. */
+    private val activityShapeScript get() = if (IsLab) labShapeScript else classicShapeScript
+    private val classicShapeScript = """(()=>{const t=e=>(e.innerText||e.value||'').replace(/\s+/g,' ').trim().replace(/\d/g,'#').slice(0,60);
+const pick=(s,n)=>[...document.querySelectorAll(s)].map(t).filter(Boolean).slice(0,n);
+return JSON.stringify({sitio:location.host,ruta:location.pathname.replace(/\d/g,'#').slice(0,80),titulo:document.title.replace(/\d/g,'#'),titulos:pick('h1,h2,h3,legend,.ui-panel-title',8),
+columnas:pick('th',12),botones:pick('button,a.ui-commandlink,input[type=submit]',12),filas:document.querySelectorAll('tbody tr').length,
+avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
+    // Lab (19/10): also gub.uy's notices, the fields (kind and empty/filled only), captcha hosts and disabled buttons.
+    // A field is never read (only a button's label), a notice that wraps a form or a page is skipped (it could carry a
+    // name), digits are hidden and the session id some paths carry (;jsessionid=…) is dropped.
+    private val labShapeScript = """(()=>{const field=e=>/^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName),button=e=>/^(submit|button)$/.test(e.type);
+const t=e=>(field(e)?(button(e)?e.value:''):(e.innerText||'')).replace(/\s+/g,' ').trim().replace(/\d/g,'#').slice(0,60);
+const pick=(s,n)=>[...document.querySelectorAll(s)].filter(e=>!field(e)||button(e)).map(t).filter(Boolean).slice(0,n);
+return JSON.stringify({sitio:location.host,ruta:location.pathname.replace(/;[^\/]*/g,'').replace(/\d/g,'#').slice(0,80),titulo:document.title.replace(/\d/g,'#'),titulos:pick('h1,h2,h3,legend,.ui-panel-title',8),
+columnas:pick('th',12),botones:pick('button,a.ui-commandlink,input[type=submit]',12),filas:document.querySelectorAll('tbody tr').length,
+avisos:[...document.querySelectorAll('.ui-messages,.ui-message,.ui-growl-message,[role=alert],.alert,.error,.invalid-feedback,mat-error,.text-danger,.error-message')]
+.filter(e=>!field(e)&&!e.querySelector('input,button,a,table,form,h1,h2,h3,nav,main')).map(t).filter(Boolean).slice(0,6),
+campos:[...document.querySelectorAll('input,select,textarea')].filter(e=>e.type!=='hidden').slice(0,10).map(e=>[e.type,e.autocomplete||'',e.getBoundingClientRect().width>0?'visible':'oculto',e.value?'lleno':'vacío'].join(' ')),
+captcha:[...document.querySelectorAll('iframe')].map(e=>{try{return new URL(e.src).hostname}catch(_){return ''}}).filter(h=>/captcha|recaptcha|hcaptcha|turnstile|google/.test(h)).slice(0,3),
+inactivos:[...document.querySelectorAll('button:disabled,input[type=submit]:disabled')].map(t).filter(Boolean).slice(0,6)});})()"""
+    /** Records what STM showed, then fails; the owner can share it from Configuración → Información de ayuda. */
+    private fun failActivityWithShape(message: String) = failWithShape("Actividad", message)
+    /** Same as [fail], keeping the masked shape of the page so an unknown STM step can be diagnosed later. */
+    private fun failWithShape(where: String, message: String) {
+        active=false
+        val request=sessionRequest
+        web.evaluateJavascript(activityShapeScript) { raw ->
+            activityShape = "$where · $message\n" + (try { org.json.JSONTokener(raw).nextValue().toString() } catch (_: Exception) { "" }).take(1500)
+            // A late answer after Back or a new login must not paint an error over the next screen.
+            if (request == sessionRequest && !destroyed) fail(message)
+        }
+    }
     val expressPreparing: Boolean get() = expressPayment && state.busy
+    /**
+     * Lab: STM's own page (gub.uy's sign-in) is on screen and the person uses it. While it is, the app never types or taps
+     * on it: it only notices when the sign-in is left behind and goes on from there.
+     */
+    var livePage by mutableStateOf(false)
+        private set
+    /** There is a page to show (after an error the last page stays loaded; a blank one is not worth showing). */
+    val hasPage: Boolean get() = NavigationPolicy.allowed(web.url ?: "")
+    fun showLivePage(reason: String) {
+        // Never during a payment: a payment page shown live could be paid from without the app following it.
+        if (!IsLab || livePage || !hasPage || state.activePayment != null || paymentInFlight) return
+        // The person takes over: nothing typed is kept (not even the copy for a silent sign-in), so the app can never send
+        // the password again on its own. After an error (not active) that copy stays for the next session check.
+        clearSecrets(); if (active) sessionAccess.clear()
+        livePage = true; host.crop = null; host.full = true
+        LabLog.add("entrada", "se muestra la página: $reason")
+        web.evaluateJavascript(activityShapeScript) { raw ->
+            val shape = (try { org.json.JSONTokener(raw).nextValue().toString() } catch (_: Exception) { "" }).take(1500)
+            activityShape = "Página mostrada · $reason\n$shape"
+            LabLog.add("forma", shape)
+        }
+    }
+    fun closeLivePage() {
+        if (!livePage) return
+        livePage = false; host.full = false
+        lastAction = ""; actionStarted = System.currentTimeMillis()
+    }
     val web = WebView(context)
     val host = CaptchaHost(context, web)
     private val poll = object : Runnable {
@@ -130,7 +213,7 @@ class StmEngine(private val context: Context) {
                     inspectPaymentPage(); return true
                 }
                 if (allowedPage(request.url.toString())) return false
-                if (!active) return true
+                if (!active || livePage) return true
                 if (BuildConfig.DEBUG) debugDestination = "${request.url.scheme}://${request.url.host}${request.url.path}"
                 fail("Este paso necesita otra pantalla o proveedor. Boletera se detuvo sin abrir la web ni iniciar el pago.")
                 return true
@@ -147,22 +230,28 @@ class StmEngine(private val context: Context) {
                     view.stopLoading(); openPrexPayment(url); return
                 }
                 if (url != null && url != "about:blank" && !allowedPage(url)) {
-                    view.stopLoading(); fail("Navegación no reconocida. No se enviaron credenciales desde la app.")
+                    // After Back or sign-out a late redirect is just stopped, never shown as an error.
+                    view.stopLoading(); if (active && !livePage) fail("Navegación no reconocida. No se enviaron credenciales desde la app.")
                 }
             }
             override fun onPageFinished(view: WebView, url: String?) {
                 if (url != null && allowedPage(url) && active) inspect()
             }
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean = rendererGone(view)
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 handler.cancel(); fail("No se pudo verificar la conexión segura. No continuamos.")
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                if (request.isForMainFrame && active) fail("No se pudo conectar. Revisá tu conexión y el estado del pago antes de repetirlo.")
+                if (!request.isForMainFrame || !active) return
+                // With working internet, an unreachable STM is STM's outage, not the person's connection.
+                if (stmHost(request.url.host) && online()) fail(stmDown("sin respuesta del servidor"))
+                else fail("No se pudo conectar. Revisá tu conexión y el estado del pago antes de repetirlo.")
             }
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
                 if (request.isForMainFrame && active) {
                     // The completed body may explicitly say session expired, even on a protected URL.
-                    pendingHttpError = "El servicio no respondió correctamente. La consulta se detuvo."
+                    pendingHttpError = if (errorResponse.statusCode >= 500 && stmHost(request.url.host)) stmDown("error ${errorResponse.statusCode}")
+                        else "El servicio no respondió correctamente. La consulta se detuvo."
                 }
             }
         }
@@ -171,25 +260,37 @@ class StmEngine(private val context: Context) {
     fun savedAccess(value: Boolean) { state = state.copy(hasSavedAccess = value) }
     fun trySavedSession(): Boolean {
         if(savedSessionAttempted || state.stage!="welcome" || state.busy || !state.hasSavedAccess)return false
+        // Lab 21: without internet the entry says «Sin internet» (through the fingerprint path) instead of an error screen.
+        if(IsLab && noInternet())return false
         savedSessionAttempted=true
         if(!choices.restoreSessionAccount() || CookieManager.getInstance().getCookie(START).isNullOrBlank())return false
         restorePaymentRecord()
         recoverSession()
         return true
     }
+    fun dismissCredited() { state = state.copy(credited = null); lastReceipt = emptyList() }
     fun dismissNotice(message: String) { if (state.message == message) state = state.copy(message = "") }
-    fun notice(message: String) { state = state.copy(message = message, busy = false) }
+    fun notice(message: String) { LabLog.add("aviso", message); state = state.copy(message = message, busy = false) }
 
     private fun restorePaymentRecord() {
         journalUnavailable=false
-        paymentRecord=try {choices.accountKey?.let(paymentJournal::read)} catch(_:Exception) {journalUnavailable=true;null}
+        paymentRecord=try {choices.accountKey?.let(paymentJournal::read)} catch(e:Exception) {
+            // Lab: a record that can never be read again (lost key, damaged data) is cleared instead of blocking every payment;
+            // a passing keystore error still keeps the lock.
+            val unreadable=e is javax.crypto.BadPaddingException || e is org.json.JSONException || e is IllegalArgumentException ||
+                e is java.security.UnrecoverableKeyException || e is android.security.keystore.KeyPermanentlyInvalidatedException
+            if(!(IsLab && unreadable && choices.accountKey?.let { a -> runCatching { paymentJournal.clear(a) }.getOrDefault(false) }==true))journalUnavailable=true
+            null
+        }
         paymentNeedsReview=journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
     }
 
     private fun trackAuthorization(): Boolean {
         val pending=state.activePayment ?: return false
         val account=choices.accountKey ?: return false
-        if(journalUnavailable || paymentRecord?.let {it.phase!="reviewing" || it.startedAt!=pending.createdAt || it.card!=pending.card || it.provider!=pending.provider || it.amount!=pending.amount}==true)return false
+        // A finished payment (credited or rejected) on another card must not block new recharges forever.
+        val open=paymentRecord?.takeUnless {it.phase in setOf("credited","rejected") || superseded(it,pending)}
+        if(journalUnavailable || open?.let {it.phase!="reviewing" || it.startedAt!=pending.createdAt || it.card!=pending.card || it.provider!=pending.provider || it.amount!=pending.amount}==true)return false
         val transaction=prexPayment.summaryRows.firstOrNull {paymentLabel(it.first)=="transaccion"}?.second.orEmpty()
         val record=PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance,transaction=transaction)
         if(!paymentJournal.write(account,record))return false
@@ -197,24 +298,40 @@ class StmEngine(private val context: Context) {
         paymentRecord=record;paymentNeedsReview=true
         return true
     }
+    /**
+     * Lab (A3): a record left open by an EARLIER payment (pending, a receipt STM never confirmed, a look at Prex's own
+     * page, an interrupted app) is superseded by the new one instead of blocking every later «Pagar». The balance
+     * still tells how the earlier one ended.
+     */
+    private fun superseded(record: PaymentRecord, pending: ActivePayment) = IsLab && record.startedAt!=pending.createdAt
     private fun trackOriginalReview(): Boolean {
         val pending=state.activePayment ?: return false
         if(journalUnavailable)return false
-        paymentRecord?.let {return it.startedAt==pending.createdAt && it.card==pending.card && it.provider==pending.provider && it.amount==pending.amount}
+        paymentRecord?.takeUnless {it.phase in setOf("credited","rejected") || superseded(it,pending)}?.let {return it.startedAt==pending.createdAt && it.card==pending.card && it.provider==pending.provider && it.amount==pending.amount}
         val account=choices.accountKey ?: return false
         val record=PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance,"reviewing")
         if(!paymentJournal.write(account,record))return false
         paymentRecord=record;paymentNeedsReview=true;return true
     }
 
+    /** Prex's receipt rows of the last approved payment, kept until «Recarga hecha» is closed (its «Ver detalle del pago»). */
+    var lastReceipt by mutableStateOf<List<Pair<String,String>>>(emptyList())
+        private set
+
     private fun observePaymentOutcome(stage: String, rows: List<Pair<String,String>>) {
+        if(stage=="receipt" && rows.isNotEmpty()) lastReceipt=rows
         val account=choices.accountKey ?: return
         val pending=state.activePayment ?: return
         val previous=paymentRecord ?: PaymentRecord(pending.card,pending.provider,pending.amount,pending.createdAt,state.balance)
-        val phase=when(stage) {"receipt"->"confirmed";"paymentRejected"->"rejected";"paymentPending"->"pending";"stmSuccess"->"credited";else->return}
+        // Lab 21: STM's «Recarga no confirmada» over a payment still waiting for Prex's answer closes it as refused.
+        val phase=when(stage) {"receipt"->"confirmed";"paymentRejected"->"rejected";"paymentPending"->"pending";"stmSuccess"->"credited"
+            "stmNotConfirmed"->if(IsLab && previous.phase=="authorizing")"rejected" else return
+            else->return}
         val transaction=rows.firstOrNull {paymentLabel(it.first)=="transaccion"}?.second.orEmpty()
-        if(previous.transaction.isNotBlank() && transaction.isNotBlank() && previous.transaction!=transaction) {
-            journalUnavailable=true;paymentNeedsReview=true;return
+        // Lab writes the outcome anyway (a stale record must not ask «sin respuesta» later); other apps stop to review.
+        if(!IsLab && previous.transaction.isNotBlank() && transaction.isNotBlank() && previous.transaction!=transaction) {
+            journalUnavailable=true
+            paymentNeedsReview=true;return
         }
         val record=previous.copy(phase=phase,transaction=transaction.ifBlank {previous.transaction})
         if(paymentJournal.write(account,record)) {
@@ -253,9 +370,12 @@ class StmEngine(private val context: Context) {
 
     fun connect(doc: String, pass: String, rememberForSession: Boolean = false) {
         if (state.busy) return
-        if (!Regex("\\d{8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu documento de 8 dígitos y contraseña."); return }
+        // Cédulas under one million have 7 digits (check digit included); newer ones have 8.
+        if (!Regex("\\d{7,8}").matches(doc) || pass.isBlank()) { notice("Ingresá tu cédula de 7 u 8 dígitos y la contraseña."); return }
+        if (noInternet()) { notice(OFFLINE); return }
         expressTiming.clear()
         clearSecrets()
+        switchingTo = null
         sessionAccess.clear()
         if (rememberForSession) try { sessionAccess.remember(doc, pass) } catch (_: Exception) { sessionAccess.clear() }
         silentRelogin = false; silentReloginAttempted = false
@@ -270,7 +390,7 @@ class StmEngine(private val context: Context) {
         paymentInFlight = false; providerSubmitted = false; handoffSent = false
         interruptedAccess = false; stageTrail.clear()
         secretsExpireAt = System.currentTimeMillis() + 180000
-        lastAction = ""; pageStage = ""; passwordStepSeen = false; actionStarted = System.currentTimeMillis()
+        lastAction = ""; pageStage = ""; passwordStepSeen = false; passwordSent = false; actionStarted = System.currentTimeMillis()
         state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId, paymentNeedsReview = paymentNeedsReview)
         active = false
         handler.removeCallbacks(poll)
@@ -288,11 +408,31 @@ class StmEngine(private val context: Context) {
 
     fun chooseCard(id: String) {
         if (state.busy || state.cards.none { it.id == id && it.active }) return
+        // Re-reading the same card keeps its last balance on screen while STM answers; another card starts blank.
+        val same = id == state.selectedCard
         choices.card = id
         choosingCard = false
         activityOpened=false
-        state = state.copy(selectedCard = id, minimum = null, balance = null, amount = null,activity=ActivityState())
+        state = state.copy(selectedCard = id, minimum = null, balance = if (same) state.balance else null, amount = null,activity=ActivityState())
         act("card", id)
+    }
+
+    /** The card Lab is switching to from the «Tus boleteras» sheet, while STM answers for it. */
+    var switchingTo by mutableStateOf<String?>(null)
+        private set
+
+    /**
+     * Lab: another card chosen in the sheet over the home, from the list already read. STM is asked straight for that
+     * card (the usual card becomes this one, and the regular re-read reaches it); no full-screen picker in between.
+     */
+    fun switchCard(id: String) {
+        if (IsLab && noInternet()) { notice("No hay internet en el celular. Seguís viendo la boletera de antes."); return }
+        if (state.busy || id == state.selectedCard || state.cards.none { it.id == id && it.active }) return
+        choices.card = id
+        switchingTo = id
+        activityOpened = false
+        state = state.copy(selectedCard = id, balance = null, minimum = null, consultedAt = null, amount = null, activity = ActivityState())
+        refresh()
     }
 
     fun changeCard() {
@@ -316,7 +456,7 @@ class StmEngine(private val context: Context) {
     }
 
     fun forgetChoices(): Boolean {
-        if (!payerStore.forget()) { notice("No pudimos borrar los datos de titular guardados. No se confirmó su eliminación."); return false }
+        if (!payerStore.forget()) { notice(if (IsLab) "No pudimos borrar los datos para Prex guardados. Probá de nuevo." else "No pudimos borrar los datos de titular guardados. No se confirmó su eliminación."); return false }
         payerProfiles = emptyList()
         payerStoreAvailable = true
         choices.forgetAll()
@@ -326,15 +466,21 @@ class StmEngine(private val context: Context) {
     }
 
     fun choosePayer(id: String) {
-        if (!accountVerified || state.busy || state.activePayment != null || state.stage != "paymentBoundary") return
+        // Lab chooses the payer in the amount panel, on the balance screen, before the payment starts.
+        if (!accountVerified || state.busy || state.activePayment != null || state.stage != "paymentBoundary" && !(IsLab && state.stage == "balance")) return
         if (payerProfiles.none { it.id == id }) return
         choices.payerProfileId = id
         state = state.copy(payerProfileId = id, message = "")
     }
 
     fun savePayer(profile: PayerProfile): Boolean {
+        if (IsLab && !payerStoreAvailable) { notice("Los datos para Prex guardados en este celular no se pueden leer. Borralos con «Olvidar este celular» y cargalos de nuevo."); return false }
+        if (IsLab && (!accountVerified || state.busy)) { notice("STM todavía está leyendo tu saldo. Esperá un momento y volvé a intentar."); return false }
         if (!accountVerified || state.busy || state.activePayment != null || !payerStoreAvailable || !profile.valid()) return false
-        val updated = payerProfiles.filterNot { it.id == profile.id } + profile
+        // Editing keeps the person's place in the list; only a new one goes last.
+        val unmarked = payerProfiles.map { if (it.id != profile.id && profile.personal && it.personal) it.copy(personal = false) else it }
+        val updated = if (IsLab && unmarked.any { it.id == profile.id }) unmarked.map { if (it.id == profile.id) profile else it }
+            else unmarked.filterNot { it.id == profile.id } + profile
         return try {
             if (!payerStore.write(updated)) false else {
                 payerProfiles = updated
@@ -342,7 +488,7 @@ class StmEngine(private val context: Context) {
                 state = state.copy(payerProfileId = profile.id, message = "")
                 true
             }
-        } catch (_: Exception) { notice("No se pudieron guardar los datos del titular en este celular."); false }
+        } catch (_: Exception) { notice(if (IsLab) "No se pudieron guardar los datos en este celular." else "No se pudieron guardar los datos del titular en este celular."); false }
     }
 
     fun deletePayer(id: String): Boolean {
@@ -369,7 +515,8 @@ class StmEngine(private val context: Context) {
         val provider = state.selectedProvider ?: return
         val amount = state.amount ?: return
         val card = state.selectedCard ?: return
-        if (!accountVerified || paymentNeedsReview || journalUnavailable || paymentInFlight || state.stage != "paymentBoundary" || state.busy || provider !in PaymentPolicy.supported || !Amounts.valid(amount, state.minimum)) return
+        // Lab (A3): a previous payment never blocks the next one; the journal still resolves it from the balance.
+        if (!accountVerified || (paymentNeedsReview && !IsLab) || journalUnavailable || paymentInFlight || state.stage != "paymentBoundary" || state.busy || provider !in PaymentPolicy.supported || !Amounts.valid(amount, state.minimum)) return
         if (provider == "1033" && payerProfiles.none { it.id == state.payerProfileId }) {
             notice("Elegí o guardá los datos para esta Prex antes de seguir.")
             return
@@ -411,7 +558,25 @@ class StmEngine(private val context: Context) {
     }
 
     fun leavePrexPayment() {
-        if (state.stage == "embeddedPrex") refresh()
+        if (state.stage != "embeddedPrex") return
+        // Without internet the balance can't be read again: back to the last one, the payment session closed.
+        if (IsLab && noInternet()) { leaveOffline(); return }
+        refresh()
+    }
+    /** Lab: «Cancelar» / back while the recharge is being prepared (STM busy opening the payment). */
+    fun cancelPreparing() {
+        if (state.stage !in setOf("openingPayment", "paymentBoundary", "connecting")) return
+        if (noInternet()) { leaveOffline(); return }
+        state = state.copy(busy = false); refresh()
+    }
+    private fun leaveOffline() {
+        // Lab: a payment Prex confirmed keeps saying «en camino» on the home even though the balance shown is the old one,
+        // and the minimum is read again (HomePayment, tested on the JVM).
+        val way = HomePayment.offlineOnTheWay(paymentRecord, state.selectedCard, state.balance, IsLab, state.onTheWay)
+        clearPaymentSession(); active = false; handler.removeCallbacks(poll)
+        state = state.copy(stage = if (state.balance != null) "balance" else "welcome", busy = false, amount = null, captcha = null,
+            onTheWay = way, minimum = HomePayment.offlineMinimum(IsLab, state.minimum),
+            message = "No hay internet en el celular. Te mostramos el último saldo consultado.")
     }
 
     private fun inspectPaymentPage() {
@@ -460,6 +625,7 @@ class StmEngine(private val context: Context) {
 
     fun refresh() {
         if (state.busy) return
+        if (noInternet()) { notice(if (state.balance != null) "No hay internet en el celular. Te mostramos el último saldo consultado." else OFFLINE); return }
         activityOpened=false
         expressTiming.move(ExpressTiming.Phase.RETURN)
         balanceRefreshTask?.let(handler::removeCallbacks);balanceRefreshTask=null
@@ -482,57 +648,112 @@ class StmEngine(private val context: Context) {
         act("amount", amount.toString())
     }
 
+    /**
+     * Lab's «Continuar con Prex» from the amount panel: the amount and the payment go together, with the payer already
+     * chosen there, so there is no «Tu recarga» step. It rides the same one-shot request as Express, but as a normal
+     * journey: Prex still asks for the card and nothing is confirmed without the person's «Pagar».
+     */
+    fun prepareWithPrex(amount: Long, payerId: String? = null) {
+        if (IsLab && noInternet()) { notice(OFFLINE); return }
+        val card = state.selectedCard ?: return
+        if (state.busy || pageStage != "amount") { if (IsLab) notice("STM todavía está leyendo tu saldo. Esperá un momento y volvé a intentar."); return }
+        if (!Amounts.valid(amount, state.minimum)) { notice("El monto debe alcanzar el mínimo informado por STM."); return }
+        // The person just chosen (Lab 18) wins over the one remembered.
+        val payer = payerId?.let { id -> payerProfiles.find { it.id == id && it.valid() } }
+            ?: payerProfiles.find { it.id == state.payerProfileId && it.valid() } ?: payerProfiles.singleOrNull()?.takeIf { it.valid() }
+        if (payer == null) { notice(if (IsLab) "Agregá tus datos para Prex para seguir." else "Agregá el titular de la Prex para seguir."); return }
+        if (IsLab) choices.payerProfileId = payer.id
+        expressRequest = ExpressChoice(card, "1033", payer.id)
+        expressPayment = false
+        state = state.copy(amount = amount, payerProfileId = payer.id)
+        act("amount", amount.toString())
+    }
+
     private fun expressPayer(): PayerProfile? {
+        if(IsLab) payerProfiles.filter { it.valid() }.let { valid -> return valid.find { it.personal } ?: valid.singleOrNull() }
         if(choices.successfulProvider=="1033")return payerProfiles.find {it.id==choices.successfulPayer && it.valid()}
         return payerProfiles.find {it.id==state.payerProfileId && it.valid()} ?: payerProfiles.singleOrNull()?.takeIf {it.valid()}
     }
 
     private val expressProvider: String? get()=choices.successfulProvider ?: choices.provider
     val expressProviderName: String get() = if(expressProvider=="1033")"Prex" else "Medio guardado"
-    val expressPaymentLabel: String get()=expressProviderName + choices.successfulCardSuffix?.let {" · •••• $it"}.orEmpty()
-    private val expressProviderReady: Boolean get() = expressProvider=="1033" && payerStoreAvailable && expressPayer()!=null
-    val expressAvailable: Boolean get() = accountVerified && !paymentNeedsReview && !journalUnavailable && expressProviderReady &&
+    // Lab: the card is chosen in Google's list each time, so the hint names no last four (Lab 21).
+    val expressPaymentLabel: String get()=expressProviderName + (if(IsLab) "" else choices.successfulCardSuffix?.let {" · •••• $it"}.orEmpty())
+    private val expressProviderReady: Boolean get() = expressProvider=="1033" && payerStoreAvailable &&
+        (expressPayer()!=null || IsLab && payerProfiles.any { it.valid() })
+    /** Lab: several people saved and none marked as the person's own; Carga Express asks once which data are theirs. */
+    val expressNeedsOwnData: Boolean get() = IsLab && expressPayer()==null && payerProfiles.count { it.valid() } > 1
+    val expressAvailable: Boolean get() = accountVerified && (!paymentNeedsReview || IsLab) && !journalUnavailable && expressProviderReady &&
         choices.card==state.selectedCard &&
         state.selectedCard!=null && state.cards.any { it.id==state.selectedCard && it.active } &&
         Amounts.valid(state.minimum,state.minimum)
 
-    fun startExpress() {
-        val card=state.selectedCard ?: return
-        val amount=state.minimum ?: return
-        if(!accountVerified || state.busy || state.stage!="balance" || pageStage!="amount" || state.activePayment!=null || expressRequest!=null) return
-        if(!expressAvailable)return
-        val provider=expressProvider ?: return
-        if(provider!="1033")return
-        val payer=expressPayer() ?: return
-        if(state.cards.none { it.id==card && it.active })return
-        if(!Amounts.valid(amount,state.minimum))return
+    /**
+     * Lab 21 (owner, 17/10): a payment of the last 30 minutes for this card that never got Prex's answer (a cut right after
+     * «Pagar», or a final page the app did not recognise). Only asked about when paying again; the home never shows it.
+     */
+    /** This payment already reached Prex's «Pagar» (its record is past «reviewing»): an error must not say nothing was charged. */
+    internal fun paymentStarted(payment: ActivePayment?): Boolean = payment != null && paymentRecord?.let { it.startedAt == payment.createdAt && it.phase != "reviewing" } == true
+    internal val unansweredPayment: PaymentRecord? get() = paymentRecord?.takeIf { IsLab && it.phase in setOf("authorizing","pending") &&
+        it.card == state.selectedCard && System.currentTimeMillis() - it.startedAt in 0 until 30 * 60 * 1000L }
+
+    fun startExpress() { startExpressOrWhy() }
+    /** Starts Carga Express, or says (in plain words, for the report) why it cannot right now; null when it started. */
+    fun startExpressOrWhy(): String? {
+        if (IsLab && noInternet()) { notice(OFFLINE); return "sin internet" }
+        val card=state.selectedCard ?: return "sin boletera elegida"
+        val amount=state.minimum ?: return "sin mínimo de recarga"
+        if(!accountVerified) return "sesión sin verificar"
+        if(state.busy) return "STM ocupado"
+        if(state.stage!="balance") return "pantalla ${state.stage}"
+        if(pageStage!="amount") return "STM en ${pageStage.ifBlank { "carga" }}"
+        if(state.activePayment!=null) return "hay un pago en curso"
+        if(expressRequest!=null) return "ya hay una Carga Express en curso"
+        if(!expressAvailable) return "Carga Express no disponible"
+        val provider=expressProvider ?: return "sin medio de pago elegido"
+        if(provider!="1033") return "el medio de pago no es Prex"
+        val payer=expressPayer() ?: return if(expressNeedsOwnData) "elegir tus datos" else "sin titular"
+        if(state.cards.none { it.id==card && it.active }) return "boletera no operativa"
+        if(!Amounts.valid(amount,state.minimum)) return "importe inválido"
         expressRequest=ExpressChoice(card,provider,payer?.id)
         expressPayment=true
         expressTiming.start()
         state=state.copy(amount=amount)
         // The existing adapter checks the live minimum before submitting; authorization stays with the provider.
         act("amount",amount.toString())
+        return null
     }
+    /** Why the last Express with the saved card did not start, for «Enviar reporte». */
+    var expressNotStarted = ""
 
     fun continueCaptcha() {
         if (!active || state.captcha == null) return
         lastAction = ""
+        // Leaving the app wipes the typed access; the fingerprint-saved session copy can bring it back.
+        if (pageStage in setOf("document", "password") && (document == null || password == null)) sessionAccess.open()?.let {
+            document = it.first; password = it.second; secretsExpireAt = System.currentTimeMillis() + 180000
+        }
         when (pageStage) {
-            "document" -> document?.let { act("document", it) }
-            "password" -> password?.let { act("password", it) }
+            "document" -> document?.let { act("document", it) } ?: lostAccess()
+            "password" -> password?.let { act("password", it) } ?: lostAccess()
             else -> notice("Terminá la verificación. Si aparece otro paso, Boletera se va a detener.")
         }
     }
+    private fun lostAccess() {
+        cancel()
+        state = state.copy(message = "Por seguridad, Boletera olvida lo que escribiste cuando salís de la app. Ingresá de nuevo para terminar la verificación.")
+    }
 
     fun cancel() {
+        switchingTo = null
         activityOpened=false
         expressTiming.finish(ExpressTiming.End.CANCELLED)
         sessionRequest++
-        passwordStepSeen = false
+        passwordStepSeen = false; passwordSent = false
         recoveringSession = false; recoverySteps.clear(); paymentNeedsReview = false; pendingHttpError = null
         clearPaymentSession()
         clearSecrets(); sessionAccess.clear(); active = false; accountVerified = false; paymentInFlight = false; handler.removeCallbacks(poll)
-        web.stopLoading(); web.loadUrl("about:blank"); host.crop = null
+        web.stopLoading(); web.loadUrl("about:blank"); host.crop = null; livePage = false; host.full = false
         prexPayment.reset()
         state = UiState(hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId)
     }
@@ -550,11 +771,13 @@ class StmEngine(private val context: Context) {
         }
         WebStorage.getInstance().deleteAllData()
         web.clearHistory(); web.clearCache(true)
-        state = state.copy(message = "Sesión local eliminada. El acceso cifrado se conserva hasta que elijas olvidarlo.")
+        // Lab's entry would read any message as a failed sign-in («No pudimos entrar»): there, closing the session just returns to it.
+        state = state.copy(message = if (IsLab) "" else "Sesión local eliminada. El acceso cifrado se conserva hasta que elijas olvidarlo.")
     }
 
+    private var pausedAt = 0L
     fun pause() {
-        foreground=false
+        foreground=false; if (IsLab) pausedAt=System.currentTimeMillis()
         expressTiming.pause(true)
         // Suspend only: the existing authorization remains bound to this one in-memory journey.
         prexPayment.pause()
@@ -564,10 +787,16 @@ class StmEngine(private val context: Context) {
     }
     fun resume() {
         foreground=true
+        if (pausedAt > 0) { actionStarted += System.currentTimeMillis() - pausedAt; pausedAt = 0 }
         expressTiming.pause(false)
         prexPayment.resume()
-        if (state.stage == "externalPayment") { refresh(); return }
-        if (active) { handler.removeCallbacks(poll); handler.post(poll) }
+        // The decision lives in HomePayment (tested on the JVM). The refresh must not hang from the poll's condition: on the
+        // home the poll keeps running, and Lab 21 never refreshed on coming back because of that.
+        val plan = HomePayment.resumePlan(state.stage, active, IsLab, accountVerified, state.busy, state.credited,
+            noInternet = state.stage == "balance" && noInternet(), onTheWay = state.onTheWay, consultedAt = state.consultedAt,
+            now = System.currentTimeMillis(), pageStage = pageStage)
+        if (plan.restartPoll) { handler.removeCallbacks(poll); handler.post(poll) }
+        if (plan.refresh) refresh()
     }
     fun destroy() {
         destroyed = true; active = false; handler.removeCallbacksAndMessages(null); clearSecrets(); sessionAccess.clear()
@@ -577,16 +806,46 @@ class StmEngine(private val context: Context) {
     }
 
     private fun clearSecrets() { document = null; password = null; secretsExpireAt = 0L }
+    // The sign-in passes through the Intendencia's server (ih.montevideo.gub.uy): when it is down, that is STM's outage too,
+    // not the person's connection (owner 18/10: it dropped every connection and the app blamed the phone's internet).
+    private fun stmHost(host: String?) = host != null && (host == "stm.gub.uy" || host.endsWith(".stm.gub.uy") || host == "iduruguay.gub.uy" || host.endsWith(".iduruguay.gub.uy") || host == "ih.montevideo.gub.uy")
+    /** No network at all (airplane mode, Wi-Fi and data off): say so at once instead of waiting for a timeout. */
+    internal fun noInternet(): Boolean = try {
+        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+        cm?.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) != true
+    } catch (_: Exception) { false }
+    /** The phone has validated internet access, so a failing STM is STM's problem. */
+    private fun online(): Boolean = try {
+        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+        cm?.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+    } catch (_: Exception) { false }
+    /** Marker text recognized by errorPresentation as an STM outage. */
+    private fun stmDown(detail: String) = "STM no está respondiendo ($detail). La página oficial parece caída o con problemas."
+
     private fun fail(message: String) {
+        LabLog.add("STM", "falla: $message")
         if(activityOpened) {
             active=false;handler.removeCallbacks(poll)
-            state=state.copy(stage="activity",busy=false,message="",activity=ActivityState(card=state.selectedCard.orEmpty(),access=ActivityAccess.UNAVAILABLE))
+            // Say which step failed; an unread page is not an empty history.
+            val reason=when(message) {
+                "Boletera distinta" -> "STM mostró otra boletera en la página de saldo. No seguimos para no mezclar datos de tarjetas."
+                "Movimientos sin respuesta" -> "El botón Movimientos de STM no respondió. Puede ser una demora del sitio; probá de nuevo en un rato."
+                "Actividad no reconocida" -> "STM abrió una pantalla de movimientos que Boletera todavía no sabe leer. Si tu cuenta tiene nivel 2, puede ser tu historial real: copiá la información de ayuda en Configuración y mandala."
+                else -> "La consulta a STM se cortó: $message"
+            }
+            state=state.copy(stage="activity",busy=false,message="",activity=ActivityState(card=state.selectedCard.orEmpty(),access=ActivityAccess.UNAVAILABLE,reason=reason))
             return
         }
         expressTiming.finish(ExpressTiming.End.ERROR)
         expressRequest = null
         if (BuildConfig.DEBUG) captureDebugShape()
+        // The masked shape of the page where it stopped (site, titles, buttons; digits hidden, never field values) goes
+        // into «Enviar reporte», so an unknown step (a Google or gub.uy screen) can be recognised later.
+        web.evaluateJavascript(activityShapeScript) { raw ->
+            activityShape = "Error · $message\n" + (try { org.json.JSONTokener(raw).nextValue().toString() } catch (_: Exception) { "" }).take(1500)
+        }
         active = false; paymentInFlight = false; handler.removeCallbacks(poll); clearSecrets(); host.crop = null; web.stopLoading()
+        livePage = false; host.full = false
         state = state.copy(stage = "blocked", busy = false, message = message, captcha = null)
     }
 
@@ -612,6 +871,7 @@ class StmEngine(private val context: Context) {
         if (!active || !foreground || destroyed || !NavigationPolicy.allowed(web.url ?: "")) return
         if (lastAction == action && state.busy) return
         lastAction = action; actionStarted = System.currentTimeMillis()
+        LabLog.add("STM", "acción $action")
         state = state.copy(busy = true, message = "")
         val generation = navigationGeneration
         val request = sessionRequest
@@ -632,7 +892,9 @@ class StmEngine(private val context: Context) {
                     else {
                         clearSecrets(); expressRequest = null; expressPayment=false
                         expressTiming.move(ExpressTiming.Phase.REVIEW)
-                        state = state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
+                        // Lab's home has no «Consultar»: it says what to do there, and «Recargar» reads the page again.
+                        state = if (IsLab && state.stage == "balance") state.copy(busy = false, amount = null, message = "STM no respondió como esperábamos. No se hizo nada; deslizá hacia abajo para probar de nuevo.")
+                            else state.copy(busy = false, message = "La página cambió o no aceptó el paso. Volvé a consultar; no se repitió la operación.")
                     }
                 }
                 },1200)
@@ -648,10 +910,11 @@ class StmEngine(private val context: Context) {
             return
         }
         if (awaitingNavigation) {
-            if (System.currentTimeMillis() - actionStarted > 35000) fail("No comenzó la nueva consulta. Volvé a ingresar.")
+            if (!livePage && System.currentTimeMillis() - actionStarted > 35000) fail("No comenzó la nueva consulta. Volvé a ingresar.")
             return
         }
-        if (secretsExpireAt != 0L && System.currentTimeMillis() > secretsExpireAt) {
+        // A slow verification is not an expired session: the person is still solving it.
+        if (secretsExpireAt != 0L && System.currentTimeMillis() > secretsExpireAt && state.captcha == null) {
             expired(); return
         }
         polling = true
@@ -666,7 +929,7 @@ class StmEngine(private val context: Context) {
                 // WebView's reported URL can advance before the JavaScript document does.
                 // An old about:blank/login snapshot must never block the next document or execute actions in it.
                 if (!NavigationPolicy.snapshotMatches(sample.optString("origin"), web.url ?: "", sample.optString("path"))) {
-                    if (System.currentTimeMillis() - actionStarted > 35000) fail("No terminó de cargar el siguiente paso. Volvé a ingresar. Código: CAMBIO-PAGINA.")
+                    if (!livePage && System.currentTimeMillis() - actionStarted > 35000) fail("No terminó de cargar el siguiente paso. Volvé a ingresar. Código: CAMBIO-PAGINA.")
                     return@evaluateJavascript
                 }
                 applySnapshot(sample.getJSONObject("snapshot"))
@@ -678,6 +941,19 @@ class StmEngine(private val context: Context) {
         if(!foreground)return
         val stage = data.optString("stage", "unknown")
         if(stage=="password")passwordStepSeen=true
+        if (livePage) {
+            // Signed in at STM (or on the way there): the app goes on. Anything else is the person's to do (STM's own start
+            // page included: the app keeps nothing to sign in with); a wrong password they type there is shown by gub.uy itself
+            // and never forgets the access saved with the fingerprint.
+            if (stage in setOf("handoff", "cards", "cardsLoading")) closeLivePage()
+            else if (stage in setOf("balance", "amount")) {
+                // Straight to a balance: through the card list first, where the session is checked and the card chosen.
+                closeLivePage(); pageStage = ""
+                state = state.copy(stage = "connecting", busy = true, captcha = null, message = "")
+                awaitingNavigation = true; navigationGeneration++; actionStarted = System.currentTimeMillis()
+                web.loadUrl(CARDS); return
+            } else { pageStage = stage; return }
+        }
         val loginStage = stage in setOf("start", "identity", "document", "password", "signedOut")
         if (stage == "sessionExpired" || accountVerified && loginStage) {
             if (recoveringSession) expired() else recoverSession()
@@ -705,14 +981,14 @@ class StmEngine(private val context: Context) {
         }
         val changed = stage != pageStage
         if(activityOpened && stage !in setOf("start","identity","document","password","signedOut","sessionExpired")) {
-            if(changed) {lastAction="";actionStarted=System.currentTimeMillis()}
+            if(changed) {lastAction="";actionStarted=System.currentTimeMillis(); LabLog.add("STM", "actividad: página $stage")}
             pageStage=stage
             when(stage) {
                 "loading","handoff" -> state=state.copy(stage="activity",busy=true)
                 "balance" -> {
                     if(data.optString("cardId")!=state.selectedCard) {fail("Boletera distinta");return}
                     if(lastAction!="movements")act("movements",state.selectedCard.orEmpty())
-                    else if(System.currentTimeMillis()-actionStarted>20000)fail("Movimientos sin respuesta")
+                    else if(System.currentTimeMillis()-actionStarted>20000)failActivityWithShape("Movimientos sin respuesta")
                 }
                 "activityIdentityRequired" -> {
                     active=false;handler.removeCallbacks(poll)
@@ -721,7 +997,7 @@ class StmEngine(private val context: Context) {
                 else -> {
                     // The authorized table has not been inspected yet. Never turn an unknown
                     // document into an empty history or derive a frequent-user count from it.
-                    if(System.currentTimeMillis()-actionStarted>8000)fail("Actividad no reconocida")
+                    if(System.currentTimeMillis()-actionStarted>8000)failActivityWithShape("Actividad no reconocida")
                 }
             }
             return
@@ -734,7 +1010,7 @@ class StmEngine(private val context: Context) {
         val shape = if (stage == "cards" || stage == "cardsLoading")
             " · tabla=${if (data.optBoolean("tablePresent")) 1 else 0}, filas=${data.optInt("rowCount").coerceIn(0, 999)}, visibles=${data.optInt("visibleRowCount").coerceIn(0, 999)}, leídas=${(data.optJSONArray("cards")?.length() ?: 0).coerceIn(0, 999)}" else ""
         state = state.copy(diagnostic = stageTrail.joinToString(" → ") + shape)
-        if (changed) { lastAction = ""; state = state.copy(busy = false); actionStarted = System.currentTimeMillis() }
+        if (changed) { lastAction = ""; state = state.copy(busy = false); actionStarted = System.currentTimeMillis(); LabLog.add("STM", "página $stage") }
         pageStage = stage
         val c = data.optJSONObject("captcha")
         val rect = c?.let { CaptchaRect(it.optDouble("x").toFloat(), it.optDouble("y").toFloat(), it.optDouble("width").toFloat(), it.optDouble("height").toFloat()) }
@@ -765,7 +1041,7 @@ class StmEngine(private val context: Context) {
             return
         }
         if (state.busy && System.currentTimeMillis() - actionStarted > 35000 && rect == null) {
-            if (recoveringSession) expired() else fail("El sitio demoró demasiado. La app no repetirá el paso automáticamente.")
+            if (recoveringSession) expired() else fail(if (online() && stmHost(android.net.Uri.parse(web.url ?: "").host)) stmDown("demasiado lenta") else "El sitio demoró demasiado. La app no repetirá el paso automáticamente.")
             return
         }
         if (rect != null) {
@@ -781,7 +1057,13 @@ class StmEngine(private val context: Context) {
             } else if (password != null && lastAction != stage) act(stage) else if (password == null) expired()
             "document" -> if (document != null && lastAction != "document") act("document", document!!) else if (document == null) expired()
             "password" -> if (password != null && lastAction != "password") {
-                act("password", password!!)
+                // Lab: asked again after it was sent, it is a reply the app does not recognise; sending the same password
+                // again could lock the account, so the person sees gub.uy instead.
+                if (IsLab && passwordSent && !recoveringSession) showLivePage("gub.uy volvió a pedir la contraseña")
+                else { passwordSent = true; act("password", password!!) }
+            } else if (IsLab && lastAction == "password" && !recoveringSession && System.currentTimeMillis() - actionStarted > 8000) {
+                // Something gub.uy shows after the password that the app does not know (owner's friend, 18/10): the person sees it.
+                showLivePage("gub.uy no avanzó después de la contraseña")
             } else if (!state.busy && lastAction != "password") expired()
             "cards" -> {
                 val cards = data.optJSONArray("cards") ?: return
@@ -789,7 +1071,17 @@ class StmEngine(private val context: Context) {
                 if (list.isEmpty()) return // Never treat an unparsed/unfinished page as a completed login.
                 clearSecrets()
                 if (!accountVerified) {
-                    try { payerProfiles = payerStore.read(); payerStoreAvailable = true }
+                    try {
+                        payerProfiles = payerStore.read(); payerStoreAvailable = true
+                        // Lab 18: a single profile saved before «Son mis datos» existed is the person's own; with several, the app asks once.
+                        val only = payerProfiles.singleOrNull()
+                        if (IsLab && !choices.personalMigrated) {
+                            val mine = only?.takeIf { !it.personal }?.copy(personal = true)
+                            // Marked only once it is written; with nothing to mark (none, several, or already marked) it is done.
+                            if (mine == null) choices.personalMigrated = true
+                            else if (runCatching { payerStore.write(listOf(mine)) }.getOrDefault(false)) { payerProfiles = listOf(mine); choices.personalMigrated = true }
+                        }
+                    }
                     catch (_: Exception) { payerProfiles = emptyList(); payerStoreAvailable = false }
                 }
                 accountVerified = true
@@ -797,10 +1089,13 @@ class StmEngine(private val context: Context) {
                 choices.rememberVerifiedSession()
                 CookieManager.getInstance().flush()
                 recoveringSession = false; recoverySteps.clear()
-                state = state.copy(stage = "cards", recoveringSession = false, sessionExpired = false, cards = list, activePayment = null,
+                val preferred = choices.card
+                // Passing through STM's card list to reach the usual card is not something to show:
+                // publishing "cards" here made the picker flash after leaving it or refreshing.
+                val passThrough = !choosingCard && !state.busy && lastAction != "card" && list.any { it.id == preferred && it.active }
+                state = state.copy(stage = if (passThrough) "connecting" else "cards", recoveringSession = false, sessionExpired = false, cards = list, activePayment = null,
                     payerProfileId = choices.payerProfileId?.takeIf { id -> payerProfiles.any { it.id == id } } ?: payerProfiles.singleOrNull()?.id,
                     message = if (payerStoreAvailable) "" else "No pudimos recuperar los perfiles de Prex guardados. Conservamos sus archivos sin sobrescribirlos.")
-                val preferred = choices.card
                 if (!choosingCard && !state.busy && lastAction != "card" && preferred != null) {
                     if (list.any { it.id == preferred && it.active }) chooseCard(preferred)
                     else {
@@ -812,11 +1107,19 @@ class StmEngine(private val context: Context) {
             "cardsLoading" -> {
                 state = state.copy(stage = "connecting", busy = true, message = "Esperando que STM termine de mostrar las boleteras…")
                 if (System.currentTimeMillis() - actionStarted > 20000) {
-                    fail("No pudimos leer la lista de boleteras. Esto no significa que no tengas ninguna. Pasame una captura con la referencia que aparece abajo.")
+                    fail("No pudimos leer la lista de boleteras. No quiere decir que no tengas ninguna: probá de nuevo en un rato.")
                 }
             }
             "balance" -> {
                 clearSecrets()
+                switchingTo = null
+                // Never show one card's balance under another card's name.
+                // An all-digit match may be the person's document number, so only a clear card code counts.
+                val pageCard = data.optString("cardId").takeIf { it.isNotBlank() && it != "null" && it.any(Char::isLetter) }
+                if (pageCard != null && state.selectedCard != null && !pageCard.equals(state.selectedCard, ignoreCase = true)) {
+                    fail("STM mostró una boletera distinta a la que elegiste. No mostramos ese saldo para no confundirte; volvé a consultar.")
+                    return
+                }
                 state = state.copy(stage = "balance", balance = cents("balance"), consultedAt = System.currentTimeMillis())
                 if (lastAction != "minimum") act("minimum")
             }
@@ -832,7 +1135,8 @@ class StmEngine(private val context: Context) {
                         minimum = minimum,
                         message = "Esperando que STM termine de mostrar el saldo y el mínimo."
                     )
-                    if (System.currentTimeMillis() - actionStarted > 8000) {
+                    // STM fills these by AJAX and can be slow; give it time before calling it a failure.
+                    if (System.currentTimeMillis() - actionStarted > 20000) {
                         val missing = listOfNotNull(
                             if (resolvedBalance == null) "saldo" else null,
                             if (minimum == null) "mínimo" else null
@@ -857,11 +1161,17 @@ class StmEngine(private val context: Context) {
                 )
                 if(expressTiming.phase in setOf(ExpressTiming.Phase.RETURN,ExpressTiming.Phase.RECOVERY))expressTiming.finish(ExpressTiming.End.BALANCE)
                 run {
-                    val record=paymentRecord
-                    if(record?.phase in setOf("credited","rejected") && record?.card==state.selectedCard) {
+                    // What to show is decided in HomePayment (tested on the JVM); this only applies it.
+                    val settled=HomePayment.settle(paymentRecord,state.selectedCard,state.balance,System.currentTimeMillis(),IsLab)
+                    if(settled.forgetStale) {
+                        choices.accountKey?.let {paymentJournal.clear(it)}
+                        paymentRecord=null;paymentNeedsReview=false
+                    }
+                    if(settled.record!=null) paymentRecord=settled.record
+                    val record=settled.record
+                    if(settled.verdict!=HomePayment.Verdict.NONE) {
                         val account=choices.accountKey
-                        val unchanged=record?.phase=="credited" && record.balanceBefore!=null && state.balance==record.balanceBefore
-                        if(unchanged) {
+                        if(settled.verdict==HomePayment.Verdict.AWAIT_BALANCE) {
                             paymentNeedsReview=true
                             if(balanceRefreshRecord!=record!!.startedAt) {balanceRefreshRecord=record.startedAt;balanceRefreshCount=0}
                             if(balanceRefreshTask==null && balanceRefreshCount<3) {
@@ -874,8 +1184,17 @@ class StmEngine(private val context: Context) {
                             }
                         } else if(account!=null && paymentJournal.clear(account)) {
                             paymentRecord=null;paymentNeedsReview=false
-                            state=state.copy(message=if(record?.phase=="credited")"Recarga confirmada por STM. Saldo actualizado." else "El pago fue rechazado. Saldo consultado.")
+                            val credited=settled.verdict==HomePayment.Verdict.CLOSE_CREDITED
+                            // Lab shows its own "Recarga hecha" screen instead of a passing message.
+                            state=state.copy(credited=if(credited && IsLab)record?.amount else null,
+                                message=if(IsLab)"" else if(credited)"Recarga confirmada por STM. Saldo actualizado." else "El pago fue rechazado. Saldo consultado.")
                         }
+                    }
+                    // Lab 18: a payment Prex (or STM's receipt) confirmed, not yet in the balance, is said on the home so
+                    // nobody pays twice; never a doubtful one («pending» stays silent, as the owner asked).
+                    if(IsLab) {
+                        val way=HomePayment.onTheWay(paymentRecord,state.selectedCard,state.balance,IsLab)
+                        if(state.onTheWay!=way) state=state.copy(onTheWay=way)
                     }
                     showPaymentStatus()
                 }
@@ -910,25 +1229,37 @@ class StmEngine(private val context: Context) {
                     } else {
                         expressPayment=false
                         expressTiming.move(ExpressTiming.Phase.REVIEW)
-                        notice("STM cambió las opciones disponibles. Revisá esta recarga para continuar.")
+                        if(!IsLab) notice("STM cambió las opciones disponibles. Revisá esta recarga para continuar.")
                     }
+                }
+                // Lab never shows the old «Tu recarga» screen (it still says «titular»): if the payment did not start
+                // from here, back to the home with a short notice (Lab 21).
+                if(IsLab && state.stage=="paymentBoundary") {
+                    expressPayment=false
+                    refresh()
+                    // Without internet refresh() stays put: the home is shown with the last balance.
+                    if(state.stage=="paymentBoundary") { clearPaymentSession(); active=false; handler.removeCallbacks(poll); state=state.copy(stage="balance",busy=false,amount=null,minimum=null) }
+                    state=state.copy(message=StmEngine.LAB_PAYMENT_NOT_STARTED)
                 }
             }
             "signedOut" -> expired()
-            "unknown", "verification" -> if (System.currentTimeMillis() - actionStarted > 25000) {
+            "unknown", "verification" -> if (data.optString("reason") == "passwordChange") {
+                clearSecrets()
+                failWithShape("Cambio de contraseña", "gub.uy te pide cambiar o confirmar tu contraseña. Ese paso se hace en el sitio; después volvé a entrar.")
+            } else if (System.currentTimeMillis() - actionStarted > 25000) {
                 if(recoveringSession)expired()
                 else if(!accountVerified && !paymentInFlight && passwordStepSeen) {
                     clearSecrets();active=false;pendingHttpError=null;handler.removeCallbacks(poll)
                     host.crop=null;web.stopLoading()
                     state=state.copy(stage="accessHelp",busy=false,captcha=null,message="")
-                } else fail("Este acceso requiere un paso que Boletera todavía no reconoce. No vamos a mostrarte la página completa.")
+                } else failWithShape("Paso desconocido", "Este acceso requiere un paso que Boletera todavía no reconoce. No vamos a mostrarte la página completa.")
             }
             "blocked" -> fail("Pantalla fuera del recorrido permitido.")
         }
     }
     /** Retry only navigation to the account. Amounts, providers and financial confirmations are discarded. */
     private fun recoverSession() {
-        activityOpened=false
+        activityOpened=false; switchingTo=null
         expressTiming.move(ExpressTiming.Phase.RECOVERY)
         if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
         paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
@@ -948,7 +1279,7 @@ class StmEngine(private val context: Context) {
     }
 
     private fun expired() {
-        activityOpened=false
+        activityOpened=false; switchingTo=null
         expressTiming.finish(ExpressTiming.End.CANCELLED)
         if(paymentRecord==null && state.activePayment!=null && providerSubmitted && !trackOriginalReview())journalUnavailable=true
         paymentNeedsReview = journalUnavailable || paymentRecord?.phase in setOf("reviewing","authorizing","pending","confirmed")
@@ -959,7 +1290,7 @@ class StmEngine(private val context: Context) {
         active = false; accountVerified = false; recoveringSession = false; recoverySteps.clear()
         pendingHttpError = null; providerSubmitted = false; polling = false; awaitingNavigation = false
         lastAction = ""; pageStage = ""; navigationGeneration++
-        handler.removeCallbacks(poll); host.crop = null; web.stopLoading(); web.loadUrl("about:blank")
+        handler.removeCallbacks(poll); host.crop = null; livePage = false; host.full = false; web.stopLoading(); web.loadUrl("about:blank")
         state = UiState(hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId,
             sessionExpired = true, paymentNeedsReview = paymentNeedsReview)
     }
@@ -976,7 +1307,10 @@ class StmEngine(private val context: Context) {
         return true
     }
     companion object {
-        const val START = "https://stm.gub.uy/app/mistm/cuenta/"
+        const val OFFLINE = "No hay internet en el celular. Conectate a Wi-Fi o datos y volvé a intentar."
+        // Lab 21, worded with the owner (17/10): says what happened, calmly, without blaming anyone.
+        const val LAB_PAYMENT_NOT_STARTED = "El pago no llegó a hacerse, probá nuevamente."
+        const val START ="https://stm.gub.uy/app/mistm/cuenta/"
         const val CARDS = "https://stm.gub.uy/app/mistm/cuenta/pages/tarjetas.xhtml"
     }
 }
@@ -985,15 +1319,26 @@ class StmEngine(private val context: Context) {
 class CaptchaHost(context: Context, private val browser: WebView) : ViewGroup(context) {
     var crop: CaptchaRect? = null
         set(value) { if (field != value) { field = value; requestLayout() } }
+    /** Lab: the whole page, at this view's own size, for the person to use («Ver la página»). */
+    var full = false
+        set(value) { if (field != value) { field = value; requestLayout() } }
     init { clipChildren = true; clipToPadding = true; addView(browser) }
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val metrics = resources.displayMetrics
-        browser.measure(MeasureSpec.makeMeasureSpec(metrics.widthPixels, MeasureSpec.EXACTLY),
+        if (full) browser.measure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(heightMeasureSpec), MeasureSpec.EXACTLY))
+        else browser.measure(MeasureSpec.makeMeasureSpec(metrics.widthPixels, MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(metrics.heightPixels, MeasureSpec.EXACTLY))
         setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
     }
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val density = resources.displayMetrics.density
+        if (full) {
+            browser.visibility = View.VISIBLE
+            browser.pivotX = 0f; browser.pivotY = 0f; browser.scaleX = 1f; browser.scaleY = 1f
+            browser.layout(0, 0, browser.measuredWidth, browser.measuredHeight)
+            return
+        }
         val rect = crop
         browser.visibility = if (rect == null) View.INVISIBLE else View.VISIBLE
         val scale = if (rect == null) 1f else minOf(1f, width / (rect.width * density), height / (rect.height * density))

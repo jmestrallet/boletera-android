@@ -26,13 +26,28 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         private set
     private var expectedAmount: Long? = null
     private var finalSubmitted = false
+    /** «Pagar» was sent in this journey: from here nothing may leave the payment until its result (A4). */
+    val authorizationSent get() = finalSubmitted
+    /**
+     * The provider shows its check only after a first «Confirmar», which it refuses without authorizing (seen 15/10/2026).
+     * [captchaRetry] says the page is in that state; [retried] makes sure the one extra confirmation happens only once.
+     */
+    var captchaRetry by mutableStateOf(false)
+        private set
+    private var retried = false
     var payerValues by mutableStateOf<List<String>>(emptyList())
         private set
     var canContinue by mutableStateOf(false)
         private set
     var cardBusy by mutableStateOf(false)
         private set
+    /** Why the payer is not filled yet (Lab's record), e.g. «la lista de tipos no abrió». */
+    var payerWhy by mutableStateOf("")
+        private set
     var cardError by mutableStateOf(false)
+        private set
+    /** Lab: «Continuar» was tapped but the card never reached Prex's page (the page was not ready); the screen says so. */
+    var cardNotSent by mutableStateOf(false)
         private set
     var expressPhase by mutableStateOf("off")
         private set
@@ -81,6 +96,12 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     var enteredCardIdentity: String? = null
         private set
     private var enteredCardSuffix: String? = null
+    /** The last four of the card sent in this journey (Lab's Express pays by itself only if Prex shows the same card). */
+    val cardSuffix get() = enteredCardSuffix
+    /** Lab: Prex's own page on screen (plan B, «Ver qué respondió Prex») can use Google's autofill; the hidden one never. */
+    fun setPageAutofill(on: Boolean) {
+        if (IsLab && !destroyed) web.importantForAutofill = if (on) View.IMPORTANT_FOR_AUTOFILL_YES else View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+    }
     var verifiedCardSuffix: String? = null
         private set
     var identifyCard: (String) -> String? = { null }
@@ -93,10 +114,17 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     private var observedOutcome = ""
     private var suspended = false
     private var suspendedAt = 0L
+    /**
+     * True from coming back to the app until the page answers again: Google may have expired and be redrawing the check,
+     * so the old crop would show an empty white box. Lab shows «Cargando la verificación…» meanwhile.
+     */
+    var staleAfterResume by mutableStateOf(false)
+        private set
+    private var staleSince = 0L
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var cardCheckboxReady=false
     private val checkboxTap by lazy {CheckboxTapper(web) {stage ->
-        BuildConfig.DISTRIBUTION_CHANNEL=="beta" && !destroyed && visible && !suspended && expressJourney &&
+        BuildConfig.DISTRIBUTION_CHANNEL in setOf("beta","alpha","lab") && !destroyed && visible && !suspended && expressJourney &&
             nativeMask && nativeStage==stage && expressPhase in setOf("verification","done") && !busy && !cardBusy && !expandedChallenge &&
             !cardError && !payerConflict && (stage!="card" || cardCheckboxReady) && message.isBlank() && PaymentPolicy.gateway(web.url.orEmpty())
     }}
@@ -111,28 +139,34 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     val decoded = org.json.JSONTokener(raw).nextValue() as? String
                     if (decoded != null) {
                         val state = org.json.JSONObject(decoded)
-                        nativeStage = state.optString("stage", "loading")
+                        // The old crop stays hidden for a moment after coming back: the answer alone comes in a few ms, before Google redraws.
+                        if (staleAfterResume && (!IsLab || clock() - staleSince >= 700)) staleAfterResume = false
+                        // «Recarga no confirmada» is only handled by Lab; the other apps keep showing STM's page as before.
+                        nativeStage = state.optString("stage", "loading").let { if (it == "stmNotConfirmed" && !IsLab) "original" else it }
                         if(nativeStage!="card")cardCheckboxReady=false
                         if(nativeStage=="original") {
                             timingObserver(ExpressTiming.Phase.REVIEW)
                             if(!prepareOriginalReview())return@evaluateJavascript
                         }
                         completionNotice = state.optString("completionNotice")
-                        completionSubmitted = state.optBoolean("submitted")
+                        // Outside Lab the remapped «original» carries nothing to continue or submitted, as before.
+                        val outsideLab = !IsLab && state.optString("stage") == "stmNotConfirmed"
+                        completionSubmitted = !outsideLab && state.optBoolean("submitted")
                         val rows = state.optJSONArray("rows")
                         summaryRows = if (rows == null) emptyList() else (0 until rows.length()).map {
                             rows.getJSONArray(it).let { row -> row.getString(0) to row.getString(1) }
                         }
                         val values = state.optJSONArray("values")
                         payerValues = if (values == null) emptyList() else (0 until values.length()).map(values::getString)
-                        canContinue = state.optBoolean("canContinue")
+                        canContinue = !outsideLab && state.optBoolean("canContinue")
                         cardBusy = state.optBoolean("cardBusy")
                         cardError = state.optBoolean("cardError")
                         expressPhase = state.optString("expressPhase","off")
+                        captchaRetry = state.optBoolean("captchaRetry")
                         challenge = state.optJSONObject("challenge")?.let { r -> CaptchaRect(r.getDouble("x").toFloat(), r.getDouble("y").toFloat(), r.getDouble("width").toFloat(), r.getDouble("height").toFloat()) }
                         expandedChallenge = state.optBoolean("expanded")
                         verificationRequired = state.optBoolean("verificationRequired") || challenge != null
-                        verificationApproved = expressJourney && state.optBoolean("verificationApproved")
+                        verificationApproved = (expressJourney || IsLab) && state.optBoolean("verificationApproved")
                         timingObserver(when {
                             cardError || slowStep || message.isNotBlank() || expressPhase=="manual" -> ExpressTiming.Phase.REVIEW
                             completionSubmitted && !returningToWallet -> ExpressTiming.Phase.PREX
@@ -141,7 +175,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                             nativeStage=="card" -> ExpressTiming.Phase.CARD
                             nativeStage=="payer" && expressPhase=="verification" -> ExpressTiming.Phase.VERIFICATION
                             nativeStage=="finalConfirmation" -> ExpressTiming.Phase.CONFIRMATION
-                            nativeStage in setOf("receipt","stmSuccess","returnBalance") || returningToWallet -> ExpressTiming.Phase.RETURN
+                            nativeStage in setOf("receipt","stmSuccess","stmNotConfirmed","returnBalance") || returningToWallet -> ExpressTiming.Phase.RETURN
                             nativeStage=="sessionExpired" -> ExpressTiming.Phase.RECOVERY
                             nativeStage in setOf("original","paymentPending","paymentRejected") -> ExpressTiming.Phase.REVIEW
                             else -> ExpressTiming.Phase.PREX
@@ -155,16 +189,21 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                             val outcomeKey=nativeStage+summaryRows.toString()
                             if(observedOutcome!=outcomeKey) {observedOutcome=outcomeKey;outcomeListener(nativeStage,summaryRows)}
                         }
-                        if(expressJourney && nativeStage=="finalConfirmation" && canContinue &&
+                        if(!IsLab && expressJourney && nativeStage=="finalConfirmation" && canContinue &&
                             expectedCardIdentity!=null && enteredCardIdentity==expectedCardIdentity &&
                             expectedCardSuffix==enteredCardSuffix && summaryRows.any {
                                 it.first.trim().trimEnd(':').equals("Medio de pago",true) && it.second.takeLast(4)==expectedCardSuffix
                             }) advance(nativeStage,automatic=true)
-                        if(expressJourney && nativeStage=="receipt" && canContinue) advance(nativeStage,automatic=true)
+                        // The person already said «Pagar»: once the provider's check is solved, that same confirmation is sent, once.
+                        if(IsLab && nativeStage=="finalConfirmation" && captchaRetry && finalSubmitted && !retried && canContinue) advance(nativeStage,automatic=true)
+                        // Lab (B8): no «Pago confirmado / Ver mi saldo» stop; the receipt goes straight back to the balance.
+                        if((expressJourney || IsLab) && nativeStage=="receipt" && canContinue) advance(nativeStage,automatic=true)
                         if(nativeStage=="stmSuccess" && canContinue) advance(nativeStage,automatic=true)
+                        // Lab: after a refusal STM says «Recarga no confirmada»; its CONTINUAR leads back to the balance (the home).
+                        if(IsLab && nativeStage=="stmNotConfirmed" && canContinue) advance(nativeStage,automatic=true)
                         if(nativeStage!=progressStage) {
                             progressStage=nativeStage;progressSince=clock();slowStep=false
-                            if(nativeStage!=failureStage && nativeStage in listOf("summary","payer","card","finalConfirmation","receipt","paymentRejected","paymentPending","stmSuccess","returnBalance","sessionExpired")) {
+                            if(nativeStage!=failureStage && nativeStage in listOf("summary","payer","card","finalConfirmation","receipt","paymentRejected","paymentPending","stmSuccess","stmNotConfirmed","returnBalance","sessionExpired")) {
                                 pendingFailure=null
                                 if(transientFailureShown) {message="";transientFailureShown=false}
                             }
@@ -172,9 +211,11 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     }
                 } catch (_: Exception) { nativeStage = "loading" }
             }
-            web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer ? window.BoleteraPayer.status() : 'waiting'; } else { 'waiting'; }") { raw ->
+            web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer ? window.BoleteraPayer.status() + '|' + (window.BoleteraPayer.why ? window.BoleteraPayer.why() : '') : 'waiting|sin módulo del titular'; } else { 'waiting|fuera de Prex'; }") { raw ->
                 if (!destroyed && visible && !suspended && version == navigationVersion) {
-                    val status = try { org.json.JSONTokener(raw).nextValue() as? String } catch (_: Exception) { null }
+                    val answer = try { org.json.JSONTokener(raw).nextValue() as? String } catch (_: Exception) { null }
+                    val status = answer?.substringBefore('|')
+                    payerWhy = answer?.substringAfter('|', "").orEmpty().take(80)
                     payerConflict = status == "conflict"
                     payerNotice = when (status) {
                         "conflict" -> "Prex muestra datos distintos de los que elegiste. Podés conservarlos o usar los que seleccionaste."
@@ -183,7 +224,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                     }
                 }
             }
-            handler.postDelayed(this, if(busy || expressPhase=="advancing" || cardBusy || completionSubmitted || returningToWallet) 200 else 800)
+            handler.postDelayed(this, if(busy || expressPhase=="advancing" || cardBusy || completionSubmitted || returningToWallet || staleAfterResume) 200 else 800)
         }
     }
     private val completionScript = context.assets.open("prex-completion.js").bufferedReader().use { it.readText() }
@@ -215,8 +256,9 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         @Suppress("DEPRECATION")
         settings.saveFormData = false
         isSaveEnabled = false
-        // Keep the user's Android autofill provider, including Google; no app card vault.
-        importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
+        // Keep the user's Android autofill provider, including Google; no app card vault. Lab types the card in its own
+        // fields, so Google must see those and never the hidden page's inputs (they would steal the suggestion and the save).
+        importantForAutofill = if (IsLab) View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS else View.IMPORTANT_FOR_AUTOFILL_YES
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
         webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) { request.deny() }
@@ -269,7 +311,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
                 } else {
                     view.evaluateJavascript(returnScript + ";window.BoleteraNative ? window.BoleteraNative.snapshot().stage : 'original'") { raw ->
                         if (!destroyed && url == view.url) {
-                            nativeStage = try { org.json.JSONTokener(raw).nextValue() as? String ?: "original" } catch (_: Exception) { "original" }
+                            nativeStage = (try { org.json.JSONTokener(raw).nextValue() as? String ?: "original" } catch (_: Exception) { "original" }).let { if (it == "stmNotConfirmed" && !IsLab) "original" else it }
                             this@EmbeddedPrexPayment.handler.removeCallbacks(profileStatus)
                             if (visible) this@EmbeddedPrexPayment.handler.post(profileStatus)
                         }
@@ -286,6 +328,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, error: WebResourceResponse) {
                 if (request.isForMainFrame && request.url.toString()==view.url) deferFailure("El proveedor no pudo mostrar este paso. La solicitud sigue por revisar.")
             }
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean = rendererGone(view)
         }
     }
 
@@ -328,15 +371,24 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         web.evaluateJavascript("if(location.origin==='https://pasarelaspe.sistarbanc.com.uy' && location.pathname.startsWith('/v2/') && window.top===window.self) { window.BoleteraPayer && window.BoleteraPayer.applyChosenProfile(); }", null)
     }
 
+    /** Lab's record: the page's shape (fields shown, filled or empty, never their values) when a step stays still. */
+    fun pageShape(result: (String) -> Unit) {
+        if (destroyed) return
+        web.evaluateJavascript("(()=>{try{return window.BoleteraNative&&window.BoleteraNative.shape?window.BoleteraNative.shape():'sin módulo de Prex'}catch(e){return 'error: '+e.message}})()") { raw ->
+            result(runCatching { org.json.JSONTokener(raw).nextValue() as? String }.getOrNull().orEmpty())
+        }
+    }
     fun advance() = advance(nativeStage)
     fun advance(expectedStage: String) = advance(expectedStage,automatic=false)
     private fun advance(expectedStage: String, automatic: Boolean) {
-        if (destroyed || !visible || suspended || !canContinue || nativeStage!=expectedStage || nativeStage !in listOf("summary", "payer", "finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess")) return
+        if (destroyed || !visible || suspended || !canContinue || nativeStage!=expectedStage || nativeStage !in listOf("summary", "payer", "finalConfirmation", "receipt", "paymentRejected", "paymentPending", "stmSuccess", "stmNotConfirmed")) return
         val expected = nativeStage
-        if(expected in listOf("receipt","paymentRejected","paymentPending","stmSuccess"))returningToWallet=true
+        if(expected in listOf("receipt","paymentRejected","paymentPending","stmSuccess","stmNotConfirmed"))returningToWallet=true
         if (expected == "finalConfirmation") {
-            if (finalSubmitted) return
-            if(!beforeAuthorize()) {stopExpress();fail("No pudimos guardar el seguimiento de esta recarga. El pago no fue enviado.");return}
+            val retry = IsLab && finalSubmitted && captchaRetry && !retried
+            if (finalSubmitted && !retry) return
+            if (retry) retried = true
+            if(!retry && !beforeAuthorize()) {stopExpress();fail("No pudimos guardar el seguimiento de esta recarga. El pago no fue enviado.");return}
             finalSubmitted = true // Conservative lock survives navigation and reopening this journey.
         }
         if(!automatic)manualContinueObserver()
@@ -349,7 +401,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
             // Only a definite false proves no action was executed. Silence never unlocks a payment.
             if(!destroyed && version==navigationVersion && raw=="false") {
                 completionSubmitted=false;returningToWallet=false
-                if(expected=="finalConfirmation") {finalSubmitted=false;authorizationNotSent()}
+                if(expected=="finalConfirmation" && !retried) {finalSubmitted=false;authorizationNotSent()}
                 stopExpress()
                 message="La página cambió antes de continuar. Revisá esta solicitud; no se ejecutó ese paso."
             }
@@ -357,13 +409,30 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     }
 
     fun positionVerification() {
-        if (!destroyed && visible && nativeStage in listOf("payer","card")) web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.showVerification()", null)
+        if (!destroyed && visible && nativeStage in listOf("payer","card","finalConfirmation")) web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.showVerification()", null)
     }
 
     fun submitCard(pan: String, expiry: String, cvv: String) = submitCard(pan,expiry,cvv,automatic=false)
     fun submitAutofilledCard(pan: String, expiry: String, cvv: String) = submitCard(pan,expiry,cvv,automatic=true)
+    /**
+     * Plan B before paying: Prex's own page, for the person to finish the summary or the payer. Nothing can be paid on
+     * these steps, so no review record is written (that record would block the next «Pagar»); the next step comes
+     * back to the app's screen. False once the payment step is reached.
+     */
+    fun showPageBeforePaying(): Boolean {
+        if(destroyed || finalSubmitted || nativeStage !in setOf("summary","payer")) return false
+        stopExpress(); return true
+    }
     private fun submitCard(pan: String, expiry: String, cvv: String, automatic: Boolean) {
-        if(destroyed || !visible || suspended || nativeStage!="card" || cardBusy || !canContinue)return
+        if(destroyed || !visible || suspended || nativeStage!="card" || cardBusy || !canContinue) {
+            // Never a silent «Continuar»: the person sees that the card did not go (Lab), and the record says why.
+            if(IsLab && !destroyed && !cardBusy) {
+                cardNotSent=true
+                LabLog.add("tarjeta","no se envió: ${if(!visible)"pantalla oculta" else if(suspended)"app en segundo plano" else if(nativeStage!="card")"Prex ya no está en la tarjeta" else "Prex no puede seguir"}")
+            }
+            return
+        }
+        cardNotSent=false
         enteredCardIdentity=identifyCard(pan)
         enteredCardSuffix=pan.takeLast(4)
         cardBusy=true;cardError=false;canContinue=false
@@ -372,13 +441,20 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         val version=navigationVersion
         // Literal escaping only; never log this command or retain its arguments in engine state.
         web.evaluateJavascript("window.BoleteraCard && window.BoleteraCard.submit(${org.json.JSONObject.quote(pan)},${org.json.JSONObject.quote(expiry)},${org.json.JSONObject.quote(cvv)},$automatic)") { raw ->
-            if(!destroyed && version==navigationVersion && raw!="true") { cardBusy=false;cardError=true }
+            if(!destroyed && version==navigationVersion && raw!="true") {
+                cardBusy=false
+                // Lab: the page refused the send without trying (not a card refusal): a lasting notice instead of an error that the next poll erases.
+                if(IsLab) {cardNotSent=true;LabLog.add("tarjeta","la página de Prex no tomó el envío (no estaba lista)")} else cardError=true
+            }
         }
     }
 
     fun restoreVerification() {
         if (!destroyed) web.evaluateJavascript("window.BoleteraNative && window.BoleteraNative.restoreVerification()", null)
     }
+
+    /** «Seguir esperando» on a step that stalls: the clock starts again, nothing is sent again. */
+    fun keepWaiting() { slowStep = false; progressSince = clock() }
 
     fun stopExpress() {
         checkboxTap.cancel()
@@ -415,6 +491,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
     }
     fun resume() {
         if(suspended) {progressSince+=clock()-suspendedAt;failureSince+=clock()-suspendedAt}
+        // Back from the background: redraw the page now and wait for its answer before showing the check again.
+        if(suspended && challenge!=null) { staleAfterResume=true; staleSince=clock(); web.invalidate(); web.requestLayout() }
         suspended=false
         if(!destroyed)web.evaluateJavascript("window.BoleteraExpress?.suspend(${!visible})",null)
         if(visible && originalLink!=null) {handler.removeCallbacks(profileStatus);handler.post(profileStatus)}
@@ -432,6 +510,8 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         web.evaluateJavascript("window.BoleteraVerification?.nativeMask($enabled)",null)
     }
     private fun checkProgress() {
+        // The loader over the check never outlives a page that does not answer.
+        if(staleAfterResume && clock()-staleSince>=4000) staleAfterResume=false
         if(pendingFailure!=null && clock()-failureSince>=2000) {
             val failure=pendingFailure!!;pendingFailure=null;transientFailureShown=true;fail(failure)
         }
@@ -456,6 +536,7 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         summaryRows = emptyList()
         expectedAmount = null
         finalSubmitted = false
+        retried = false; captchaRetry = false
         expressJourney=false;expectedCardIdentity=null;expectedCardSuffix=null;enteredCardIdentity=null;enteredCardSuffix=null;verifiedCardSuffix=null;observedOutcome=""
         completionNotice = ""
         completionSubmitted = false
@@ -464,6 +545,10 @@ class EmbeddedPrexPayment(context: Context, private val clock: () -> Long = andr
         canContinue = false
         cardBusy = false
         cardError = false
+        cardNotSent = false
+        staleAfterResume = false
+        payerWhy = ""
+        failureStage = ""
         expressAmount = null
         expressPhase = "off"
         challenge = null

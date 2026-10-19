@@ -17,7 +17,9 @@
     return true;
   };
   const buttons = () => [...document.querySelectorAll('button, a, [role="button"]')].filter(visible);
-  const button = re => buttons().find(el => re.test(text(el) || el.getAttribute('aria-label') || ''));
+  // STM's icon buttons carry no text of their own («ui-button»); their name is a separate <label for> (seen 15/10/2026).
+  const nameOf = el => text(el).replace(/^ui-button$/i, '') || el.getAttribute('aria-label') || text(el.labels?.[0]) || '';
+  const button = re => buttons().find(el => re.test(nameOf(el)));
   const formButton = (field, re) => {
     const form = field?.closest('form');
     return form ? [...form.querySelectorAll('button, a, [role="button"]')].filter(visible)
@@ -28,9 +30,11 @@
   const money = s => {
     const m = String(s).match(/(-?\s*\$?\s*-?\s*\d[\d.,]*)/);
     if (!m) return null;
-    let raw = m[1].replace(/[\s$]/g, '');
-    if (raw.includes(',')) raw = raw.replace(/\./g, '').replace(',', '.');
-    else if (/^-?\d{1,3}(\.\d{3})+$/.test(raw)) raw = raw.replace(/\./g, '');
+    let raw = m[1].replace(/[\s$]/g, '').replace(/[.,]+$/, '');
+    // Only Uruguayan notation (1.240,00 / 1240,5 / 1.240 / 124) is accepted. Anything else, such as
+    // 1,240.00 or two numbers glued together, is unreadable rather than a wrong but plausible amount.
+    if (!/^-?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?$/.test(raw)) return null;
+    raw = raw.replace(/\./g, '').replace(',', '.');
     const value = Number(raw);
     return Number.isFinite(value) ? Math.round(value * 100) : null;
   };
@@ -45,7 +49,7 @@
     return id ? document.getElementById(id) : label.querySelector('input, output');
   };
   const nearbyCurrency = (labelRe, stopRe) => {
-    const page = text(document.body), start = page.search(labelRe);
+    const page = rowText(document.body), start = page.search(labelRe);
     if (start < 0) return null;
     let fragment = page.slice(start, start + 180);
     const stop = fragment.search(stopRe);
@@ -113,10 +117,15 @@
           if(s.length>500 || /captcha|verificacion|bloquead|demasiados intentos/.test(s))return false;
           if(el.tagName==='P' && !el.closest('[role="alert"],.alert,.error,.invalid-feedback,.error-message') &&
              !/^(?:(?:el|la|los|las) )?(?:documento|usuario|contrasena|password|credenciales|datos ingresados|incorrect|invalid)/.test(s))return false;
-          return /(?:documento|usuario|contrasena|password|credenciales|datos ingresados).{0,100}(?:incorrect[oa]s?|invalid(?:[oa]s?)?|no (?:son |es )correct[oa]s?|no coinciden?|no es valid[oa])/.test(s) ||
+          return /(?:documento|usuario|contrasena|password|credenciales|datos ingresados).{0,100}(?:incorrect[oa]s?|invalid(?:[oa]s?)?|no (?:son |es )(?:correct|valid)[oa]s?|no coinciden?|no es valid[oa])/.test(s) ||
             /(?:incorrect[oa]s?|invalid(?:[oa]s?)?).{0,60}(?:documento|usuario|contrasena|password|credenciales)/.test(s);
         });
       if(rejected)base.authError='credentials';
+      // A password change or confirmation form is not the sign-in step: never type the saved password there.
+      const secretFields = [...document.querySelectorAll('input[type="password"]')].filter(visible);
+      if (secretFields.length > 1 || secretFields.some(el => /new-password/i.test(el.autocomplete || '') ||
+          /nuev|confirm|repet/i.test([el.id, el.name, el.placeholder, el.getAttribute('aria-label')].join(' '))))
+        return { ...base, stage: 'unknown', reason: 'passwordChange' };
       if (input(/password|contrase/i)) return { ...base, stage: 'password' };
       if (input(/documento|document|dni/i)) return { ...base, stage: 'document' };
       if (button(/^Usuario Gub\.uy(?:$|\s|Realiza)/i)) return { ...base, stage: 'identity' };
@@ -133,7 +142,7 @@
         tablePresent: !!document.getElementById('form1:tablaTarjetas_data') };
     }
     if (path.endsWith('principal.xhtml')) {
-      const s = text(document.body);
+      const s = rowText(document.body);
       const match = s.match(/Saldo\s+(?:disponible|actual)\*?\s*:?\s*(-?\s*\$?\s*-?\s*\d[\d.,]*)/i);
       const ids=[...new Set(rowText(document.body).match(/\b[A-F0-9]{8}\b/gi)||[])];
       return { ...base, stage: 'balance', balance: match ? money(match[1]) : null, cardId:ids.length===1?ids[0]:null };
@@ -148,7 +157,7 @@
       const balanceField = document.getElementById('recarga1:saldoActual') ||
         [...document.querySelectorAll('input, output')].find(el => /(?:^|:)saldoActual$/i.test([el.id, el.name].join(' '))) ||
         associatedField(/^Saldo\s+actual\b/i);
-      const balance = fieldMoney(balanceField) ?? nearbyCurrency(/Saldo\s+actual/i, /(?:Monto|Importe|Continuar)/i);
+      const balance = fieldMoney(balanceField) ?? nearbyCurrency(/Saldo\s+actual/i, /(?:Monto|Importe|Continuar|m[ií]nim)/i);
       return { ...base, stage: 'amount', minimum, balance,
         minimumReady: minimum !== null, balanceReady: balance !== null };
     }

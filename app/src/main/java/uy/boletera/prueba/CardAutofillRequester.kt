@@ -8,7 +8,8 @@ import androidx.compose.ui.platform.InspectorInfo
 /** Requests the card's virtual field, not the Compose host view. Contains no card values. */
 internal class CardAutofillRequester {
     private var target: CardAutofillNode? = null
-    fun request() { target?.takeIf { it.isAttached }?.requestAutofill() }
+    /** False when there is no attached number field to ask for (Lab's record says so). */
+    fun request(): Boolean { val node = target?.takeIf { it.isAttached } ?: return false; node.requestAutofill(); return true }
     internal fun attach(node: CardAutofillNode) { target = node }
     internal fun detach(node: CardAutofillNode) { if (target === node) target = null }
 }

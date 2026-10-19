@@ -15,6 +15,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.heading
 
 private const val FARES="https://montevideo.gub.uy/tipo/area-tematica/sistema-de-transporte-metropolitano/tarifas-del-transporte-colectivo-urbano"
 private const val TYPES="https://montevideo.gub.uy/areas-tematicas/sistema-de-transporte-metropolitano/tipos-de-viaje"
@@ -67,6 +72,72 @@ private val tickets=listOf(
                 }
                 Text("Guía de consulta: los precios pueden cambiar. Para un trayecto suburbano, confirmá el recorrido con la empresa.",style=MaterialTheme.typography.bodySmall,color=Muted)
                 TextButton(onClick={uri.openUri(FARES)}){Text("Consultar tarifas vigentes · IM")}
+            }
+        }
+    }
+}
+
+/** One line per ticket for Lab's guide (inicio.html): what it is for, and its price as people read it. */
+private data class LabTicketLine(val title: String, val price: String, val line: String, val soft: Boolean = false)
+private val labTicketLines=listOf(
+    LabTicketLine("1 hora","$ 52","Hasta dos ómnibus urbanos en una hora"),
+    LabTicketLine("2 horas","$ 78","Ómnibus sin límite durante dos horas"),
+    LabTicketLine("Céntrico","$ 38","Dentro de la zona céntrica"),
+    LabTicketLine("Zonal","$ 27","En las zonas habilitadas"),
+    LabTicketLine("Diferencial","$ 78","Líneas semidirectas, menos paradas"),
+    LabTicketLine("Combinación metropolitana","Desde $ 80","Urbano y suburbano, con descuento",soft=true),
+    LabTicketLine("Paradas de intercambio","Sin extra","Amplían el boleto de 1 hora",soft=true),
+    LabTicketLine("Común en efectivo","$ 64","Un viaje, pagando en efectivo"),
+    LabTicketLine("Tarifas especiales","Por categoría","Estudiantes, jubilados e institucional",soft=true))
+
+/**
+ * Lab's «Boletos y tarifas» (inicio.html): a sheet with one row per ticket — name, price and what it is for in one line.
+ * Tapping a row unfolds the full explanation and the official source. The one-hour ticket comes first, open, and says
+ * it is the one the home uses to count trips.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable internal fun LabTicketGuideSheet(onClose: () -> Unit) {
+    val uri=LocalUriHandler.current
+    val type=MaterialTheme.typography
+    var expanded by rememberSaveable { mutableStateOf<String?>("1 hora") }
+    ModalBottomSheet(onDismissRequest=onClose,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=androidx.compose.ui.graphics.Color(0xFF151B27),
+        shape=androidx.compose.foundation.shape.RoundedCornerShape(topStart=32.dp,topEnd=32.dp),
+        dragHandle={Box(Modifier.padding(top=10.dp,bottom=18.dp).size(36.dp,4.dp).background(androidx.compose.ui.graphics.Color.White.copy(alpha=.22f),androidx.compose.foundation.shape.RoundedCornerShape(2.dp)))}) {
+        // A sheet never climbs over the status bar: it stops under the home's top bar (inicio.html).
+        val maxHeight=(androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp-76-WindowInsets.statusBars.asPaddingValues().calculateTopPadding().value.toInt()).dp
+        Column(Modifier.fillMaxWidth().heightIn(max=maxHeight).padding(horizontal=16.dp)) {
+            Text("Boletos y tarifas",style=type.labSheet,color=LabColors.On,modifier=Modifier.padding(horizontal=8.dp).semantics{heading()})
+            Text("Montevideo · con tarjeta STM",style=type.bodyMedium.copy(fontSize=14.sp),color=LabColors.Muted,modifier=Modifier.padding(start=8.dp,top=4.dp,bottom=14.dp))
+            Column(Modifier.weight(1f,false).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                labTicketLines.forEach { item ->
+                    val help=tickets.first{it.title==item.title}
+                    val open=expanded==item.title
+                    val shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+                    Column(Modifier.fillMaxWidth().clip(shape).background(if(open)LabColors.Primary.copy(alpha=.10f) else androidx.compose.ui.graphics.Color.White.copy(alpha=.06f))
+                        .then(if(open)Modifier.border(1.dp,LabColors.Primary.copy(alpha=.25f),shape) else Modifier)
+                        .clickable(role=Role.Button,onClickLabel=if(open)"Ocultar explicación" else "Ver explicación"){expanded=if(open)null else item.title}
+                        .semantics{stateDescription=if(open)"Expandido" else "Contraído"}.padding(horizontal=18.dp,vertical=14.dp)) {
+                        Row(verticalAlignment=Alignment.CenterVertically) {
+                            Text(item.title,style=type.titleMedium.copy(fontSize=17.sp),color=LabColors.On,modifier=Modifier.weight(1f))
+                            Text(item.price,style=if(item.soft)type.bodyMedium.copy(fontSize=14.sp) else type.titleMedium.copy(fontSize=16.sp),color=if(item.soft)LabColors.Muted else LabColors.On)
+                        }
+                        Text(item.line,style=type.bodyMedium.copy(fontSize=13.5.sp),color=LabColors.Muted,modifier=Modifier.padding(top=2.dp))
+                        AnimatedVisibility(open) {
+                            Column {
+                                Text(help.text,style=type.bodyMedium.copy(fontSize=14.sp,lineHeight=21.sp),color=androidx.compose.ui.graphics.Color(0xFFD7DDE8),modifier=Modifier.padding(top=10.dp))
+                                if(item.title=="1 hora")Row(Modifier.padding(top=10.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                                    Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_directions_bus),contentDescription=null,tint=LabColors.Primary,modifier=Modifier.size(16.dp))
+                                    Text("Con este contamos tus viajes en el inicio",style=type.labelMedium.copy(fontSize=12.5.sp),color=LabColors.Primary)
+                                }
+                                LabInlineLink(help.sourceLabel+" ↗",{uri.openUri(help.source)},Modifier.padding(top=4.dp))
+                            }
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top=6.dp,bottom=24.dp),horizontalArrangement=Arrangement.Center,verticalAlignment=Alignment.CenterVertically) {
+                    Text("Vigentes desde el 5/1/2026 · ",style=type.bodySmall.copy(fontSize=12.5.sp),color=LabColors.Faint)
+                    LabInlineLink("Tarifas oficiales ↗",{uri.openUri(FARES)})
+                }
             }
         }
     }

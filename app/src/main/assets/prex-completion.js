@@ -31,21 +31,40 @@
     const [whole,decimal='']=s.replace(/\./g,'').split(',');
     const n=Number(whole)*100+Number(decimal.padEnd(2,'0'));return Number.isSafeInteger(n)?n:null;
   }
-  let expected=null, finalSent=false, returnSent=false;
+  let expected=null, finalSent=false, returnSent=false, captchaRetry=false;
+  // A «Confirmar» pressed while the check was already on screen went out with it: it is never pressed again.
+  let finalSentWithCheck=false;
   const value = (data,key) => {const found=data.filter(r=>normal(r[0])===key);return found.length===1?found[0][1]:null;};
   function snapshot() {
     const final=single('stepper-pago finalizar-pago'), receipt=single('resultado-pago');
     if(!final&&!receipt)return base.snapshot();
-    if(final&&receipt || [...document.querySelectorAll('[role="dialog"],[role="alertdialog"],mat-dialog-container,.swal2-popup,[role="alert"],.mat-snack-bar-container')].some(visible))return {stage:'original'};
+    if(final&&receipt || [...document.querySelectorAll('[role="dialog"],[role="alertdialog"],mat-dialog-container,.swal2-popup')].some(visible))return {stage:'original'};
+    // A rejection comes with a toast «Existen datos incorrectos» (also when the Prex has no funds, seen 15/10/2026): on the
+    // result page it is part of the outcome, not something to hand over to the original page.
+    if(final && [...document.querySelectorAll('[role="alert"],.mat-snack-bar-container')].some(visible))return {stage:'original'};
     const root=final||receipt, data=rows(root);
     const total=value(data,receipt?'total':'importe');
     if(!Number.isSafeInteger(expected)||expected<=0||normal(value(data,'comercio')||'')!=='stm recargas'||cents(total||'')!==expected)return {stage:'original'};
     if(final) {
       // Keep unhandled choices and verification challenges in the original interactive page.
-      if([...root.querySelectorAll('input:not([type="hidden"]),select,textarea,mat-select')].some(visible) ||
-        [...document.querySelectorAll('iframe')].some(e=>visible(e)&&/\/recaptcha\/(?:api2|enterprise)\/(?:anchor|bframe)/.test(e.src)&&(/\/bframe/.test(e.src)||!/[?&]size=invisible(?:&|$)/.test(e.src))))return {stage:'original'};
+      if([...root.querySelectorAll('input:not([type="hidden"]),select,mat-select')].some(visible) ||
+        [...root.querySelectorAll('textarea')].some(e=>visible(e)&&e.name!=='g-recaptcha-response'))return {stage:'original'};
       if(!value(data,'transaccion')||!value(data,'medio de pago'))return {stage:'original'};
-      return {stage:'finalConfirmation',rows:data,canContinue:!finalSent&&ready(action(root,'confirmar')),submitted:finalSent};
+      // The provider's check only appears after a first «Confirmar», which it refuses (401) without authorizing anything
+      // (seen 15/10/2026). It is reported as a verification of this same step, measured so the app can show it inside.
+      const frames=[...document.querySelectorAll('iframe')].filter(e=>visible(e)&&/\/recaptcha\/(?:api2|enterprise)\/(?:anchor|bframe)/.test(e.src)&&
+        (/\/bframe/.test(e.src)||!/[?&]size=invisible(?:&|$)/.test(e.src))).filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&r.top>-1000;});
+      const check=frames.find(e=>/\/bframe/.test(e.src))||frames.find(e=>/\/anchor/.test(e.src));
+      if(check) {
+        // The refused first try left the button free again: allow exactly one more, once the check is solved.
+        if(finalSent&&!captchaRetry&&!finalSentWithCheck){finalSent=false;captchaRetry=true;}
+        const solved=[...root.querySelectorAll('textarea[name="g-recaptcha-response"]')].some(e=>!!e.value);
+        const r=check.getBoundingClientRect();
+        return {stage:'finalConfirmation',rows:data,verificationRequired:true,captchaRetry,
+          challenge:{x:r.x,y:r.y,width:r.width,height:r.height},expanded:/\/bframe/.test(check.src),viewportWidth:innerWidth,
+          canContinue:!finalSent&&solved&&ready(action(root,'confirmar')),submitted:finalSent};
+      }
+      return {stage:'finalConfirmation',rows:data,captchaRetry,canContinue:!finalSent&&ready(action(root,'confirmar')),submitted:finalSent};
     }
     const statuses=[...receipt.querySelectorAll('b')].filter(visible).map(e=>normal(text(e)));
     const success=statuses.filter(s=>s==='el pago se realizo con exito').length===1;
@@ -62,7 +81,7 @@
     const root=single(stage==='finalConfirmation'?'stepper-pago finalizar-pago':'resultado-pago');
     const button=root&&action(root,stage==='finalConfirmation'?'confirmar':'volver a la pagina inicial');
     if(!ready(button))return false;
-    if(stage==='finalConfirmation')finalSent=true;else returnSent=true;
+    if(stage==='finalConfirmation'){finalSent=true;finalSentWithCheck=!!state.verificationRequired;}else returnSent=true;
     button.click();return true;
   }};
 })();

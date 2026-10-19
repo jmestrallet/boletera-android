@@ -24,7 +24,12 @@
     if(exact(/^¡Recarga exitosa!$/i)&&exact(/^Recarga Confirmada\.$/i)) {
       const button=next();return {stage:'stmSuccess',canContinue:!sent&&!!button&&!button.disabled&&button.getAttribute('aria-disabled')!=='true',submitted:sent};
     }
+    // STM's own page after a payment the provider did not take (seen 17/10/2026): «Recarga no confirmada». Its only way on
+    // is CONTINUAR, back to the balance; nothing is paid or recorded from here.
+    if(exact(/^Recarga no confirmada$/i)) {
+      const button=next();return {stage:'stmNotConfirmed',canContinue:!sent&&!!button&&!button.disabled&&button.getAttribute('aria-disabled')!=='true',submitted:sent};
+    }
     return {stage:'original'};
   }
-  window.BoleteraNative={snapshot,advance(stage){const state=snapshot();if(stage!=='stmSuccess'||state.stage!==stage||!state.canContinue)return false;sent=true;next().click();return true;}};
+  window.BoleteraNative={snapshot,advance(stage){const state=snapshot();if(!['stmSuccess','stmNotConfirmed'].includes(stage)||state.stage!==stage||!state.canContinue)return false;sent=true;next().click();return true;}};
 })();

@@ -89,7 +89,11 @@
         // Google response presence alone is insufficient. Only the bound provider component's
         // server-acceptance signal allows automatic continuation; unknown versions stay manual.
         if((state.verificationRequired||state.challenge||[...root.querySelectorAll('angular-recaptcha')].some(visible)) &&
-          window.BoleteraProviderVerification?.accepted(root)!==true)return phase='verification';
+          window.BoleteraProviderVerification?.accepted(root)!==true) {
+          // The 20 s limit above counts from the check being solved, not from the step appearing: a person who takes minutes
+          // (or leaves the app) no longer finds Express stopped right after sending the step (seen 18/10/2026).
+          stageSince=Date.now();return phase='verification';
+        }
         // Angular may validate asynchronously after the known fields were filled. Wait for
         // its result; errors, changed values, extra controls and timeout still stop above.
         if(!form.classList.contains('ng-valid'))return phase='advancing';

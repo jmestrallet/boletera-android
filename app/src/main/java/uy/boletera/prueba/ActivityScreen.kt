@@ -58,6 +58,7 @@ private const val frequentHelp="https://montevideo.gub.uy/tipo/area-tematica/sis
                     ActivityAccess.UNAVAILABLE -> {
                         WhiteCard {
                             Text("No pudimos leer la actividad",style=MaterialTheme.typography.headlineSmall,color=Ink)
+                            if(state.reason.isNotBlank())Text(state.reason,color=Ink)
                             Text("Todavía no tenemos movimientos verificados de esta boletera. Esto no significa que no hayas viajado.",color=Muted)
                             Primary("Volver a consultar",action=onRefresh)
                         }
@@ -132,7 +133,7 @@ private const val frequentHelp="https://montevideo.gub.uy/tipo/area-tematica/sis
 
 @Composable private fun FrequentCard(progress:FrequentProgress?) {
     if(progress==null) {FrequentUnavailable("STM todavía no nos permite comprobar cuántos de estos viajes cuentan para el beneficio.");return}
-    Surface(color=Lime,shape=RoundedCornerShape(28.dp),modifier=Modifier.testTag("frequentProgress")) {
+    Surface(color=Highlight,shape=RoundedCornerShape(28.dp),modifier=Modifier.testTag("frequentProgress")) {
         Column(Modifier.fillMaxWidth().padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             val ink=MaterialTheme.colorScheme.onPrimaryContainer
             Text("Usuario frecuente",style=MaterialTheme.typography.titleMedium,color=ink)

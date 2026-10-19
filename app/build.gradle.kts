@@ -10,37 +10,53 @@ val localSigning = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val distributionChannel = providers.gradleProperty("boleteraChannel").orElse("public").get().also {
-    require(it in setOf("public", "beta", "alpha")) { "boleteraChannel must be public, beta or alpha" }
+    require(it in setOf("public", "beta", "alpha", "lab")) { "boleteraChannel must be public, beta, alpha or lab" }
 }
 val isAlpha = distributionChannel == "alpha"
 val isBeta = distributionChannel == "beta"
+// Lab is a separate app installed next to Boletera, so a broken experiment never replaces it.
+val isLab = distributionChannel == "lab"
 val legacyUpdateBridge = providers.gradleProperty("boleteraLegacyUpdateBridge").orElse("false").get().let {
     it.toBooleanStrictOrNull() ?: error("boleteraLegacyUpdateBridge must be true or false")
 }.also { enabled ->
-    require(!enabled || (!isBeta && !isAlpha)) { "The legacy update bridge must use the public channel" }
+    require(!enabled || (!isBeta && !isAlpha && !isLab)) { "The legacy update bridge must use the public channel" }
 }
 android {
     namespace = "uy.boletera.prueba"
     compileSdk = 35
     defaultConfig {
-        applicationId = "uy.boletera.prueba"
+        applicationId = if (isLab) "uy.boletera.lab" else "uy.boletera.prueba"
         minSdk = 26
         targetSdk = 35
-        versionCode = if (legacyUpdateBridge) 49 else 58
+        // 0.3.0 Alpha 1 shares the package with Estable and Beta (code 61): one above, so it updates Alpha 5. From here on the
+        // next Alpha needs 63 or more, and Estable/Beta 63 or more too if they must install over this Alpha (no downgrades).
+        versionCode = if (legacyUpdateBridge) 49 else if (isLab) 84 else if (isAlpha) 62 else 61
         versionName = when {
             legacyUpdateBridge -> "0.2.31-prueba"
-            isAlpha -> "0.2.40-alpha.1"
-            isBeta -> "0.2.40-beta.1"
+            isLab -> "0.2.40-lab.24"
+            isAlpha -> "0.3.0-alpha.1"
+            isBeta -> "0.2.40-beta.2"
             else -> "0.2.40"
         }
         buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"$distributionChannel\"")
+        // Key that can only open issues in the private jmestrallet/boletera-reportes repo. It lives in .tools (never
+        // committed) and is read at build time; without it «Enviar reporte» falls back to the share sheet.
+        val reportToken = rootProject.file(".tools/reports-token.txt").takeIf { it.exists() }?.readText()?.trim().orEmpty()
+            .filter { it.isLetterOrDigit() || it == '_' }
+        // Alpha has the new experience since 0.3.0 Alpha 1 and reports straight too (owner 19/10).
+        buildConfigField("String", "REPORT_TOKEN", "\"${if (isLab || isAlpha) reportToken else ""}\"")
         buildConfigField("String", "DISPLAY_VERSION", when {
             legacyUpdateBridge -> "\"0.2.31\""
-            isAlpha -> "\"0.2.40 Alpha 1\""
-            isBeta -> "\"0.2.40 Beta 1\""
+            isLab -> "\"0.2.40 Lab 24\""
+            isAlpha -> "\"0.3.0 Alpha 1\""
+            isBeta -> "\"0.2.40 Beta 2\""
             else -> "\"0.2.40\""
         })
-        resValue("string", "app_name", if (isAlpha) "Boletera Alpha" else if (isBeta) "Boletera Beta" else "Boletera")
+        resValue("string", "app_name", if (isLab) "Boletera Lab" else if (isAlpha) "Boletera Alpha" else if (isBeta) "Boletera Beta" else "Boletera")
+        // Lab gets a violet launcher tile so it is never mistaken for the everyday app.
+        resValue("color", "app_icon_background", if (isLab) "#7C4DFF" else "#1A73D9")
+        resValue("color", "app_icon_background_end", if (isLab) "#4527A0" else "#0B4A94")
+        manifestPlaceholders["appTheme"] = if (isLab || isAlpha) "@style/AppTheme.Lab" else "@style/AppTheme"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }
@@ -71,6 +87,8 @@ dependencies {
     implementation("androidx.fragment:fragment-ktx:1.8.6")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.compose.material3:material3")
+    // Backdrop blur for the Lab glass panels; falls back to a tinted surface before Android 12.
+    implementation("dev.chrisbanes.haze:haze:1.6.10")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")

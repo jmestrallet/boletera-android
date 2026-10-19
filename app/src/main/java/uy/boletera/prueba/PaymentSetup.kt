@@ -86,7 +86,7 @@ import androidx.compose.ui.unit.dp
         needsPayer -> "Elegir titular"
         else -> "Continuar · ${Amounts.format(state.amount)}"
     }
-    Surface(color = Paper, shadowElevation = 6.dp) {
+    Surface(color = Paper, shadowElevation = if (IsLab) 0.dp else 6.dp) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (providerAvailable && !needsPayer) Text(
                 if (state.selectedProvider == "1033") "Completás el pago en Prex." else "Se abre eBROU en Chrome.",

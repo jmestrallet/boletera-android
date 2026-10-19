@@ -22,17 +22,25 @@ import java.security.MessageDigest
 import java.util.concurrent.Executors
 
 enum class UpdateChannel(val key: String, val label: String) {
-    STABLE("public", "Estable"), BETA("beta", "Beta"), ALPHA("alpha", "Alpha");
-    companion object { fun from(value: String?) = entries.firstOrNull { it.key == value } ?: STABLE }
+    STABLE("public", "Estable"), BETA("beta", "Beta"), ALPHA("alpha", "Alpha"), LAB("lab", "Lab");
+    companion object {
+        fun from(value: String?) = entries.firstOrNull { it.key == value } ?: STABLE
+        /** Lab is a separate package installed next to Boletera; it never replaces the everyday app. */
+        const val LAB_PACKAGE = "uy.boletera.lab"
+    }
 }
 internal data class UpdateNews(val version: String, val notes: List<String>)
 internal data class UpdateRelease(val version: String, val url: String, val size: Long, val sha256: String,
     val notes: List<String> = emptyList(), val history: List<UpdateNews> = emptyList(),
-    val channel: UpdateChannel = UpdateChannel.STABLE, val packageVersion: String = version)
+    val channel: UpdateChannel = UpdateChannel.STABLE, val packageVersion: String = version,
+    /** Needed for the app to keep working (STM, Prex or a payment page changed how it talks to the app). */
+    val critical: Boolean = false)
 
 internal object UpdatePolicy {
     const val API = "https://api.github.com/repos/jmestrallet/boletera-android/releases?per_page=100"
     const val MAX_APK = 100L * 1024 * 1024
+    /** A release is critical when its notes carry «<!-- critica -->» (invisible on GitHub) or a «## Actualización crítica» heading. */
+    fun critical(body: String): Boolean = Regex("(?im)^\\s*(<!--\\s*cr[ií]tica\\s*-->|##\\s*actualizaci[oó]n\\s+cr[ií]tica)").containsMatchIn(body.take(32_000))
     fun notes(body: String): List<String> {
         // New releases have a concise app section. Older public releases used bullets or paragraphs.
         val normalized=body.take(32_000).replace("\r\n","\n")
@@ -43,16 +51,19 @@ internal object UpdatePolicy {
         return items.map { it.removePrefix("- ").replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1")
                 .replace(Regex("[*`_]"), "").replace(Regex("\\s+"), " ").trim() }.filter(String::isNotBlank)
     }
-    private data class ParsedVersion(val core: List<Int>, val beta: Int?, val alpha: Boolean)
+    /** [beta] holds the pre-release number for every pre-release channel; [tag] says which one. */
+    private data class ParsedVersion(val core: List<Int>, val beta: Int?, val tag: String)
     private fun parsed(value: String): ParsedVersion? {
-        val match=Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-(?:prueba|publica)|-(beta|alpha)\\.(\\d+))?$").matchEntire(value) ?: return null
+        val match=Regex("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-(?:prueba|publica)|-(beta|alpha|lab)\\.(\\d+))?$").matchEntire(value) ?: return null
         val core=match.groupValues.slice(1..3).map {it.toIntOrNull() ?: return null}
-        return ParsedVersion(core,match.groupValues[5].takeIf(String::isNotBlank)?.toIntOrNull(),match.groupValues[4]=="alpha")
+        return ParsedVersion(core,match.groupValues[5].takeIf(String::isNotBlank)?.toIntOrNull(),match.groupValues[4])
     }
     fun version(value: String): List<Int>? = parsed(value)?.core
-    fun channel(value: String): UpdateChannel = if(parsed(value)?.alpha==true)UpdateChannel.ALPHA else if(parsed(value)?.beta!=null)UpdateChannel.BETA else UpdateChannel.STABLE
+    fun channel(value: String): UpdateChannel = when(parsed(value)?.tag) {
+        "lab" -> UpdateChannel.LAB; "alpha" -> UpdateChannel.ALPHA; "beta" -> UpdateChannel.BETA; else -> UpdateChannel.STABLE
+    }
     fun display(value: String): String {
-        val parsed=Regex("^(\\d+\\.\\d+\\.\\d+)-(beta|alpha)\\.(\\d+)$").matchEntire(value)
+        val parsed=Regex("^(\\d+\\.\\d+\\.\\d+)-(beta|alpha|lab)\\.(\\d+)$").matchEntire(value)
         return parsed?.let { "${it.groupValues[1]} ${it.groupValues[2].replaceFirstChar { c -> c.uppercase() }} ${it.groupValues[3]}" } ?: value.removeSuffix("-prueba").removeSuffix("-publica")
     }
     fun newer(candidate: String, installed: String): Boolean {
@@ -85,13 +96,14 @@ internal object UpdatePolicy {
                 !Regex("sha256:[a-fA-F0-9]{64}").matches(digest)) return@mapNotNull null
             val packageVersion=v
             UpdateRelease(v, url, size, digest.substringAfter(':').lowercase(), notes(release.optString("body")),
-                channel=wanted,packageVersion=packageVersion)
+                channel=wanted,packageVersion=packageVersion,critical=critical(release.optString("body")))
         }
         val selected=candidates.reduceOrNull { best, next -> if (newer(next.version, best.version)) next else best } ?: return null
         val historySource=if(switching)listOf(selected) else candidates
         val history=historySource.distinctBy { it.version }.sortedWith { a,b -> when {newer(a.version,b.version)->-1;newer(b.version,a.version)->1;else->0} }
             .map { UpdateNews(it.version,it.notes) }
-        return selected.copy(history=history)
+        // Critical if any version skipped on the way is: its fix only arrives by installing the newest one.
+        return selected.copy(history=history,critical=historySource.any { it.critical })
     }
     fun allowed(url: URL): Boolean = url.protocol == "https" && url.userInfo == null && url.port in listOf(-1, 443) &&
         url.host in setOf("api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com")
@@ -155,27 +167,42 @@ internal object UpdateFiles {
         } finally { connection.disconnect() }
     }
 
+    /** The package a release installs into: Lab goes next to Boletera, every other channel replaces it. */
+    fun targetPackage(context: Context, release: UpdateRelease) =
+        if (release.channel == UpdateChannel.LAB) UpdateChannel.LAB_PACKAGE else context.packageName
+
     @Suppress("DEPRECATION")
     fun verify(context: Context, file: File, release: UpdateRelease) {
         val pm = context.packageManager
         val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
         val candidate = pm.getPackageArchiveInfo(file.absolutePath, flags) ?: error("El archivo no es una APK válida.")
-        val installed = pm.getPackageInfo(context.packageName, flags)
-        verifyArchive(candidate, installed, context.packageName, release)
+        val own = pm.getPackageInfo(context.packageName, flags)
+        val target = targetPackage(context, release)
+        val installed = if (target == context.packageName) own else try { pm.getPackageInfo(target, flags) } catch (_: PackageManager.NameNotFoundException) { null }
+        verifyArchive(candidate, installed, own, target, release)
     }
 
+    fun verifyArchive(candidate: android.content.pm.PackageInfo, installed: android.content.pm.PackageInfo, packageName: String, release: UpdateRelease) =
+        verifyArchive(candidate, installed, installed, packageName, release)
+
+    /** [installed] is the copy being replaced (null for a first Lab install); [own] is the running app, whose signature must match. */
     @Suppress("DEPRECATION")
-    fun verifyArchive(candidate: android.content.pm.PackageInfo, installed: android.content.pm.PackageInfo, packageName: String, release: UpdateRelease) {
+    fun verifyArchive(candidate: android.content.pm.PackageInfo, installed: android.content.pm.PackageInfo?, own: android.content.pm.PackageInfo,
+                      packageName: String, release: UpdateRelease) {
         check(candidate.packageName == packageName) { "La descarga no es Boletera." }
-        val installedName=installed.versionName ?: ""
-        val switching=UpdatePolicy.channel(installedName)!=release.channel
-        check(candidate.versionName == release.packageVersion && (switching || UpdatePolicy.newer(release.version,installedName))) { "La descarga no corresponde a la versión elegida." }
-        val candidateCode = if (Build.VERSION.SDK_INT >= 28) candidate.longVersionCode else candidate.versionCode.toLong()
-        val installedCode = if (Build.VERSION.SDK_INT >= 28) installed.longVersionCode else installed.versionCode.toLong()
-        check(candidateCode > installedCode || switching && candidateCode == installedCode) { "La descarga no es compatible con la app instalada." }
-        val own = if (Build.VERSION.SDK_INT >= 28) installed.signingInfo?.apkContentsSigners else installed.signatures
+        if (installed == null) {
+            check(candidate.versionName == release.packageVersion) { "La descarga no corresponde a la versión elegida." }
+        } else {
+            val installedName=installed.versionName ?: ""
+            val switching=UpdatePolicy.channel(installedName)!=release.channel
+            check(candidate.versionName == release.packageVersion && (switching || UpdatePolicy.newer(release.version,installedName))) { "La descarga no corresponde a la versión elegida." }
+            val candidateCode = if (Build.VERSION.SDK_INT >= 28) candidate.longVersionCode else candidate.versionCode.toLong()
+            val installedCode = if (Build.VERSION.SDK_INT >= 28) installed.longVersionCode else installed.versionCode.toLong()
+            check(candidateCode > installedCode || switching && candidateCode == installedCode) { "La descarga no es compatible con la app instalada." }
+        }
+        val mine = if (Build.VERSION.SDK_INT >= 28) own.signingInfo?.apkContentsSigners else own.signatures
         val other = if (Build.VERSION.SDK_INT >= 28) candidate.signingInfo?.apkContentsSigners else candidate.signatures
-        check(!own.isNullOrEmpty() && !other.isNullOrEmpty() && own.toSet() == other.toSet()) { "La firma de la descarga no coincide con Boletera." }
+        check(!mine.isNullOrEmpty() && !other.isNullOrEmpty() && mine.toSet() == other.toSet()) { "La firma de la descarga no coincide con Boletera." }
     }
 }
 
@@ -184,9 +211,15 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     var message by mutableStateOf("Buscá actualizaciones sin salir de Boletera."); private set
     internal var release by mutableStateOf<UpdateRelease?>(null); private set
     var ready by mutableStateOf(false); private set
+    /** Percent downloaded while a download runs, or null. */
+    var progress by mutableStateOf<Int?>(null); private set
     var installRequested by mutableStateOf(false); private set
     var reviewRequested by mutableStateOf(false); private set
     var automaticNotice by mutableStateOf(false); private set
+    /** Lab: a version found on opening, offered in a sheet (critical ones every time, normal ones until skipped). */
+    var prompt by mutableStateOf(false); private set
+    /** The last download from the prompt failed; [message] says why. */
+    var downloadFailed by mutableStateOf(false); private set
     private val preferences=application.getSharedPreferences("updates",Context.MODE_PRIVATE)
     val installedChannel=UpdateChannel.from(BuildConfig.DISTRIBUTION_CHANNEL)
     var channel by mutableStateOf(installedChannel); private set
@@ -195,36 +228,75 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     private val main = Handler(Looper.getMainLooper())
     private var closed = false
     private val apk get() = File(getApplication<Application>().cacheDir, "updates/boletera-${channel.key}.apk")
+    /**
+     * The new experience (Lab, and Alpha since 0.3.0 Alpha 1) only knows its own channel: its Configuración has no channel
+     * picker, and a channel chosen in Alpha 5 (Beta, Estable) would leave it offering a version it cannot install. The
+     * classic apps offer the four channels, Lab installing beside them.
+     */
+    val channels: List<UpdateChannel> = if(IsLab) listOf(installedChannel) else UpdateChannel.entries
+    private val labIsSeparate get() = installedChannel!=UpdateChannel.LAB
     init {
         val priorArtifact=preferences.getString("installed_artifact",null)
-        channel=if(priorArtifact!=null && priorArtifact!=installedChannel.key)installedChannel
-            else UpdateChannel.from(preferences.getString("channel",installedChannel.key))
+        val stored=UpdateChannel.from(preferences.getString("channel",installedChannel.key))
+        // Choosing Lab from Boletera is a one-off install of another app, never this app's own feed.
+        channel=if(priorArtifact!=null && priorArtifact!=installedChannel.key || stored !in channels || stored==UpdateChannel.LAB && labIsSeparate)installedChannel else stored
         preferences.edit().putString("installed_artifact",installedChannel.key).putString("channel",channel.key).apply()
         message="Buscá actualizaciones de la versión ${channel.label.lowercase()}."
     }
+    /** Version name of the Lab app installed next to this one, or null. */
+    @Suppress("DEPRECATION")
+    fun labVersion(): String? = if(!labIsSeparate) BuildConfig.VERSION_NAME else try {
+        getApplication<Application>().packageManager.getPackageInfo(UpdateChannel.LAB_PACKAGE,0).versionName
+    } catch (_: PackageManager.NameNotFoundException) { null }
+    fun openLab(context: Context): Boolean {
+        val intent=context.packageManager.getLaunchIntentForPackage(UpdateChannel.LAB_PACKAGE) ?: return false
+        return try { context.startActivity(intent);true } catch (_: Exception) { false }
+    }
     private fun publish(action: () -> Unit) { main.post { if (!closed) action() } }
-    private fun work(action: () -> Unit) {
+    /** [checking]: the work is a look for a new version, not a download (Lab words its failure for that and keeps it out of [downloadFailed]). */
+    private fun work(checking: Boolean = false, action: () -> Unit) {
         busy = true
         worker.execute {
-            try { action() } catch (_: Exception) {
-                publish { message = "No se pudo completar la actualización. Revisá la conexión y volvé a intentar." }
+            try { action() } catch (error: Exception) {
+                val labCheck=checking && IsLab
+                val detail=when(error.message) {
+                    "La descarga no es compatible con la app instalada." -> "La versión publicada no es compatible con la instalada. Buscá una actualización más reciente."
+                    "La descarga no corresponde a la versión elegida.",
+                    "La firma de la descarga no coincide con Boletera.",
+                    "La descarga está incompleta o no coincide con la publicada." -> error.message!!
+                    // GitHub's own limit says what it is instead of «No se pudo preparar…» (Lab 21).
+                    else -> if(error.message?.startsWith("GitHub")==true) error.message!!
+                        // A failed look for a version is not a failed update (Lab 22): it says what it was doing.
+                        else if(labCheck)(if(error is java.io.IOException)"No pudimos buscar actualizaciones. Cuando vuelva la conexión, probá de nuevo." else "No pudimos buscar actualizaciones. Probá de nuevo en un rato.")
+                        else if(error is java.io.IOException)"No se pudo completar la actualización. Revisá la conexión y volvé a intentar."
+                        else "No se pudo preparar la actualización. Buscá actualizaciones y volvé a intentar."
+                }
+                LabLog.add("actualización", "falló ${if(checking)"la búsqueda" else "la descarga"}: ${error.javaClass.simpleName} · $detail")
+                // An automatic look that failed (no internet on opening) must not paint Configuración as a failed download.
+                publish { message = detail; downloadFailed = !labCheck }
             } finally { publish { busy = false } }
         }
     }
     fun check() = checkRelease(false)
     fun selectChannel(value: UpdateChannel) {
-        if(channel==value || busy)return
+        if(channel==value || busy || value !in channels)return
         channel=value
-        preferences.edit().putString("channel",value.key).remove("last_attempt.${value.key}").apply()
+        val edit=preferences.edit().remove("last_attempt.${value.key}")
+        if(!(value==UpdateChannel.LAB && labIsSeparate))edit.putString("channel",value.key)
+        edit.apply()
         installRequested=false;awaitingInstallPermission=false;reviewRequested=false;ready=false;release=null;automaticNotice=false
         message=if(value==UpdateChannel.STABLE)"Buscando la versión estable…" else "Buscando Boletera ${value.label}…"
         checkRelease(false)
     }
     internal fun automaticCheckDue(now: Long = System.currentTimeMillis()): Boolean {
         val previous=preferences.getLong("last_attempt.${channel.key}",0)
-        return !busy && !ready && !awaitingInstallPermission && (previous==0L || now<previous || now-previous>=6*60*60*1000L)
+        return !busy && !ready && !awaitingInstallPermission && (previous==0L || now<previous || now-previous>=automaticInterval)
     }
+    /** Lab looks on every opening (at most every 5 minutes); the other apps every 6 hours. */
+    val automaticInterval = if(installedChannel==UpdateChannel.LAB) 5*60*1000L else 6*60*60*1000L
     fun checkAutomatic() {
+        // While the sheet is open its version stays put; a re-check would wipe it from under the person.
+        if(prompt)return
         if(automaticCheckDue())checkRelease(true)
     }
     fun dismissAutomaticNotice() { automaticNotice=false }
@@ -233,19 +305,38 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         val requested=channel
         preferences.edit().putLong("last_attempt.${channel.key}",System.currentTimeMillis()).apply()
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
-        ready = false; release = null; message = "Buscando actualizaciones…"
-        work {
-            val connection = UpdateFiles.open(UpdatePolicy.API)
-            val json = try { connection.inputStream.use {
-                val bytes = it.readBytesLimited(2 * 1024 * 1024)
-                String(bytes, Charsets.UTF_8)
-            } } finally { connection.disconnect() }
-            val found = UpdatePolicy.select(json, BuildConfig.VERSION_NAME,requested)
+        ready = false; release = null; downloadFailed = false; message = "Buscando actualizaciones…"
+        LabLog.add("actualización", if(automatic)"buscando una versión nueva (al abrir)" else "buscando una versión nueva (a pedido)")
+        work(checking = true) {
+            // Lab installs beside this app, so compare against the Lab copy (if any), not against this app.
+            val separateLab=requested==UpdateChannel.LAB && labIsSeparate
+            val labInstalled=if(separateLab)labVersion() else null
+            // Many Lab and Alpha releases can push the newest stable past the first page, so look a few pages deep.
+            var found: UpdateRelease? = null
+            for (page in 1..4) {
+                val connection = UpdateFiles.open(UpdatePolicy.API + "&page=" + page)
+                val json = try { connection.inputStream.use {
+                    val bytes = it.readBytesLimited(4 * 1024 * 1024)
+                    String(bytes, Charsets.UTF_8)
+                } } finally { connection.disconnect() }
+                found = UpdatePolicy.select(json, labInstalled ?: BuildConfig.VERSION_NAME,requested)
+                if (found != null || org.json.JSONArray(json).length() < 100) break
+            }
             publish {
                 if(channel!=requested)return@publish
                 release = found
-                automaticNotice = automatic && found!=null
-                message = if (found == null && channel==installedChannel && channel==UpdateChannel.STABLE) "Tenés la última versión estable."
+                automaticNotice = automatic && found!=null && !IsLab
+                if(found==null)prompt=false
+                if(automatic && found!=null && IsLab &&
+                    (found.critical || preferences.getString("skipped.${requested.key}",null)!=found.version)) prompt=true
+                LabLog.add("actualización", if(found==null)"no hay versión nueva" else
+                    "hay ${UpdatePolicy.display(found.version)}${if(found.critical)" (crítica)" else ""}${if(prompt)" · se ofrece al abrir" else ""}")
+                message = if(separateLab) {
+                    if(found!=null)"Boletera Lab ${UpdatePolicy.display(found.version)} está lista. Se instala aparte: esta app no cambia."
+                    else if(labInstalled!=null)"Tenés la última Boletera Lab."
+                    else "Todavía no hay una versión Lab publicada."
+                }
+                else if (found == null && channel==installedChannel && channel==UpdateChannel.STABLE) "Tenés la última versión estable."
                     else if(found == null && channel==installedChannel) "Tenés la última versión ${channel.label}."
                     else if(found==null && channel==UpdateChannel.STABLE)"Todavía no hay una versión estable compatible."
                     else if(found==null)"Todavía no hay una versión ${channel.label} compatible."
@@ -261,20 +352,33 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         if (busy) return
         val destination=apk
         installRequested = false; awaitingInstallPermission = false; reviewRequested = false
-        ready = false; message = "Descargando…"
+        ready = false; downloadFailed = false; message = "Descargando…"; progress = 0
+        LabLog.add("actualización", "descarga empezada")
         work {
             destination.parentFile!!.mkdirs()
             val partial = File(destination.parentFile, "boletera-${selected.channel.key}.part")
             try {
-                UpdateFiles.download(selected, partial) { percent -> publish { message = "Descargando… $percent %" } }
+                UpdateFiles.download(selected, partial) { percent -> publish { message = "Descargando… $percent %"; progress = percent } }
                 UpdateFiles.verify(getApplication(), partial, selected)
                 check(partial.renameTo(destination)) { "No se pudo guardar la descarga." }
                 publish { downloadReady() }
-            } finally { partial.delete() }
+            } finally { partial.delete(); publish { progress = null } }
         }
     }
+    /** «Actualizar» in the sheet: it stays open with the download's progress, then the usual review and install follow. */
+    fun acceptPrompt() { if(!busy && release!=null) { downloadFailed=false; download() } }
+    /** «Ahora no» skips this version (a newer one asks again); a critical one asks again on the next opening. */
+    fun skipPrompt() {
+        prompt=false
+        // Closing the sheet while its download runs is not «no quiero»: the version is not skipped and the review comes when it is ready.
+        if(busy) { LabLog.add("actualización", "aviso cerrado con la descarga en curso"); return }
+        LabLog.add("actualización", "aviso: ahora no")
+        release?.let { if(!it.critical) preferences.edit().putString("skipped.${channel.key}",it.version).apply() }
+    }
     internal fun downloadReady() {
+        prompt = false
         ready = true; installRequested = false; reviewRequested = true
+        LabLog.add("actualización", "descarga lista")
         message = "Descarga lista. Revisá las novedades antes de instalar."
     }
     fun requestReview() {
@@ -282,16 +386,21 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
     }
     fun dismissReview() {
         reviewRequested = false; installRequested = false
+        LabLog.add("actualización", "instalar: más tarde")
         message = "Descarga lista. Podés instalarla desde Ajustes cuando quieras."
     }
     fun acceptReview() {
         if (!ready || busy || !reviewRequested) return
+        LabLog.add("actualización", "instalar aceptado")
         reviewRequested = false; installRequested = true
     }
     fun onForeground(context: Context) {
+        // A critical version already downloaded but not installed asks again on every opening.
+        if(IsLab && ready && release?.critical==true && !reviewRequested && !installRequested && !awaitingInstallPermission) reviewRequested=true
         checkAutomatic()
         if (!awaitingInstallPermission) return
         awaitingInstallPermission = false
+        LabLog.add("actualización", "vuelta de la pantalla del permiso de instalación")
         if (context.packageManager.canRequestPackageInstalls() && ready) installRequested = true
         else message = "Falta habilitar la instalación desde Boletera. Podés volver a intentarlo."
     }
@@ -301,13 +410,18 @@ class AppUpdates(application: Application) : AndroidViewModel(application) {
         try {
             if (!context.packageManager.canRequestPackageInstalls()) {
                 awaitingInstallPermission = true
+                LabLog.add("actualización", "falta el permiso de instalación: se abre su pantalla")
                 message = "Activá «Permitir desde esta fuente» y volvé. El instalador se abrirá automáticamente."
                 context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
                 return
             }
             context.startActivity(UpdateFiles.installIntent(context, apk))
+            LabLog.add("actualización", "instalador de Android abierto")
             message = "Confirmá la instalación en Android. Si la cancelás, podés volver a intentarlo."
-        } catch (_: Exception) { awaitingInstallPermission = false; message = "Android no pudo abrir el instalador. Volvé a intentar." }
+        } catch (error: Exception) {
+            awaitingInstallPermission = false; message = "Android no pudo abrir el instalador. Volvé a intentar."
+            LabLog.add("actualización", "el instalador no abrió: ${error.javaClass.simpleName}")
+        }
     }
     override fun onCleared() { closed = true; worker.shutdownNow(); main.removeCallbacksAndMessages(null) }
 }

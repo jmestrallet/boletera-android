@@ -7,4 +7,13 @@
         <item name="android:windowBackground">@color/app_background</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+    <!-- Boletera Lab is always dark: its window starts dark too, so opening never flashes a light frame. -->
+    <style name="AppTheme.Lab" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/lab_background</item>
+        <item name="android:navigationBarColor">@color/lab_background</item>
+        <item name="android:windowBackground">@color/lab_background</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
 </resources>

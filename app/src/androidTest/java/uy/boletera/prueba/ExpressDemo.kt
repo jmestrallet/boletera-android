@@ -37,7 +37,7 @@ class ExpressDemo {
         android.os.SystemClock.sleep(700)
         val shot=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         File(compose.activity.getExternalFilesDir(null),"express-shortcut.png").outputStream().use {shot.compress(Bitmap.CompressFormat.PNG,100,it)};shot.recycle()
-        compose.onNodeWithText("Carga Express").performClick()
+        compose.onNodeWithText("Carga Express").performTouchInput { longClick(durationMillis=1500) }
         compose.onNodeWithText("Número de tarjeta").assertExists()
         assertTrue(started)
     }

@@ -1,5 +1,272 @@
 # Cambios
 
+## 0.3.0 Alpha 1 - La nueva Boletera llega a Alpha
+
+- Boletera Alpha pasa a tener todo lo de Boletera Lab hasta Lab 24 (diseño nuevo, Carga Express, tarjeta de Google con huella, «Datos para Prex», «Ver la página», registro y reportes directos, modo demo). Sigue siendo la Alpha: «Boletera Alpha», ícono azul, mismo paquete y datos; se actualiza sobre Alpha 5. Lab sigue aparte.
+- En el código: `IsLab` = experiencia nueva (Lab y Alpha); `IsLabApp` = la app Lab en sí. Estable y Beta no cambian.
+- La Alpha nueva solo busca versiones Alpha (un canal elegido en Alpha 5 se descarta: no podría instalarse); no tiene selector de canal ni «Abrir Boletera Lab».
+- versionCode 62 (Estable/Beta en 61): la próxima Alpha necesita 63 o más, y Estable/Beta 63 o más para instalarse sobre esta Alpha.
+- Quien ya entró en Alpha 5 no ve el aviso «Antes de entrar» de la primera vez.
+- Revisión de 2 agentes Sonnet: actualización desde Alpha 5 sin datos perdidos ni cierres; identidad Lab/Alpha sin textos de Lab en Alpha.
+
+## 0.2.40 Lab 24 - Ver la página y gub.uy a la vista
+
+- «Ver la página» en las pantallas de error de Lab: la página real de STM o gub.uy en vivo, para usarla (sin pago activo); la de Prex, después de un error de pago, solo para mirar (no se puede tocar: podría pagarse sin seguimiento). Atrás o «Volver» la cierran.
+- Ingreso: si gub.uy no avanza 8 s después de enviar la contraseña, o vuelve a pedirla, la app muestra la página para que la persona vea y complete lo que pide (amigo del dueño trabado ahí, reporte 12) en vez de reenviar la contraseña o decir «STM no responde». Mientras está a la vista la app no escribe ni toca nada y no guarda lo escrito; sigue sola al llegar a las tarjetas.
+- Registro y reporte (solo Lab): la forma enmascarada de la página trae avisos de gub.uy, campos (tipo y lleno/vacío, nunca el valor), captcha y botones deshabilitados; sin nombres, dígitos ni ;jsessionid. Las demás apps mandan la forma de siempre.
+- «Los datos ingresados no son válidos» cuenta como contraseña incorrecta.
+- El servidor de ingreso de la Intendencia (ih.montevideo.gub.uy) caído dice «STM no responde · La página de STM está caída o muy lenta.» en vez de culpar a la conexión.
+- Revisión de 3 agentes Sonnet (seguridad/privacidad, flujo, final): forma sin valores de campos, sin reusar la contraseña guardada en memoria, nunca con un pago, toques que no pasan a la pantalla de abajo, Atrás en Prex.
+
+## 0.2.40 Lab 23 - Google completa la tarjeta entera
+
+- Tarjeta: la lista de Google se pide recién cuando los tres campos terminaron de aparecer (~0,6 s). Pedida a los 0,12 s, Android le pasaba a Google el vencimiento y el código todavía transparentes (animación de entrada) y, después de su huella, Google completaba solo el número (registro real del dueño, reporte 10: falla 2 de 2 con la lista automática, completa al tocar el campo).
+- Red de pruebas: `verificar.ps1` (npm + pruebas JVM) y la lógica del inicio «registro de pagos + saldo» separada en HomePayment con 27 pruebas que fallan si se deshacen los arreglos de Lab 22.
+
+## 0.2.40 Lab 22 - Revisión por módulos: lo que dejó de andar en Lab 21
+
+- Inicio: «Recargar» y el rayo ya no quedan muertos después de un corte o de «El pago no llegó a hacerse» (se vuelve a leer el saldo); el refresco al volver a la app (Lab 21) ahora sí corre; el rayo responde al primer «mantener» después de un Express que no arrancó; la hoja de montos no reaparece sola.
+- Tarjeta: «Continuar» con datos incompletos dice qué falta («Te faltó completar el número de la tarjeta.», «Falta el vencimiento.») y vuelve a abrir la lista de Google; si Prex no recibe la tarjeta lo dice; el registro anota qué faltó, sin valores.
+- Carga Express: ya no se pasa a manual después de una verificación de más de 20 s; «recargando al volver» sin parpadeo.
+- Fin del pago: «Procesando tu pago» sin botón de Prex/STM tiene «Volver al inicio» a los 15 s; sin internet después de pagar se ve «Recarga en camino» si Prex confirmó; Atrás en «Conectando» tras pagar no cierra la sesión; un registro de pagos ilegible ya no bloquea los pagos.
+- Entrada: entra sola o pide la huella después de que Android cierra la app; Atrás al entrar no muestra «No pudimos entrar»; llave del celular perdida → «Cambiaron las huellas»; la huella no choca con el instalador de una actualización; «Volver a intentar» sin huella abre el panel.
+- Varios: avisos visibles sobre Configuración; búsqueda de versión fallida no se pinta como descarga; la hoja «Lab X está lista» no tapa el pago ni otras hojas; apodo y orden de personas al editar; demo sin tocar la pista real del rayo; botones que no cortan texto con letra grande; si Android cierra las páginas por memoria la app se reabre en vez de cerrarse.
+- Optimización sin cambios visibles: la capa del vuelo de la tarjeta ya no redibuja la pantalla 60 veces por segundo en reposo; la cuenta regresiva y la apertura no reconstruyen toda la pantalla en cada cuadro; menos llamadas al sistema y al Keystore al redibujar.
+- Revisión de 3 agentes: se revirtió tratar «Recarga no confirmada» como rechazo (sacaba el aviso contra doble pago); cambios de huella y orden de personas solo en Lab.
+
+## 0.2.40 Lab 21 - Revisión completa: tarjeta de Google, entrada y salidas del pago
+
+- Tarjeta: al salir de la pantalla se borra el código de seguridad pero no se corta el autocompletado de Google; número y vencimiento se borran si no volvés en 20 s (la huella de Google ya no deja solo el número).
+- La espera «Preparando tu pago» ya no vuelve a entrar al pasar a Prex (el texto subía 10 px de nuevo).
+- Entrada: si STM rechaza la contraseña guardada se olvida el acceso con huella (no reintenta y no bloquea gub.uy); sin internet avisa en vez de quedar en «Entrando…»; Atrás durante «Cambiando de boletera» ya no cierra la sesión; el último saldo se borra al cerrar sesión.
+- Pago: la página original de Prex sin capturas y con «Volver al inicio» después de pagar; «Recarga no confirmada» con salida a los 8 s; errores de STM antes de Prex dicen «No se cobró nada»; después de un rechazo dice «Volviendo al inicio»; las esperas no cuentan con la app en segundo plano.
+- Pago sin respuesta de Prex en los últimos 30 min: al recargar de nuevo pregunta «Recargar igual» (aprobado por el dueño, nunca en el inicio).
+- Lab ya no muestra nunca la pantalla vieja «Tu recarga» (decía «titular»): si el pago no arranca, vuelve al inicio con «No pudimos preparar el pago. Probá de nuevo.»; el código de seguridad se mantiene si aparece una verificación justo al enviar.
+- Revisión de 2 agentes sobre estos cambios: la huella tras «Ahora no» en el aviso de actualización, «Cancelar» durante «Volviendo a entrar», rechazo que dejaba el pago como «sin respuesta», esperas con salida.
+- Varios: «Recargar» sin internet avisa al tocar; «Recarga en camino» se actualiza al volver; pista de Express sin los últimos 4; errores de actualización visibles en Configuración; el aviso de actualización no sale sobre la huella ni sobre «Antes de entrar»; reporte copiado/compartido con el registro; botones con rol accesible.
+
+## 0.2.40 Lab 20 - Textos más claros y «por ahora, solo Prex»
+
+- Textos de Lab revisados con el dueño (docs/maquetas/lab20/textos.html): explican en vez de ordenar, ninguno más largo que antes.
+- «Por ahora» solo tarjetas Prex: aviso de primera vez, «¿Cuánto cargás?» y la tarjeta; la espera y su pie ya no nombran Prex; sin la línea «Se paga con tu tarjeta Prex».
+- Rechazo: «Prex no aceptó el pago · Puede faltar saldo en tu Prex o un dato de la tarjeta.»; corte después de pagar sin tono de pago dudoso.
+
+## 0.2.40 Lab 19 - Primero la actualización, Google sigue solo y siempre vuelve al inicio
+
+- Al abrir, la búsqueda de versión nueva (hasta 2 s) va antes de la huella; con aviso, la huella se pide al contestar «Ahora no».
+- Tarjeta: si Google completa los tres datos, sigue sola a «Confirmá tu pago» también en la recarga común.
+- Textos de Prex: «Se paga con tu tarjeta Prex» en el panel, «Preparando tu pago con Prex», «Tu tarjeta Prex · Elegí tu Prex en la lista de Google»; rechazo con «el saldo de tu Prex».
+- STM «Recarga no confirmada» (después de un rechazo): Lab la reconoce, toca «Continuar» y vuelve al inicio; las demás apps no cambian.
+- Datos para Prex: cédula y pasaporte guardan cada uno su número mientras se edita.
+- «Confirmá tu pago» muestra la marca de la tarjeta que dice Prex; la cuenta regresiva se lee una vez por segundo y dice «En pausa».
+- Revisión de 3 agentes: cambios de Lab que llegaban a otras apps, huella que podía no pedirse tras cancelar la instalación.
+
+## 0.2.40 Lab 18 - Tarjetas de Google, cuenta regresiva y «tus datos»
+
+- Boletera ya no guarda tarjetas (la guardada se borra al actualizar): siempre el autocompletado de Google, que se abre solo en el paso de la tarjeta y ahora ofrece guardar las nuevas.
+- Carga Express: después de elegir la tarjeta, «Confirmá tu pago» cuenta 4… 3… 2… 1 y paga; «Pagar ahora» / «Cancelar»; se frena si salís de la app; si Prex muestra otra tarjeta avisa y no paga sola.
+- «¿De quién es la tarjeta?» solo con dos o más personas; «Son mis datos» (una sola «Mía»), migración automática de un titular guardado.
+- «Recarga en camino» en el inicio cuando Prex confirmó y STM todavía no suma la recarga.
+- Configuración: «Versión» en la 2.ª sección; sección «Datos para Prex» con detalle por persona.
+- Textos: «Preparando tu pago», «Código de seguridad», «Pagar $ X ahora», «A nombre de», sin «titular».
+- Arreglos de la revisión: pagos que no se trababan por una recarga anterior, salida después de «Pagar», «Cancelar» mientras se prepara, avisos sin internet, registro sin nombres.
+
+## 0.2.40 Lab 17 - Express completa el titular y nunca queda sin salida
+
+- Carga Express completa los datos del titular aunque el tipo de documento de Prex tarde en responder (antes quedaban vacíos y se trababa).
+- Si un paso antes de pagar queda quieto, aparece la página de Prex para seguir a mano; nunca una pantalla sin salida.
+- Más seguro al pagar: si el captcha ya estaba resuelto, «Confirmar» se aprieta una sola vez.
+- Cerrar sesión ya no muestra «No pudimos entrar»; la tarjeta ya no vuela encima de Configuración.
+- Avisos de actualización: si la descarga falla, lo dice y deja reintentar.
+- El registro guarda la forma de la página de Prex cuando algo se traba (sin ningún dato tuyo) y ya no anota nombres.
+
+## 0.2.40 Lab 16 - Express sin trabarse en el captcha y avisos de actualización
+
+- Carga Express ya no se traba después del captcha: si Prex pide «No soy un robot» al seguir con el titular, al marcarlo la recarga continúa sola.
+- Mientras se pide la huella de la tarjeta guardada, detrás solo se ve la espera de Carga Express (no el captcha).
+- Avisos de actualización: al abrir Lab, si hay una versión nueva te lo dice (podés dejarla para después). Si es una actualización necesaria porque cambió STM o Prex, lo avisa claramente.
+- Cancelar la huella al entrar ya no ofrece «Enviar reporte»: no es una falla.
+- El registro de uso anota más detalle del pago, para encontrar más rápido dónde se traba.
+
+## 0.2.40 Lab 15 - Carga Express arreglada y registro de uso
+
+- Carga Express con tarjeta guardada arranca al instante: la luz da toda la vuelta, cae en la tarjeta y recién ahí pide la huella.
+- Si la tarjeta guardada no se abre o cancelás la huella, sigue al paso de la tarjeta (ya no se queda trabado) y dice el motivo.
+- El panel de montos y la hoja de contraseña se arrastran: para abajo se cierran (el panel vuelve a ser el botón Recargar), para arriba se estiran y vuelven.
+- Registro de uso: Lab anota pantallas, toques y respuestas de STM y Prex de las últimas 24 h, sin documento, contraseña ni datos de tarjeta. «Enviar reporte» en Configuración lo manda aunque no haya fallado nada; «Borrar registro» lo borra.
+- Modo demo: «Ingresar con contraseña» abre la hoja con datos de muestra, y el modo demo también tiene «Enviar reporte».
+
+## 0.2.40 Lab 14 - Botones con más vida
+
+- Botones con más vida: al mantenerlos apretados se van hundiendo de a poco, cada vez más lento, y al soltar rebotan.
+- Las hojas que suben desde abajo (como «Tus boleteras») se estiran con resistencia si las tirás para arriba y vuelven solas al soltar.
+
+## 0.2.40 Lab 13 - Carga Express con tarjeta guardada
+
+- Carga Express con tarjeta guardada: arranca después de la huella (antes se quedaba en el inicio).
+- La huella aparece cuando termina la luz de Carga Express, para que se vea la animación.
+- Si Carga Express no puede empezar, la app dice por qué y queda anotado en «Enviar reporte».
+- Modo demo: si tenés una tarjeta guardada, Carga Express pide la huella y sigue sola, igual que la real (sin usar la tarjeta).
+
+## 0.2.40 Lab 12 - Animaciones más finas
+
+- Animaciones más finas: la tarjeta ya no se mueve a saltitos ni parpadea al cambiar de pantalla, y no desaparece en «Conectando».
+- El círculo de carga de la tarjeta tiene el borde liso.
+- El botón Recargar se convierte en el panel de montos, sin el destello celeste.
+- Los botones reaccionan al tocarlos: se hunden un poco y muestran la onda de Android.
+- Al volver a la app durante el captcha, la tarjeta avisa «Cargando la verificación…».
+
+## 0.2.40 Lab 11 - Captcha a pantalla completa
+
+- Captcha de imágenes: la grilla ocupa todo el alto libre, centrada y sin el recuadro gris; el texto dice «Elegí las imágenes».
+- Al volver a la app durante el captcha, aparece «Cargando la verificación…» en vez de un recuadro en blanco.
+- Las capturas de pantalla solo se bloquean donde se ve la tarjeta; el resto del pago se puede capturar para reportar problemas.
+
+## 0.2.40 Lab 10 - Reportes directos
+
+- «Enviar reporte» ahora llega directo, sin elegir con qué mandarlo: en los errores, en la entrada cuando falla el ingreso y en Configuración. Dice «Reporte enviado».
+- El reporte lleva qué pasó, el modelo del celular y los pasos por STM, sin tu documento, tu contraseña ni datos de tarjeta.
+- Sin internet, se abre el menú para compartirlo como antes.
+
+## 0.2.40 Lab 9 - Tarjeta guardada para Carga Express
+
+- Tarjeta guardada: en «Tu tarjeta», activá «Guardar para Carga Express». Queda cifrada en el chip de seguridad del celular y solo se abre con tu huella.
+- Carga Express con tarjeta guardada: mantenés el rayo, ponés la huella y el resto es automático.
+- En una recarga normal, «Usar tu tarjeta ···· 8842» la completa con tu huella.
+- Seguridad: huella en cada uso, solo con el celular desbloqueado; si se agrega o quita una huella, la tarjeta se borra sola. En claro quedan solo los últimos 4 números.
+- Sin capturas de pantalla durante el pago.
+- Configuración → Carga Express muestra la tarjeta guardada y la deja olvidar. «Olvidar este celular» también la borra.
+
+## 0.2.40 Lab 8 - Arreglos de Lab 7
+
+- El captcha de Prex sigue solo: al resolverlo, la app avanza sin que tengas que tocar nada.
+- Si el captcha aparece antes de pagar, el botón «Pagar» queda ahí mismo.
+- Carga Express ya no se queda en «Procesando» si no reconoce la tarjeta: te muestra «Pagar».
+- Si Prex tiene otro titular guardado, la app te avisa y te deja usar el tuyo, en vez de seguir sola.
+- «Enviar reporte» en los errores, en la entrada y en Configuración: manda lo que pasó, sin tus datos.
+- Ingreso: acepta cédulas de 7 dígitos y tiene un atajo para ver la contraseña que te guarda Google.
+- «Cancelar» mientras abre Prex vuelve a tu saldo sin cerrar la sesión.
+- Si Prex tarda después de pagar, podés volver al inicio y ver tu saldo.
+- Si Prex rechaza la tarjeta, «Probar con otra tarjeta».
+- Modo demo: dos boleteras para cambiar, y Carga Express espera que elijas la tarjeta guardada.
+
+## 0.2.40 Lab 7 - Todo nuevo, y en movimiento
+
+- Lab entera con el diseño nuevo: entrada, inicio, montos, pago con Prex, resultados, avisos y Configuración, como en las maquetas.
+- La tarjeta viaja entre pantallas: de la entrada al inicio, del inicio al pago, al centro para el resultado y de vuelta a su lugar.
+- Pago más corto: del importe a «Pagar» sin pasos repetidos. El titular va en el panel de montos y el captcha de Prex aparece adentro de la app.
+- «Pagar» se convierte en el círculo de la tarjeta; al terminar salen chispas y el saldo nuevo rueda cifra por cifra.
+- Recarga hecha en una sola pantalla, con «Ver detalle del pago». Si Prex rechaza, «Probar de nuevo» vuelve a abrir los montos.
+- Carga Express: mantené el rayo 1,2 segundos; una luz recorre el borde de la pantalla y cae en tu tarjeta. Siempre carga el mínimo.
+- Modo demo (Configuración → Ayuda): probá todo, Express incluido, sin cargar plata ni entrar a STM.
+- Tus boleteras con nombre, el último saldo mientras conecta, saldo negativo en rosa y la pantalla encendida durante el pago.
+- Configuración nueva, ordenada como la de Android, con «Olvidar este celular» al final y pidiendo confirmación.
+- Volver atrás nunca cierra la sesión ni pide la huella.
+
+## 0.2.40 Lab 6 - Más firme y más clara
+
+**Apertura**
+- La app abre oscura de punta a punta, sin el destello claro, y la tarjeta aparece con un fundido en su lugar. La huella aparece enseguida.
+
+**Errores**
+- Si la página de STM está caída (error del servidor, sin respuesta o demasiado lenta) y tu celular tiene internet, aparece «STM no responde»: explica que no es tu conexión ni Boletera, con «Abrir STM en el navegador».
+- Casi todos los errores ofrecen «Probar en el sitio de STM ↗» para hacerlo a mano si estás apurado. No aparece sin internet ni con un pago en curso (para no pagar dos veces).
+- La pantalla de error tiene el diseño de Lab: la tarjeta en rojo, el motivo en palabras simples, «Volver a intentar» que de verdad reintenta y el detalle técnico escondido.
+- Los errores del ingreso quedan escritos en la entrada, con la tarjeta en rojo, hasta que volvés a intentar. Si le errás a la contraseña, el documento queda escrito.
+- Sin internet en el celular te lo dice al instante, sin ruedita eterna, y te deja el último saldo consultado.
+
+**Saldo**
+- Nunca muestra un número dudoso: si STM escribe un monto de forma rara, no lo confunde con otro (por ejemplo, el mínimo de recarga) y avisa que no lo pudo leer.
+- Si STM muestra otra boletera distinta a la elegida, no muestra ese saldo.
+- El horario del saldo dice de qué día es («ayer 14:32»). Con saldo cero dice que no alcanza para un viaje.
+- El saldo aparece apenas se lee, sin ruedita mientras se busca el mínimo de recarga. El festejo de la entrada es más corto.
+- Al elegir «Otro importe», el panel sube con el teclado y el teclado se abre solo.
+
+**Arreglos**
+- Si agregás o borrás una huella en el celular, la app avisa que hay que volver a guardar el acceso en vez de fallar siempre. Si no se puede guardar la huella, entrás igual.
+- Girar el celular o cambiar el tamaño de letra ya no te saca de la verificación ni del pago.
+- Si salís de la app durante la verificación de STM y volvés, el botón vuelve a funcionar.
+- Después de un pago rechazado o acreditado en otra boletera, podés volver a recargar.
+- En el error de un pago, el botón atrás del celular vuelve a consultar el saldo en vez de cerrar la sesión.
+- Si gub.uy pide cambiar la contraseña, Boletera no escribe tu contraseña en ese formulario: te manda al sitio.
+- Las páginas de STM que Boletera no conoce quedan registradas (sin datos) en «Información de ayuda».
+- STM lento tiene más tiempo para mostrar el saldo y el mínimo antes de dar error.
+- El actualizador encuentra las versiones aunque haya muchas publicadas.
+
+**Diseño**
+- El pago, Prex, la verificación, Actividad y Configuración usan los colores de Lab, sin sombras.
+- La tarjeta de la entrada ya no tiene sombra.
+- Atajos al mantener apretado el ícono: «Ver saldo» y «Recargar».
+- La primera vez después de actualizar aparece «Qué hay de nuevo».
+
+## 0.2.40 Lab 5 - La tarjeta del ingreso
+
+- La entrada ya no muestra el cuadrado azul: la tarjeta del ícono (blanca, cuatro rayas azules y el + verde) flota en el centro.
+- La tarjeta es el indicador del ingreso: al entrar, las rayas se vuelven una carga que corre y el + se transforma en un indicador que cambia de forma; al lograrlo vuelve el + con una onda verde antes de pasar al inicio; si falla, se pone roja con una cruz y explica el motivo.
+- Mientras la huella y STM responden, la pantalla de entrada queda visible en lugar de la pantalla genérica de «Conectando».
+- Al abrir la app, la tarjeta sale del ícono en el centro y viaja a su lugar mientras aparece el resto.
+- Con «quitar animaciones» de Android activado, la tarjeta se muestra quieta.
+
+## 0.2.40 Lab 4 - Entrada, boleteras e importe con el diseño nuevo
+
+- La entrada (huella o documento y contraseña) y «Elegí tu boletera» usan el diseño oscuro del inicio, con el mismo fondo de luz.
+- Toda Boletera Lab va en tema oscuro; Configuración muestra Efectos visuales en lugar de Apariencia.
+- Al tocar Recargar, el botón se transforma en el panel de importe (y vuelve a ser botón al cerrar), con lo que te queda de saldo en cada opción.
+- Los campos de documento y contraseña están marcados para el autocompletar de Android: Google puede ofrecer guardarlos y completarlos en Boletera Lab.
+- Volver desde «Elegí tu boletera» sin elegir otra: la lista solo aparece cuando la pediste o tenés que elegir, así que ya no se ve pasar mientras vuelve al saldo.
+
+## 0.2.40 Lab 3 - Arreglos del primer uso
+
+- Volver desde «Elegí tu boletera» ya no muestra la lista de nuevo por un instante antes del saldo.
+- Al actualizar la misma boletera, el saldo anterior queda en pantalla mientras STM responde.
+- Actividad: si no se puede leer, dice en qué paso falló (botón Movimientos sin respuesta, pantalla desconocida u otra boletera). La pantalla que mostró STM queda en Configuración → Información de ayuda, sin números.
+- «Guardar acceso con huella» viene activado si el celular tiene huella.
+- La primera vez que abrís la app aparece «Antes de entrar», que explica la autorización de una sola vez en Mi STM, con «Ya usé Mi STM» y «Abrir STM primero».
+
+## 0.2.40 Lab 2 - Paneles translúcidos sin vidrio
+
+- Cuando el vidrio está apagado (Android 11 o anterior, o un celular modesto en Automático), el selector de tarjeta, Ajustes y la barra de Recargar dejan ver el fondo en lugar de un gris opaco.
+
+## 0.2.40 Lab 1 - Inicio 2026
+
+- Primera Boletera Lab: se instala aparte, con ícono violeta, y no reemplaza a Boletera.
+- Inicio nuevo: saldo grande, cuántos viajes de 1 hora te alcanzan, y Actividad y Tarifas como tarjetas.
+- Recargar queda abajo, donde cae el pulgar. Express es un botón con forma de galletita: mantenelo 1,2 s, el anillo se llena y al aceptarse se vuelve círculo.
+- Paneles de vidrio esmerilado sobre un fondo con luz. En Android 11 o anterior se ven lisos.
+- Configuración → Efectos visuales: Automático (según el celular), Activados o Desactivados.
+- El resto de las pantallas todavía usa el diseño de Alpha.
+
+## 0.2.40 Alpha 5 - Cuarto canal: Boletera Lab
+
+- Configuración muestra cuatro versiones: Estable, Beta, Alpha y Lab.
+- Lab es la versión de pruebas del creador: cambia seguido y puede fallar. Antes de buscarla, Boletera avisa y pide confirmación.
+- Boletera Lab se instala como otra app, con ícono violeta, al lado de Boletera. Tu Boletera no cambia y podés usar las dos.
+- Cuando Boletera Lab está instalada, Configuración ofrece abrirla.
+
+## 0.2.40 Alpha 4 - Logo nuevo y Carga Express sostenida
+
+- Carga Express vuelve a pedir mantener apretado 1,2 segundos para evitar recargas por un toque sin querer. El círculo se llena mientras sostenés, vibra cada 0,4 s y soltar antes cancela. Un toque corto no inicia nada.
+- Express sigue usando el último medio de pago con el que recargaste bien; por ahora sólo Prex lo admite.
+- Nuevo ícono de inicio: una tarjeta blanca inclinada con cuatro barras paralelas caladas, inspiradas en la tarjeta STM, y un círculo verde con un signo más que representa la recarga. No usa el logo ni el nombre de STM.
+- Ícono temático propio para Android 13+, con las barras y el signo más calados.
+- El encabezado y la bienvenida muestran el mismo bloque de marca que el ícono de inicio.
+
+## 0.2.40 Alpha 3 - Actualización instalable
+
+- Corrige el rechazo al actualizar desde Alpha 1 o Alpha 2: el APK ahora usa un código de instalación superior.
+- Conserva el diseño azul de Alpha 2. Se instala encima de la versión anterior sin borrar datos.
+- Los errores de incompatibilidad, firma o archivo incompleto se muestran con su causa, en lugar de atribuirlos siempre a la conexión.
+- Beta 0.2.40 Beta 2 comparte el código de instalación nuevo para permitir volver de Alpha a Beta.
+
+## 0.2.40 Alpha 2 - Azul de transporte
+
+- La app adopta la identidad del banner del README: azul de señalética de transporte en lugar del verde y lima, en tema claro y oscuro.
+- El panel de saldo usa un azul suave con el importe destacado y los textos secundarios en azul medio, como en la vista del teléfono del banner.
+- Nuevo icono de inicio: tarjeta blanca sobre un degradado azul. El mismo bloque aparece en el encabezado de la app; el icono monocromático de Android 13+ se conserva.
+- La bienvenida dibuja un mapa de líneas con los colores del banner (azul, verde y turquesa), con paradas y una combinación.
+- La página de pago de Prex toma el mismo azul en el botón principal y el fondo.
+- No cambian la distribución de la home, los recorridos de acceso y pago, Carga Express, Actividad ni las actualizaciones. Por ahora el diseño nuevo solo está en Alpha.
+
 ## 0.2.40 Beta 1 - Puente al canal Alpha
 
 - Configuración permite elegir Estable, Beta o Alpha. Alpha se ofrece únicamente cuando se elige ese canal.
