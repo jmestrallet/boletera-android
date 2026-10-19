@@ -117,7 +117,7 @@
           if(s.length>500 || /captcha|verificacion|bloquead|demasiados intentos/.test(s))return false;
           if(el.tagName==='P' && !el.closest('[role="alert"],.alert,.error,.invalid-feedback,.error-message') &&
              !/^(?:(?:el|la|los|las) )?(?:documento|usuario|contrasena|password|credenciales|datos ingresados|incorrect|invalid)/.test(s))return false;
-          return /(?:documento|usuario|contrasena|password|credenciales|datos ingresados).{0,100}(?:incorrect[oa]s?|invalid(?:[oa]s?)?|no (?:son |es )correct[oa]s?|no coinciden?|no es valid[oa])/.test(s) ||
+          return /(?:documento|usuario|contrasena|password|credenciales|datos ingresados).{0,100}(?:incorrect[oa]s?|invalid(?:[oa]s?)?|no (?:son |es )(?:correct|valid)[oa]s?|no coinciden?|no es valid[oa])/.test(s) ||
             /(?:incorrect[oa]s?|invalid(?:[oa]s?)?).{0,60}(?:documento|usuario|contrasena|password|credenciales)/.test(s);
         });
       if(rejected)base.authError='credentials';

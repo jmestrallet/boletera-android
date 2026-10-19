@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.2.40 Lab 24 - Ver la página y gub.uy a la vista
+
+- «Ver la página» en las pantallas de error de Lab: la página real de STM o gub.uy en vivo, para usarla (sin pago activo); la de Prex, después de un error de pago, solo para mirar (no se puede tocar: podría pagarse sin seguimiento). Atrás o «Volver» la cierran.
+- Ingreso: si gub.uy no avanza 8 s después de enviar la contraseña, o vuelve a pedirla, la app muestra la página para que la persona vea y complete lo que pide (amigo del dueño trabado ahí, reporte 12) en vez de reenviar la contraseña o decir «STM no responde». Mientras está a la vista la app no escribe ni toca nada y no guarda lo escrito; sigue sola al llegar a las tarjetas.
+- Registro y reporte (solo Lab): la forma enmascarada de la página trae avisos de gub.uy, campos (tipo y lleno/vacío, nunca el valor), captcha y botones deshabilitados; sin nombres, dígitos ni ;jsessionid. Las demás apps mandan la forma de siempre.
+- «Los datos ingresados no son válidos» cuenta como contraseña incorrecta.
+- El servidor de ingreso de la Intendencia (ih.montevideo.gub.uy) caído dice «STM no responde · La página de STM está caída o muy lenta.» en vez de culpar a la conexión.
+- Revisión de 3 agentes Sonnet (seguridad/privacidad, flujo, final): forma sin valores de campos, sin reusar la contraseña guardada en memoria, nunca con un pago, toques que no pasan a la pantalla de abajo, Atrás en Prex.
+
 ## 0.2.40 Lab 23 - Google completa la tarjeta entera
 
 - Tarjeta: la lista de Google se pide recién cuando los tres campos terminaron de aparecer (~0,6 s). Pedida a los 0,12 s, Android le pasaba a Google el vencimiento y el código todavía transparentes (animación de entrada) y, después de su huella, Google completaba solo el número (registro real del dueño, reporte 10: falla 2 de 2 con la lista automática, completa al tocar el campo).

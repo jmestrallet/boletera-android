@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -463,6 +464,8 @@ class MainActivity : FragmentActivity() {
                 paymentAmount=state.activePayment?.amount,
                 // Lab: this screen comes before Prex opened (STM's own steps), so nothing was charged.
                 charged=!IsLab || engine.paymentStarted(state.activePayment),
+                // Lab: the page STM or gub.uy was showing when it stopped, live (never during a payment: Prex has its own).
+                onViewPage=if(IsLab && state.activePayment==null && engine.hasPage) ({ engine.showLivePage("la persona tocó Ver la página") }) else null,
                 onExit={
                     if(state.activePayment!=null || (IsLab && engine.sessionVerified))engine.refresh() else {
                         val accessError=errorPresentation(state.message).code=="DATOS DE ACCESO"
@@ -612,7 +615,7 @@ class MainActivity : FragmentActivity() {
                         val screenHeight=LocalConfiguration.current.screenHeightDp
                         BoxWithConstraints(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) {
                             val captchaScale=if(cap==null)1f else minOf(1f,maxWidth.value/cap.width,(screenHeight-260).coerceAtLeast(180).toFloat()/cap.height)
-                            AndroidView(factory={engine.host},modifier=if(cap==null)Modifier.size(1.dp) else Modifier.width((cap.width*captchaScale).dp).height((cap.height*captchaScale).dp).clip(RoundedCornerShape(8.dp)),update={it.crop=cap})
+                            if(!(IsLab && engine.livePage)) AndroidView(factory={ (engine.host.parent as? android.view.ViewGroup)?.removeView(engine.host); engine.host },modifier=if(cap==null)Modifier.size(1.dp) else Modifier.width((cap.width*captchaScale).dp).height((cap.height*captchaScale).dp).clip(RoundedCornerShape(8.dp)),update={it.crop=cap})
                         }
                         if(cap!=null)Primary("Ya completé la verificación"){engine.continueCaptcha()}
                     }
@@ -746,6 +749,21 @@ class MainActivity : FragmentActivity() {
         if (showPayerEditor) PayerProfileEditor(editingPayer, onSave = engine::savePayer, onDelete = engine::deletePayer, onClose = {
             showPayerEditor = false
         })
+        // Lab: STM's or gub.uy's page itself, for the person to see and use. «Volver» closes it: after an error back to the
+        // error; during a sign-in it cancels the sign-in (the app typed nothing there and keeps nothing typed).
+        if(IsLab && engine.livePage) {
+            fun closePage() { if(state.stage=="blocked") engine.closeLivePage() else { labLoggingIn=false; labConnected=false; engine.cancel() } }
+            BackHandler { closePage() }
+            // Touches never fall through to the screen underneath (the page itself gets its own first).
+            Column(Modifier.fillMaxSize().background(LabColors.Base).pointerInput(Unit) {
+                awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
+            }.safeDrawingPadding()) {
+                SecureScreen()
+                LabTextLink("Volver", ::closePage, Modifier.align(Alignment.End), quiet = true)
+                AndroidView(factory={ (engine.host.parent as? android.view.ViewGroup)?.removeView(engine.host); engine.host },
+                    modifier=Modifier.weight(1f).fillMaxWidth(),update={it.crop=null})
+            }
+        }
         // Lab: a notice raised while Configuración covers the screen was drawn under it; this host is above (the payer form says its own).
         if(IsLab && showSettings && labPayerForm==null) Box(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp),contentAlignment=Alignment.BottomCenter) { SnackbarHost(hostState=snackbar) }
         if (showForget) AlertDialog(onDismissRequest = { showForget = false }, title = { Text("¿Olvidar este acceso?") },

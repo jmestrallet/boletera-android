@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInRoot
@@ -277,6 +278,12 @@ private object LabWaitMemo { var live = 0; var leftAt = 0L }
     var details by remember { mutableStateOf(false) }
     val stage = payment.nativeStage
     LaunchedEffect(stage) { showOriginal = false }
+    // Lab: after an error, Prex's page itself, live («Ver la página», owner 19/10); its masked shape goes to the record.
+    var peek by remember { mutableStateOf(false) }
+    LaunchedEffect(payment.message) {
+        if (payment.message.isBlank()) peek = false
+        else payment.pageShape { LabLog.add("forma", "error de Prex · $it") }
+    }
     LaunchedEffect(showOriginal || stage == "original") { payment.setPageAutofill(showOriginal || stage == "original") }
     // Plan B: if the payer could not be filled (and the check, if any, is already accepted), Prex's own page is shown so
     // the person completes it and goes on; the app never leaves them in front of a check that leads nowhere.
@@ -316,6 +323,8 @@ private object LabWaitMemo { var live = 0; var leftAt = 0L }
     val paid = payment.authorizationSent || stage == "finalConfirmation" && (payment.completionSubmitted || payment.captchaRetry) ||
         stage in listOf("receipt", "paymentRejected", "paymentPending", "stmSuccess", "stmNotConfirmed") || payment.returningToWallet
     BackHandler { if (!paid) onClose() }
+    // Looking at Prex's page after an error: Back closes the view only.
+    BackHandler(enabled = peek && payment.message.isNotBlank()) { peek = false }
     var originalAtPay by remember { mutableStateOf(false) }
     LaunchedEffect(showOriginal) { if (showOriginal && stage in listOf("card", "finalConfirmation")) originalAtPay = true }
     LaunchedEffect(stage) { if (stage == "original") originalAtPay = true }
@@ -363,7 +372,19 @@ private object LabWaitMemo { var live = 0; var leftAt = 0L }
                 }
                 when {
                     // Prex's own page can hold its «Pagar»: once shown from the card on, «nothing was charged» is never assumed (Lab 21).
-                    payment.message.isNotBlank() -> AppErrorScreen(payment.message, payment = true, paymentAmount = amount, onExit = onClose, charged = paid || originalAtPay)
+                    peek && payment.message.isNotBlank() -> Column(Modifier.fillMaxSize()) {
+                        SecureScreen()
+                        LabTextLink("Volver", { peek = false }, Modifier.align(Alignment.End), quiet = true)
+                        // Only to look: Prex's page can still hold its «Pagar», and a payment made there would go untracked.
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            PaymentBrowserView(payment, false, null, browserWidth, browserHeight, Modifier.fillMaxSize())
+                            Box(Modifier.matchParentSize().pointerInput(Unit) {
+                                awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
+                            })
+                        }
+                    }
+                    payment.message.isNotBlank() -> AppErrorScreen(payment.message, payment = true, paymentAmount = amount, onExit = onClose, charged = paid || originalAtPay,
+                        onViewPage = if ((payment.web.url ?: "").startsWith("https://")) ({ peek = true }) else null)
                     showOriginal || stage == "original" -> Column(Modifier.fillMaxSize()) {
                         // Prex's page can show the card typed: no screenshots there either (Lab 21).
                         SecureScreen()

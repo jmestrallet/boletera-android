@@ -50,6 +50,8 @@ class StmEngine(private val context: Context) {
     private var polling = false
     private var pageStage = ""
     private var passwordStepSeen = false
+    /** Lab: the password was already sent in this sign-in; gub.uy asking for it again is shown, never answered again. */
+    private var passwordSent = false
     private var navigationGeneration = 0
     private var secretsExpireAt = 0L
     private var sessionRequest = 0
@@ -94,11 +96,26 @@ class StmEngine(private val context: Context) {
     /** Shape of the last STM page the activity journey could not read: digits masked, no values. */
     private var activityShape = ""
     internal val helpDiagnostic: String get() = listOf(state.diagnostic,activityShape,expressTiming.report(),expressNotStarted).filter {it.isNotBlank()}.joinToString("\n\n")
-    private val activityShapeScript = """(()=>{const t=e=>(e.innerText||e.value||'').replace(/\s+/g,' ').trim().replace(/\d/g,'#').slice(0,60);
+    /** The other apps keep the shape they always sent; Lab sends more of the page, never a typed value. */
+    private val activityShapeScript get() = if (IsLab) labShapeScript else classicShapeScript
+    private val classicShapeScript = """(()=>{const t=e=>(e.innerText||e.value||'').replace(/\s+/g,' ').trim().replace(/\d/g,'#').slice(0,60);
 const pick=(s,n)=>[...document.querySelectorAll(s)].map(t).filter(Boolean).slice(0,n);
 return JSON.stringify({sitio:location.host,ruta:location.pathname.replace(/\d/g,'#').slice(0,80),titulo:document.title.replace(/\d/g,'#'),titulos:pick('h1,h2,h3,legend,.ui-panel-title',8),
 columnas:pick('th',12),botones:pick('button,a.ui-commandlink,input[type=submit]',12),filas:document.querySelectorAll('tbody tr').length,
 avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
+    // Lab (19/10): also gub.uy's notices, the fields (kind and empty/filled only), captcha hosts and disabled buttons.
+    // A field is never read (only a button's label), a notice that wraps a form or a page is skipped (it could carry a
+    // name), digits are hidden and the session id some paths carry (;jsessionid=…) is dropped.
+    private val labShapeScript = """(()=>{const field=e=>/^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName),button=e=>/^(submit|button)$/.test(e.type);
+const t=e=>(field(e)?(button(e)?e.value:''):(e.innerText||'')).replace(/\s+/g,' ').trim().replace(/\d/g,'#').slice(0,60);
+const pick=(s,n)=>[...document.querySelectorAll(s)].filter(e=>!field(e)||button(e)).map(t).filter(Boolean).slice(0,n);
+return JSON.stringify({sitio:location.host,ruta:location.pathname.replace(/;[^\/]*/g,'').replace(/\d/g,'#').slice(0,80),titulo:document.title.replace(/\d/g,'#'),titulos:pick('h1,h2,h3,legend,.ui-panel-title',8),
+columnas:pick('th',12),botones:pick('button,a.ui-commandlink,input[type=submit]',12),filas:document.querySelectorAll('tbody tr').length,
+avisos:[...document.querySelectorAll('.ui-messages,.ui-message,.ui-growl-message,[role=alert],.alert,.error,.invalid-feedback,mat-error,.text-danger,.error-message')]
+.filter(e=>!field(e)&&!e.querySelector('input,button,a,table,form,h1,h2,h3,nav,main')).map(t).filter(Boolean).slice(0,6),
+campos:[...document.querySelectorAll('input,select,textarea')].filter(e=>e.type!=='hidden').slice(0,10).map(e=>[e.type,e.autocomplete||'',e.getBoundingClientRect().width>0?'visible':'oculto',e.value?'lleno':'vacío'].join(' ')),
+captcha:[...document.querySelectorAll('iframe')].map(e=>{try{return new URL(e.src).hostname}catch(_){return ''}}).filter(h=>/captcha|recaptcha|hcaptcha|turnstile|google/.test(h)).slice(0,3),
+inactivos:[...document.querySelectorAll('button:disabled,input[type=submit]:disabled')].map(t).filter(Boolean).slice(0,6)});})()"""
     /** Records what STM showed, then fails; the owner can share it from Configuración → Información de ayuda. */
     private fun failActivityWithShape(message: String) = failWithShape("Actividad", message)
     /** Same as [fail], keeping the masked shape of the page so an unknown STM step can be diagnosed later. */
@@ -112,6 +129,33 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         }
     }
     val expressPreparing: Boolean get() = expressPayment && state.busy
+    /**
+     * Lab: STM's own page (gub.uy's sign-in) is on screen and the person uses it. While it is, the app never types or taps
+     * on it: it only notices when the sign-in is left behind and goes on from there.
+     */
+    var livePage by mutableStateOf(false)
+        private set
+    /** There is a page to show (after an error the last page stays loaded; a blank one is not worth showing). */
+    val hasPage: Boolean get() = NavigationPolicy.allowed(web.url ?: "")
+    fun showLivePage(reason: String) {
+        // Never during a payment: a payment page shown live could be paid from without the app following it.
+        if (!IsLab || livePage || !hasPage || state.activePayment != null || paymentInFlight) return
+        // The person takes over: nothing typed is kept (not even the copy for a silent sign-in), so the app can never send
+        // the password again on its own. After an error (not active) that copy stays for the next session check.
+        clearSecrets(); if (active) sessionAccess.clear()
+        livePage = true; host.crop = null; host.full = true
+        LabLog.add("entrada", "se muestra la página: $reason")
+        web.evaluateJavascript(activityShapeScript) { raw ->
+            val shape = (try { org.json.JSONTokener(raw).nextValue().toString() } catch (_: Exception) { "" }).take(1500)
+            activityShape = "Página mostrada · $reason\n$shape"
+            LabLog.add("forma", shape)
+        }
+    }
+    fun closeLivePage() {
+        if (!livePage) return
+        livePage = false; host.full = false
+        lastAction = ""; actionStarted = System.currentTimeMillis()
+    }
     val web = WebView(context)
     val host = CaptchaHost(context, web)
     private val poll = object : Runnable {
@@ -169,7 +213,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                     inspectPaymentPage(); return true
                 }
                 if (allowedPage(request.url.toString())) return false
-                if (!active) return true
+                if (!active || livePage) return true
                 if (BuildConfig.DEBUG) debugDestination = "${request.url.scheme}://${request.url.host}${request.url.path}"
                 fail("Este paso necesita otra pantalla o proveedor. Boletera se detuvo sin abrir la web ni iniciar el pago.")
                 return true
@@ -187,7 +231,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                 }
                 if (url != null && url != "about:blank" && !allowedPage(url)) {
                     // After Back or sign-out a late redirect is just stopped, never shown as an error.
-                    view.stopLoading(); if (active) fail("Navegación no reconocida. No se enviaron credenciales desde la app.")
+                    view.stopLoading(); if (active && !livePage) fail("Navegación no reconocida. No se enviaron credenciales desde la app.")
                 }
             }
             override fun onPageFinished(view: WebView, url: String?) {
@@ -346,7 +390,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         paymentInFlight = false; providerSubmitted = false; handoffSent = false
         interruptedAccess = false; stageTrail.clear()
         secretsExpireAt = System.currentTimeMillis() + 180000
-        lastAction = ""; pageStage = ""; passwordStepSeen = false; actionStarted = System.currentTimeMillis()
+        lastAction = ""; pageStage = ""; passwordStepSeen = false; passwordSent = false; actionStarted = System.currentTimeMillis()
         state = UiState(stage = "connecting", busy = true, hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId, paymentNeedsReview = paymentNeedsReview)
         active = false
         handler.removeCallbacks(poll)
@@ -705,11 +749,11 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         activityOpened=false
         expressTiming.finish(ExpressTiming.End.CANCELLED)
         sessionRequest++
-        passwordStepSeen = false
+        passwordStepSeen = false; passwordSent = false
         recoveringSession = false; recoverySteps.clear(); paymentNeedsReview = false; pendingHttpError = null
         clearPaymentSession()
         clearSecrets(); sessionAccess.clear(); active = false; accountVerified = false; paymentInFlight = false; handler.removeCallbacks(poll)
-        web.stopLoading(); web.loadUrl("about:blank"); host.crop = null
+        web.stopLoading(); web.loadUrl("about:blank"); host.crop = null; livePage = false; host.full = false
         prexPayment.reset()
         state = UiState(hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId)
     }
@@ -801,6 +845,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
             activityShape = "Error · $message\n" + (try { org.json.JSONTokener(raw).nextValue().toString() } catch (_: Exception) { "" }).take(1500)
         }
         active = false; paymentInFlight = false; handler.removeCallbacks(poll); clearSecrets(); host.crop = null; web.stopLoading()
+        livePage = false; host.full = false
         state = state.copy(stage = "blocked", busy = false, message = message, captcha = null)
     }
 
@@ -865,7 +910,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
             return
         }
         if (awaitingNavigation) {
-            if (System.currentTimeMillis() - actionStarted > 35000) fail("No comenzó la nueva consulta. Volvé a ingresar.")
+            if (!livePage && System.currentTimeMillis() - actionStarted > 35000) fail("No comenzó la nueva consulta. Volvé a ingresar.")
             return
         }
         // A slow verification is not an expired session: the person is still solving it.
@@ -884,7 +929,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
                 // WebView's reported URL can advance before the JavaScript document does.
                 // An old about:blank/login snapshot must never block the next document or execute actions in it.
                 if (!NavigationPolicy.snapshotMatches(sample.optString("origin"), web.url ?: "", sample.optString("path"))) {
-                    if (System.currentTimeMillis() - actionStarted > 35000) fail("No terminó de cargar el siguiente paso. Volvé a ingresar. Código: CAMBIO-PAGINA.")
+                    if (!livePage && System.currentTimeMillis() - actionStarted > 35000) fail("No terminó de cargar el siguiente paso. Volvé a ingresar. Código: CAMBIO-PAGINA.")
                     return@evaluateJavascript
                 }
                 applySnapshot(sample.getJSONObject("snapshot"))
@@ -896,6 +941,19 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         if(!foreground)return
         val stage = data.optString("stage", "unknown")
         if(stage=="password")passwordStepSeen=true
+        if (livePage) {
+            // Signed in at STM (or on the way there): the app goes on. Anything else is the person's to do (STM's own start
+            // page included: the app keeps nothing to sign in with); a wrong password they type there is shown by gub.uy itself
+            // and never forgets the access saved with the fingerprint.
+            if (stage in setOf("handoff", "cards", "cardsLoading")) closeLivePage()
+            else if (stage in setOf("balance", "amount")) {
+                // Straight to a balance: through the card list first, where the session is checked and the card chosen.
+                closeLivePage(); pageStage = ""
+                state = state.copy(stage = "connecting", busy = true, captcha = null, message = "")
+                awaitingNavigation = true; navigationGeneration++; actionStarted = System.currentTimeMillis()
+                web.loadUrl(CARDS); return
+            } else { pageStage = stage; return }
+        }
         val loginStage = stage in setOf("start", "identity", "document", "password", "signedOut")
         if (stage == "sessionExpired" || accountVerified && loginStage) {
             if (recoveringSession) expired() else recoverSession()
@@ -999,7 +1057,13 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
             } else if (password != null && lastAction != stage) act(stage) else if (password == null) expired()
             "document" -> if (document != null && lastAction != "document") act("document", document!!) else if (document == null) expired()
             "password" -> if (password != null && lastAction != "password") {
-                act("password", password!!)
+                // Lab: asked again after it was sent, it is a reply the app does not recognise; sending the same password
+                // again could lock the account, so the person sees gub.uy instead.
+                if (IsLab && passwordSent && !recoveringSession) showLivePage("gub.uy volvió a pedir la contraseña")
+                else { passwordSent = true; act("password", password!!) }
+            } else if (IsLab && lastAction == "password" && !recoveringSession && System.currentTimeMillis() - actionStarted > 8000) {
+                // Something gub.uy shows after the password that the app does not know (owner's friend, 18/10): the person sees it.
+                showLivePage("gub.uy no avanzó después de la contraseña")
             } else if (!state.busy && lastAction != "password") expired()
             "cards" -> {
                 val cards = data.optJSONArray("cards") ?: return
@@ -1226,7 +1290,7 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
         active = false; accountVerified = false; recoveringSession = false; recoverySteps.clear()
         pendingHttpError = null; providerSubmitted = false; polling = false; awaitingNavigation = false
         lastAction = ""; pageStage = ""; navigationGeneration++
-        handler.removeCallbacks(poll); host.crop = null; web.stopLoading(); web.loadUrl("about:blank")
+        handler.removeCallbacks(poll); host.crop = null; livePage = false; host.full = false; web.stopLoading(); web.loadUrl("about:blank")
         state = UiState(hasSavedAccess = state.hasSavedAccess, accessRequestId = accessRequestId,
             sessionExpired = true, paymentNeedsReview = paymentNeedsReview)
     }
@@ -1255,15 +1319,26 @@ avisos:pick('.ui-messages,.ui-message,.ui-growl-message',4)});})()"""
 class CaptchaHost(context: Context, private val browser: WebView) : ViewGroup(context) {
     var crop: CaptchaRect? = null
         set(value) { if (field != value) { field = value; requestLayout() } }
+    /** Lab: the whole page, at this view's own size, for the person to use («Ver la página»). */
+    var full = false
+        set(value) { if (field != value) { field = value; requestLayout() } }
     init { clipChildren = true; clipToPadding = true; addView(browser) }
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val metrics = resources.displayMetrics
-        browser.measure(MeasureSpec.makeMeasureSpec(metrics.widthPixels, MeasureSpec.EXACTLY),
+        if (full) browser.measure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(heightMeasureSpec), MeasureSpec.EXACTLY))
+        else browser.measure(MeasureSpec.makeMeasureSpec(metrics.widthPixels, MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(metrics.heightPixels, MeasureSpec.EXACTLY))
         setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
     }
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val density = resources.displayMetrics.density
+        if (full) {
+            browser.visibility = View.VISIBLE
+            browser.pivotX = 0f; browser.pivotY = 0f; browser.scaleX = 1f; browser.scaleY = 1f
+            browser.layout(0, 0, browser.measuredWidth, browser.measuredHeight)
+            return
+        }
         val rect = crop
         browser.visibility = if (rect == null) View.INVISIBLE else View.VISIBLE
         val scale = if (rect == null) 1f else minOf(1f, width / (rect.width * density), height / (rect.height * density))

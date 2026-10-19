@@ -19,7 +19,7 @@ test('the observed identity requirement is distinct from empty or unknown moveme
   assert.equal(page('other.xhtml','<h2>Tu usuario no tiene garantía de identidad nivel 2 o superior.</h2>').adapter.snapshot().stage,'unknown');
 });
 test('login identifies explicit rejected credentials without returning provider text or entered values', () => {
-  for(const message of ['Documento o contraseña incorrectos','El documento y la contraseña ingresados no son correctos','Usuario inválido','Invalid username or password','Los datos ingresados no son correctos']) {
+  for(const message of ['Documento o contraseña incorrectos','El documento y la contraseña ingresados no son correctos','Usuario inválido','Invalid username or password','Los datos ingresados no son correctos','Los datos ingresados no son válidos']) {
     const {adapter}=page('login',`<input type="password" value="synthetic-secret"><p class="error-message">${message}</p>`,'mi.iduruguay.gub.uy');
     const snapshot=adapter.snapshot();
     assert.equal(snapshot.authError,'credentials',message);
